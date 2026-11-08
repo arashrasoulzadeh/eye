@@ -22,8 +22,8 @@ var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,x-api-key")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,x-api-key,x-admin-key")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(204)
 			return
@@ -55,13 +55,13 @@ func main() {
 	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
-	mux.Handle("/sessions", &handler.SessionsHandler{DB: db})
-	mux.Handle("/events", &handler.EventsHandler{DB: db})
+	mux.Handle("/sessions", adminAuth(&handler.SessionsHandler{DB: db}))
+	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))
 	qs := &service.QueryService{DB: db}
-	mux.Handle("/query", &handler.QueryHandler{Svc: qs})
+	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
-	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
+	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
 
 	retentionCtx, cancelRetention := context.WithCancel(context.Background())
 	defer cancelRetention()

@@ -17,6 +17,12 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if n := r.URL.Query().Get("event_name"); n != "" {
 		q = q.Where("event_name = ?", n)
 	}
-	q.Limit(100).Find(&list)
+	if t := r.URL.Query().Get("tenant_id"); t != "" {
+		q = q.Where("tenant_id = ?", t)
+	}
+	if s := r.URL.Query().Get("session_id"); s != "" {
+		q = q.Where("session_id = ?", s)
+	}
+	q.Order("ingest_ts desc").Limit(100).Find(&list)
 	json.NewEncoder(w).Encode(list)
 }

@@ -43,6 +43,25 @@ func TestAdminRotateKey(t *testing.T) {
 	if as.VerifyAPIKey(tn.ID, "key123") { t.Fatalf("old key must no longer verify") }
 }
 
+func TestAdminDeleteTenant(t *testing.T) {
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	r := repository.New(db)
+	r.Migrate()
+	as := &service.AdminService{Repo: r, Salt: "test-salt"}
+	tn, _ := as.CreateTenant("acme", "key123")
+
+	if err := as.DeleteTenant(tn.ID); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	list, _ := as.ListTenants()
+	if len(list) != 0 {
+		t.Fatalf("expected 0 tenants after delete, got %d", len(list))
+	}
+	if err := as.DeleteTenant("nonexistent"); err == nil {
+		t.Fatalf("expected error deleting nonexistent tenant")
+	}
+}
+
 func TestAdminRegisterSchema(t *testing.T) {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	r := repository.New(db)

@@ -34,6 +34,16 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&b)
 		t, _ := h.Svc.CreateTenant(b.Name, b.APIKey)
 		json.NewEncoder(w).Encode(t)
+	case http.MethodDelete:
+		if path == "" {
+			http.Error(w, "tenant id required", http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.DeleteTenant(path); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(405)
 	}

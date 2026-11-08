@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
+	"gorm.io/gorm"
+
 	"github.com/eye/eye/internal/model"
 	"github.com/eye/eye/internal/repository"
 )
@@ -39,6 +41,18 @@ func (a *AdminService) ListTenants() ([]model.Tenant, error) {
 		return nil, err
 	}
 	return ts, nil
+}
+
+// DeleteTenant permanently removes a tenant by ID.
+func (a *AdminService) DeleteTenant(tenantID string) error {
+	res := a.Repo.DB.Delete(&model.Tenant{}, "id = ?", tenantID)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // RotateKey generates a fresh plaintext API key for the tenant, stores only

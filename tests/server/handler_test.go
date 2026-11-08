@@ -50,6 +50,34 @@ func TestTenantsHandlerRotateKey(t *testing.T) {
 	}
 }
 
+func TestTenantsHandlerDelete(t *testing.T) {
+	as := newAdminHandlerTestDeps(t)
+	tn, err := as.CreateTenant("acme", "key123")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &handler.TenantsHandler{Svc: as}
+	req := httptest.NewRequest(http.MethodDelete, "/tenants/"+tn.ID, nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK && w.Code != http.StatusNoContent {
+		t.Fatalf("expected 200/204, got %d: %s", w.Code, w.Body.String())
+	}
+
+	list, _ := as.ListTenants()
+	if len(list) != 0 {
+		t.Fatalf("expected tenant to be deleted, got %d remaining", len(list))
+	}
+
+	req2 := httptest.NewRequest(http.MethodDelete, "/tenants/nonexistent", nil)
+	w2 := httptest.NewRecorder()
+	h.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 deleting nonexistent tenant, got %d", w2.Code)
+	}
+}
+
 func TestSchemasHandlerRegisterAndList(t *testing.T) {
 	as := newAdminHandlerTestDeps(t)
 	tn, _ := as.CreateTenant("acme", "key123")
