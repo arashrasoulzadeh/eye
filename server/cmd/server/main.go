@@ -13,6 +13,16 @@ import (
 	"github.com/eye/eye/internal/service"
 )
 
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,x-api-key")
+		if r.Method == http.MethodOptions { w.WriteHeader(204); return }
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil { log.Fatal(err) }
@@ -26,5 +36,5 @@ func main() {
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
 	log.Println("server starting on", cfg.Addr())
-	http.ListenAndServe(cfg.Addr(), mux)
+	http.ListenAndServe(cfg.Addr(), cors(mux))
 }
