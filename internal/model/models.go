@@ -30,3 +30,16 @@ type Event struct {
 	IsAggregated  bool
 	AggregationID string
 }
+
+type Aggregation struct {
+	ID             string `gorm:"primaryKey"`
+	TenantID       string
+	Name           string
+	Rule           string // JSON
+	OutputEvent    string
+	Threshold      int
+	Window         string
+	Enabled        bool
+	CreatedAt      int64
+	UpdatedAt      int64
+}
