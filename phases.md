@@ -12,24 +12,24 @@
 - [x] Logging (structured, slog) + Prometheus metrics scaffold
 
 ## Phase 2 — Storage (TimescaleDB)
-- [ ] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
-- [ ] RLS policies per tenant
-- [ ] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
-- [ ] `storage.TimescaleRepo` impl + unit tests (mock DB)
-- [ ] TTL policy + retention job
+- [x] Migration: `storage.TimescaleRepo.Migrate` auto-migrates the `events` table (tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload, dims) via GORM against dev SQLite
+- [ ] RLS policies per tenant — n/a for the dev SQLite path (Postgres/Timescale-only feature); not implemented or faked
+- [x] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
+- [x] `storage.TimescaleRepo` impl + unit tests (mock DB)
+- [x] TTL policy + retention job
 
 ## Phase 3 — Ingestion (Go collector)
 - [x] `ingest.Service` with `Ingest(ctx, req)` returning counts
-- [ ] Idempotency: in-memory + DB dedup on (session_id, event_id)
-- [ ] Session validation: `GetSession` → tenant match
-- [ ] Rate limiter: per-IP + per-tenant token bucket middleware
-- [ ] gRPC server wiring + health check
-- [ ] TDD: table tests for dedup, validation, rate limit
+- [x] Idempotency: in-memory + DB dedup on (session_id, event_id)
+- [x] Session validation: `GetSession` → tenant match
+- [x] Rate limiter: per-IP + per-tenant token bucket middleware
+- [x] gRPC server wiring + health check
+- [x] TDD: table tests for dedup, validation, rate limit
 
 ## Phase 4 — Admin API
-- [ ] `admin.Service`: CRUD tenants, keys, schemas
-- [ ] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
-- [ ] Auth: admin API key scope
+- [x] `admin.Service`: CRUD tenants, keys, schemas
+- [x] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
+- [x] Auth: admin API key scope
 - [x] TDD: handler tests
 
 ## Phase 5 — Web SDK
