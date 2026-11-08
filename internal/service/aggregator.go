@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"time"
 
@@ -11,8 +13,14 @@ import (
 
 type AggregatorService struct{ DB *gorm.DB }
 
+func randomAggregationID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 func (a *AggregatorService) Create(name, tenantID, rule, output string, threshold int, window string) (*model.Aggregation, error) {
-	agg := &model.Aggregation{Name: name, TenantID: tenantID, Rule: rule, OutputEvent: output, Threshold: threshold, Window: window, Enabled: true, CreatedAt: time.Now().Unix(), UpdatedAt: time.Now().Unix()}
+	agg := &model.Aggregation{ID: randomAggregationID(), Name: name, TenantID: tenantID, Rule: rule, OutputEvent: output, Threshold: threshold, Window: window, Enabled: true, CreatedAt: time.Now().Unix(), UpdatedAt: time.Now().Unix()}
 	if err := a.DB.Create(agg).Error; err != nil { return nil, err }
 	return agg, nil
 }
