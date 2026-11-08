@@ -1,0 +1,32 @@
+syntax = "proto3";
+package eye.v1;
+
+service Collector {
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);
+  rpc Ingest (IngestRequest) returns (IngestResponse);
+  rpc IngestStream (stream IngestRequest) returns (IngestResponse);
+}
+
+message CreateSessionRequest { string tenant_id = 1; }
+message CreateSessionResponse { string session_id = 1; int64 expires_at = 2; }
+
+message Event {
+  string event_id = 1;
+  string event_name = 2;
+  int64 client_ts = 3;
+  bytes payload = 4;
+  map<string,string> dims = 5;
+  string session_id = 6;
+  string source = 7; // client | system
+  bool is_aggregated = 8;
+  string aggregation_id = 9;
+}
+
+message IngestRequest {
+  repeated Event events = 1;
+}
+
+message IngestResponse {
+  int32 accepted = 1;
+  int32 rejected = 2;
+}

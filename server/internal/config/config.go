@@ -1,0 +1,37 @@
+package config
+
+import (
+	"fmt"
+
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+)
+
+type Config struct {
+	Port   int    `mapstructure:"port"`
+	DBPath string `mapstructure:"db_path"`
+	AdminKey string `mapstructure:"admin_key"`
+}
+
+func Load() (*Config, error) {
+	files := []string{}
+	pflag.StringSliceVar(&files, "env", []string{}, "env files to load")
+	pflag.Parse()
+	for _, f := range files {
+		viper.SetConfigFile(f)
+		viper.SetConfigType("yaml")
+		_ = viper.MergeInConfig()
+		// try env file
+		viper.SetConfigFile(f)
+		viper.SetConfigType("env")
+		_ = viper.MergeInConfig()
+	}
+	viper.AutomaticEnv()
+	viper.SetDefault("port", 8080)
+	viper.SetDefault("db_path", "eye.db")
+	c := &Config{}
+	if err := viper.Unmarshal(c); err != nil { return nil, err }
+	return c, nil
+}
+
+func (c *Config) Addr() string { return fmt.Sprintf(":%d", c.Port) }
