@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, Event, ApiError } from "@/lib/api";
+import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column } from "@/components/DataTable";
-import { Input, Label } from "@/components/Input";
+import { Label } from "@/components/Input";
+import { Combobox, ComboOption } from "@/components/Combobox";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
@@ -16,6 +17,10 @@ export default function EventsPage() {
   const [tenantId, setTenantId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
   const { push } = useToast();
 
   async function load() {
@@ -31,7 +36,25 @@ export default function EventsPage() {
 
   useEffect(() => {
     load();
+    api.tenants.list().then(setTenants).catch(() => {});
+    api.sessions.list().then(setSessions).catch(() => {});
+    // Preload the most frequent event names across recent events so the
+    // combobox has sensible top suggestions before the user types anything.
+    api.events
+      .list({})
+      .then((all) => {
+        const counts = new Map<string, number>();
+        for (const e of all) counts.set(e.EventName, (counts.get(e.EventName) || 0) + 1);
+        const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => ({ value: name }));
+        setEventNameOptions(top);
+      })
+      .catch(() => {});
   }, []);
+
+  const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
+  const sessionOptions: ComboOption[] = sessions
+    .filter((s) => !tenantId || s.TenantID === tenantId)
+    .map((s) => ({ value: s.ID, label: `${s.EventCount} events` }));
 
   const columns: Column<Event>[] = [
     { key: "name", header: "Event", render: (e) => <span className="font-medium text-fg">{e.EventName}</span>, sortValue: (e) => e.EventName },
@@ -53,15 +76,15 @@ export default function EventsPage() {
         <div className="flex flex-wrap items-end gap-3 p-5">
           <div className="min-w-[160px] flex-1">
             <Label>Event name</Label>
-            <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="click" />
+            <Combobox value={eventName} onChange={setEventName} options={eventNameOptions} placeholder="click" />
           </div>
           <div className="min-w-[160px] flex-1">
             <Label>Tenant ID</Label>
-            <Input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="tenant id" />
+            <Combobox value={tenantId} onChange={setTenantId} options={tenantOptions} placeholder="tenant id" />
           </div>
           <div className="min-w-[160px] flex-1">
             <Label>Session ID</Label>
-            <Input value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="session id" />
+            <Combobox value={sessionId} onChange={setSessionId} options={sessionOptions} placeholder="session id" />
           </div>
           <Button onClick={load} loading={loading}>
             Apply

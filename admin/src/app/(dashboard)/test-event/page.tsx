@@ -18,9 +18,31 @@ export default function TestEventPage() {
   const [eventName, setEventName] = useState("test_click");
   const [payload, setPayload] = useState('{\n  "button": "signup"\n}');
   const [dims, setDims] = useState('{\n  "platform": "web"\n}');
+  const [count, setCount] = useState(1);
+  const [randomizePerEvent, setRandomizePerEvent] = useState(false);
   const [jsonError, setJsonError] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ accepted: number; rejected: number } | null>(null);
+
+  const EVENT_NAMES = ["test_click", "page_view", "signup", "purchase", "button_click", "form_submit", "video_play", "error"];
+  const BUTTONS = ["signup", "checkout", "learn_more", "upgrade", "share"];
+  const PLATFORMS = ["web", "ios", "android", "macos", "windows"];
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+  function randomEvent() {
+    return {
+      name: pick(EVENT_NAMES),
+      payload: { button: pick(BUTTONS), value: Math.floor(Math.random() * 1000), ts: Date.now() },
+      dims: { platform: pick(PLATFORMS), locale: pick(["en-US", "en-GB", "de-DE", "fr-FR"]) },
+    };
+  }
+
+  function randomize() {
+    const r = randomEvent();
+    setEventName(r.name);
+    setPayload(JSON.stringify(r.payload, null, 2));
+    setDims(JSON.stringify(r.dims, null, 2));
+  }
 
   const [recent, setRecent] = useState<Event[]>([]);
   const { push } = useToast();
@@ -86,16 +108,19 @@ export default function TestEventPage() {
     setJsonError("");
     setSending(true);
     try {
-      const res = await api.ingest.send([
-        {
+      const n = Math.max(1, Math.min(1000, count || 1));
+      const events = Array.from({ length: n }, () => {
+        const r = randomizePerEvent && n > 1 ? randomEvent() : null;
+        return {
           event_id: crypto.randomUUID(),
           session_id: sessionId,
-          event_name: eventName,
+          event_name: r ? r.name : eventName,
           client_ts: Date.now(),
-          payload: parsedPayload,
-          dims: parsedDims,
-        },
-      ]);
+          payload: r ? r.payload : parsedPayload,
+          dims: r ? r.dims : parsedDims,
+        };
+      });
+      const res = await api.ingest.send(events);
       setResult(res);
       push(res.accepted > 0 ? "success" : "error", `Accepted ${res.accepted}, rejected ${res.rejected}`);
       await refreshRecent();
@@ -144,9 +169,14 @@ export default function TestEventPage() {
               </div>
             </div>
 
-            <div>
-              <Label>Event name</Label>
-              <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="test_click" />
+            <div className="flex items-end justify-between gap-2">
+              <div className="flex-1">
+                <Label>Event name</Label>
+                <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="test_click" />
+              </div>
+              <Button variant="secondary" onClick={randomize} type="button">
+                🎲 Randomize
+              </Button>
             </div>
 
             <div>
@@ -159,10 +189,33 @@ export default function TestEventPage() {
               <Textarea rows={3} value={dims} onChange={(e) => setDims(e.target.value)} />
             </div>
 
+            <div>
+              <Label>Count (events to send)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={1000}
+                value={count}
+                onChange={(e) => setCount(Math.max(1, Math.min(1000, Number(e.target.value) || 1)))}
+              />
+            </div>
+
+            {count > 1 && (
+              <label className="flex items-center gap-2 text-sm text-fg-muted">
+                <input
+                  type="checkbox"
+                  checked={randomizePerEvent}
+                  onChange={(e) => setRandomizePerEvent(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-accent"
+                />
+                Randomize each event individually
+              </label>
+            )}
+
             {jsonError && <p className="text-xs text-danger">{jsonError}</p>}
 
             <Button onClick={send} loading={sending} disabled={!sessionId || !eventName.trim()} className="w-full">
-              Send event
+              Send {count > 1 ? `${count} events` : "event"}
             </Button>
 
             {result && (

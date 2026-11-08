@@ -1,6 +1,6 @@
 .PHONY: server admin test
 server:
-	cd server && go run ./cmd/server --env=.env
+	cd server && go run ./cmd/server --env=../.env
 
 admin:
 	cd admin && npm run dev -- --webpack
