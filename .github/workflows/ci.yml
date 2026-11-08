@@ -15,4 +15,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
-      - run: cd admin && npm ci && npm run build -- --webpack
+      - run: cd admin && npm install && npm run build -- --webpack
