@@ -10,7 +10,7 @@ type Repo struct{ DB *gorm.DB }
 func New(db *gorm.DB) *Repo { return &Repo{DB: db} }
 
 func (r *Repo) Migrate() error {
-	return r.DB.AutoMigrate(&model.Tenant{}, &model.Session{}, &model.Event{})
+	return r.DB.AutoMigrate(&model.Tenant{}, &model.Session{}, &model.Event{}, &model.Schema{})
 }
 
 func (r *Repo) CreateSession(s *model.Session) error { return r.DB.Create(s).Error }

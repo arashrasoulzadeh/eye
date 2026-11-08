@@ -8,9 +8,10 @@ import (
 )
 
 type Config struct {
-	Port   int    `mapstructure:"port"`
-	DBPath string `mapstructure:"db_path"`
-	AdminKey string `mapstructure:"admin_key"`
+	Port       int    `mapstructure:"port"`
+	DBPath     string `mapstructure:"db_path"`
+	AdminKey   string `mapstructure:"admin_key"`
+	APIKeySalt string `mapstructure:"api_key_salt"`
 }
 
 func Load() (*Config, error) {
@@ -29,6 +30,8 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("db_path", "eye.db")
+	viper.SetDefault("api_key_salt", "dev-insecure-salt")
+	viper.SetDefault("admin_key", "dev-insecure-admin-key")
 	c := &Config{}
 	if err := viper.Unmarshal(c); err != nil { return nil, err }
 	return c, nil

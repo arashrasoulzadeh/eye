@@ -44,6 +44,15 @@ type Aggregation struct {
 	UpdatedAt      int64
 }
 
+type Schema struct {
+	ID         string `gorm:"primaryKey"`
+	TenantID   string `gorm:"index"`
+	Name       string `gorm:"index"`
+	Version    int
+	Definition string // JSON schema
+	CreatedAt  int64
+}
+
 type Experiment struct {
 	ID        string `gorm:"primaryKey"`
 	TenantID  string

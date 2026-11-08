@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -12,6 +13,8 @@ import (
 	"github.com/eye/eye/internal/repository"
 	"github.com/eye/eye/internal/service"
 )
+
+var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,15 +28,18 @@ func cors(next http.Handler) http.Handler {
 
 func main() {
 	cfg, err := config.Load()
-	if err != nil { log.Fatal(err) }
+	if err != nil { logger.Error("config load failed", "err", err); os.Exit(1) }
 	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
-	if err != nil { log.Fatal(err) }
+	if err != nil { logger.Error("db open failed", "err", err); os.Exit(1) }
 	repo := repository.New(db)
-	if err := repo.Migrate(); err != nil { log.Fatal(err) }
-	adminSvc := &service.AdminService{Repo: repo}
+	if err := repo.Migrate(); err != nil { logger.Error("migrate failed", "err", err); os.Exit(1) }
+	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt}
 	svc := &service.IngestService{Repo: repo}
 	mux := http.NewServeMux()
-	mux.Handle("/tenants", &handler.TenantsHandler{Svc: adminSvc})
+	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, h) }
+	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
+	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
+	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	mux.Handle("/sessions", &handler.SessionsHandler{DB: db})
 	mux.Handle("/events", &handler.EventsHandler{DB: db})
 	qs := &service.QueryService{DB: db}
@@ -41,6 +47,9 @@ func main() {
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
-	log.Println("server starting on", cfg.Addr())
-	http.ListenAndServe(cfg.Addr(), cors(mux))
+	logger.Info("server starting", "addr", cfg.Addr())
+	if err := http.ListenAndServe(cfg.Addr(), cors(mux)); err != nil {
+		logger.Error("server stopped", "err", err)
+		os.Exit(1)
+	}
 }

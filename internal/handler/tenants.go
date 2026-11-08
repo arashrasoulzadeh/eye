@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/eye/eye/internal/service"
 )
@@ -10,6 +11,20 @@ import (
 type TenantsHandler struct{ Svc *service.AdminService }
 
 func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/tenants")
+	path = strings.Trim(path, "/")
+
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/rotate-key") {
+		tenantID := strings.TrimSuffix(path, "/rotate-key")
+		newKey, err := h.Svc.RotateKey(tenantID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"api_key": newKey})
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		list, _ := h.Svc.ListTenants()
