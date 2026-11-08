@@ -43,3 +43,13 @@ type Aggregation struct {
 	CreatedAt      int64
 	UpdatedAt      int64
 }
+
+type Experiment struct {
+	ID        string `gorm:"primaryKey"`
+	TenantID  string
+	Name      string
+	Variants  string // JSON array
+	Traffic   int
+	Enabled   bool
+	CreatedAt int64
+}
