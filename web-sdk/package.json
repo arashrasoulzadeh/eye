@@ -1,0 +1,6 @@
+{
+  "name": "eye-web-sdk",
+  "version": "0.1.0",
+  "scripts": { "test": "vitest run" },
+  "devDependencies": { "vitest": "^2.0.0", "typescript": "^5.0.0" }
+}
