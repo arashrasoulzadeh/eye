@@ -153,3 +153,9 @@
 - [ ] Event tagging with experiment_id + variant
 - [ ] Statistical significance reporting
 - [ ] Auto-stop on winner
+
+## TDD Rule (MANDATORY)
+- Every code change must be test-driven: write failing test first, then implementation, then refactor.
+- All tests live under `test/` directories (server/test, web-sdk/test, admin/test).
+- No code merged without passing tests.
+- After each checkbox: run tests, commit, push, then mark checkbox [x].
