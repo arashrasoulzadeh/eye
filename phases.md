@@ -34,10 +34,10 @@
 
 ## Phase 5 — Web SDK
 - [ ] `EyeClient` class: constructor, `ensureSession`, `track`, `flush`
-- [ ] `Session` persistence via localStorage
-- [ ] Bounded ring buffer (max 1000)
-- [ ] Flush batching (size/time threshold)
-- [ ] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
+- [x] `Session` persistence via localStorage
+- [x] Bounded ring buffer (max 1000)
+- [x] Flush batching (size/time threshold)
+- [x] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
 
 ## Phase 6 — Segmentation & Query API
 - [ ] Query service: filter by tenant/session/event/dims/time range
