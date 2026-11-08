@@ -4,15 +4,15 @@
 - ORM: GORM for all DB access.
 
 ## Phase 1 — Foundation & Contracts
-- [ ] Define proto: `CreateSession`, `Ingest`, `IngestStream` in `proto/events.proto`
-- [ ] Generate Go + TS stubs
-- [ ] `go.mod`, module path `github.com/eye/eye`
-- [ ] Types: `Event`, `IngestRequest`, `IngestResponse`, `Session`, `CreateSessionRequest/Response`
-- [ ] Config loader (env + file): port, db url, api key salt
+- [x] Define proto: `CreateSession`, `Ingest`, `IngestStream` in `proto/events.proto`
+- [x] Generate Go + TS stubs
+- [x] `go.mod`, module path `github.com/eye/eye`
+- [x] Types: `Event`, `IngestRequest`, `IngestResponse`, `Session`, `CreateSessionRequest/Response`
+- [x] Config loader (env + file): port, db url, api key salt
 - [ ] Logging (structured, slog) + Prometheus metrics scaffold
 
 ## Phase 2 — Storage (TimescaleDB)
-- [ ] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
+- [x] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
 - [ ] RLS policies per tenant
 - [ ] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
 - [ ] `storage.TimescaleRepo` impl + unit tests (mock DB)
@@ -20,10 +20,10 @@
 
 ## Phase 3 — Ingestion (Go collector)
 - [ ] `ingest.Service` with `Ingest(ctx, req)` returning counts
-- [ ] Idempotency: in-memory + DB dedup on (session_id, event_id)
+- [x] Idempotency: in-memory + DB dedup on (session_id, event_id)
 - [ ] Session validation: `GetSession` → tenant match
 - [ ] Rate limiter: per-IP + per-tenant token bucket middleware
-- [ ] gRPC server wiring + health check
+- [x] gRPC server wiring + health check
 - [ ] TDD: table tests for dedup, validation, rate limit
 
 ## Phase 4 — Admin API
@@ -75,7 +75,7 @@
 - [ ] Restore drill
 
 ## Phase 12 — Admin Panel (Next.js)
-- [ ] Next.js app in `admin/` with App Router
+- [x] Next.js app in `admin/` with App Router
 - [ ] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
 - [ ] Pages:
   - [ ] `/login` — API key entry
