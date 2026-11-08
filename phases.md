@@ -36,8 +36,8 @@
 - [x] `EyeClient` class: constructor, `ensureSession`, `track`, `flush`
 - [x] `Session` persistence via localStorage
 - [x] Bounded ring buffer (max 1000)
-- [ ] Flush batching (size/time threshold)
-- [ ] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
+- [x] Flush batching (size/time threshold)
+- [x] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
 
 ## Phase 6 — Segmentation & Query API
 - [ ] Query service: filter by tenant/session/event/dims/time range
