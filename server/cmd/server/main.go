@@ -34,6 +34,7 @@ func main() {
 	svc := &service.IngestService{Repo: repo}
 	mux := http.NewServeMux()
 	mux.Handle("/tenants", &handler.TenantsHandler{Svc: adminSvc})
+	mux.Handle("/sessions", &handler.SessionsHandler{DB: db})
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
