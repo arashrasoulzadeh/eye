@@ -64,3 +64,46 @@ func TestQueryHandlerNoMatchesReturnsEmptyList(t *testing.T) {
 		t.Fatalf("expected no results, got %d", len(list))
 	}
 }
+
+func TestQueryHandlerFiltersByTenantSessionAndTimeRangeWithPagination(t *testing.T) {
+	db := newQueryTestDB(t)
+	db.Create(&model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 100})
+	db.Create(&model.Event{EventID: "e2", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 200})
+	db.Create(&model.Event{EventID: "e3", SessionID: "s2", TenantID: "t1", EventName: "click", ClientTS: 150})
+	db.Create(&model.Event{EventID: "e4", SessionID: "s1", TenantID: "t2", EventName: "click", ClientTS: 150})
+
+	h := &handler.QueryHandler{Svc: &service.QueryService{DB: db}}
+
+	req := httptest.NewRequest(http.MethodGet, "/query?tenant_id=t1&session_id=s1", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	var list []model.Event
+	if err := json.NewDecoder(w.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("tenant_id=t1&session_id=s1: expected 2, got %d", len(list))
+	}
+
+	req2 := httptest.NewRequest(http.MethodGet, "/query?tenant_id=t1&from_ts=120&to_ts=160", nil)
+	w2 := httptest.NewRecorder()
+	h.ServeHTTP(w2, req2)
+	var list2 []model.Event
+	if err := json.NewDecoder(w2.Body).Decode(&list2); err != nil {
+		t.Fatal(err)
+	}
+	if len(list2) != 1 || list2[0].EventID != "e3" {
+		t.Fatalf("time range filter: expected exactly e3, got %+v", list2)
+	}
+
+	req3 := httptest.NewRequest(http.MethodGet, "/query?tenant_id=t1&limit=1&offset=1", nil)
+	w3 := httptest.NewRecorder()
+	h.ServeHTTP(w3, req3)
+	var list3 []model.Event
+	if err := json.NewDecoder(w3.Body).Decode(&list3); err != nil {
+		t.Fatal(err)
+	}
+	if len(list3) != 1 {
+		t.Fatalf("pagination: expected 1, got %d", len(list3))
+	}
+}
