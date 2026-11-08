@@ -36,6 +36,8 @@ func main() {
 	mux.Handle("/tenants", &handler.TenantsHandler{Svc: adminSvc})
 	mux.Handle("/sessions", &handler.SessionsHandler{DB: db})
 	mux.Handle("/events", &handler.EventsHandler{DB: db})
+	qs := &service.QueryService{DB: db}
+	mux.Handle("/query", &handler.QueryHandler{Svc: qs})
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
