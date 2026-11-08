@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"gorm.io/gorm"
 	"github.com/eye/eye/internal/model"
+	"gorm.io/gorm"
 )
 
 type Repo struct{ DB *gorm.DB }
@@ -16,7 +16,9 @@ func (r *Repo) Migrate() error {
 func (r *Repo) CreateSession(s *model.Session) error { return r.DB.Create(s).Error }
 func (r *Repo) GetSession(id string) (*model.Session, error) {
 	var s model.Session
-	if err := r.DB.First(&s, "id = ?", id).Error; err != nil { return nil, err }
+	if err := r.DB.First(&s, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 func (r *Repo) UpdateSession(s *model.Session) error { return r.DB.Save(s).Error }

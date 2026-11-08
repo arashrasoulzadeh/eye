@@ -10,10 +10,10 @@ type Tenant struct {
 }
 
 type Session struct {
-	ID        string `gorm:"primaryKey"`
-	TenantID  string `gorm:"index"`
-	StartedAt time.Time
-	LastSeen  time.Time
+	ID         string `gorm:"primaryKey"`
+	TenantID   string `gorm:"index"`
+	StartedAt  time.Time
+	LastSeen   time.Time
 	EventCount int64
 }
 
@@ -32,16 +32,16 @@ type Event struct {
 }
 
 type Aggregation struct {
-	ID             string `gorm:"primaryKey"`
-	TenantID       string
-	Name           string
-	Rule           string // JSON
-	OutputEvent    string
-	Threshold      int
-	Window         string
-	Enabled        bool
-	CreatedAt      int64
-	UpdatedAt      int64
+	ID          string `gorm:"primaryKey"`
+	TenantID    string
+	Name        string
+	Rule        string // JSON
+	OutputEvent string
+	Threshold   int
+	Window      string
+	Enabled     bool
+	CreatedAt   int64
+	UpdatedAt   int64
 }
 
 type Schema struct {
