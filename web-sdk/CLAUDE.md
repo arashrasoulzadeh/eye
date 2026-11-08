@@ -1,0 +1,1 @@
+TS client SDK (`src/index.ts`): `EyeClient` — session persistence (localStorage), bounded ring buffer, batched flush. Tests in `../tests/web` (not colocated), run via `npm test` (vitest). See root [../CLAUDE.md](../CLAUDE.md) and [../phases.md](../phases.md) for status (Phase 5).

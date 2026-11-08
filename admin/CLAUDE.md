@@ -1,0 +1,1 @@
+Next.js (App Router) admin panel. Pages under `src/app`. Auth: single `ADMIN_API_KEY` env var, httpOnly cookie. Proxies to the Go backend via grpc-gateway REST. Dev: `npm run dev -- --webpack`. Build check: `npm run build -- --webpack`. See root [../CLAUDE.md](../CLAUDE.md) and [../phases.md](../phases.md) for overall status (Phase 12).
