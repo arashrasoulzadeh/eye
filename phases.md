@@ -14,8 +14,8 @@
 ## Phase 2 — Storage (TimescaleDB)
 - [x] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
 - [ ] RLS policies per tenant
-- [ ] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
-- [ ] `storage.TimescaleRepo` impl + unit tests (mock DB)
+- [x] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
+- [x] `storage.TimescaleRepo` impl + unit tests (mock DB)
 - [ ] TTL policy + retention job
 
 ## Phase 3 — Ingestion (Go collector)
