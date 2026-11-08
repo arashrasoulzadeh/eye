@@ -8,7 +8,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/eye/eye/server/internal/config"
+	"github.com/eye/eye/server/internal/handler"
 	"github.com/eye/eye/server/internal/repository"
+	"github.com/eye/eye/server/internal/service"
 )
 
 func main() {
@@ -18,6 +20,10 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	repo := repository.New(db)
 	if err := repo.Migrate(); err != nil { log.Fatal(err) }
+	svc := &service.IngestService{Repo: repo}
+	ih := &handler.IngestHandler{Svc: svc}
+	mux := http.NewServeMux()
+	mux.Handle("/ingest", ih)
 	log.Println("server starting on", cfg.Addr())
-	http.ListenAndServe(cfg.Addr(), nil)
+	http.ListenAndServe(cfg.Addr(), mux)
 }
