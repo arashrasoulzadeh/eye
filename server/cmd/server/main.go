@@ -30,9 +30,11 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	repo := repository.New(db)
 	if err := repo.Migrate(); err != nil { log.Fatal(err) }
+	adminSvc := &service.AdminService{Repo: repo}
 	svc := &service.IngestService{Repo: repo}
-	ih := &handler.IngestHandler{Svc: svc}
 	mux := http.NewServeMux()
+	mux.Handle("/tenants", &handler.TenantsHandler{Svc: adminSvc})
+	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
 	log.Println("server starting on", cfg.Addr())
