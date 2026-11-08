@@ -12,147 +12,147 @@
 - [x] Logging (structured, slog) + Prometheus metrics scaffold
 
 ## Phase 2 — Storage (TimescaleDB)
-- [x] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
-- [x] RLS policies per tenant
-- [x] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
-- [x] `storage.TimescaleRepo` impl + unit tests (mock DB)
-- [x] TTL policy + retention job
+- [ ] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
+- [ ] RLS policies per tenant
+- [ ] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
+- [ ] `storage.TimescaleRepo` impl + unit tests (mock DB)
+- [ ] TTL policy + retention job
 
 ## Phase 3 — Ingestion (Go collector)
 - [x] `ingest.Service` with `Ingest(ctx, req)` returning counts
-- [x] Idempotency: in-memory + DB dedup on (session_id, event_id)
-- [x] Session validation: `GetSession` → tenant match
-- [x] Rate limiter: per-IP + per-tenant token bucket middleware
-- [x] gRPC server wiring + health check
-- [x] TDD: table tests for dedup, validation, rate limit
+- [ ] Idempotency: in-memory + DB dedup on (session_id, event_id)
+- [ ] Session validation: `GetSession` → tenant match
+- [ ] Rate limiter: per-IP + per-tenant token bucket middleware
+- [ ] gRPC server wiring + health check
+- [ ] TDD: table tests for dedup, validation, rate limit
 
 ## Phase 4 — Admin API
-- [x] `admin.Service`: CRUD tenants, keys, schemas
-- [x] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
-- [x] Auth: admin API key scope
+- [ ] `admin.Service`: CRUD tenants, keys, schemas
+- [ ] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
+- [ ] Auth: admin API key scope
 - [x] TDD: handler tests
 
 ## Phase 5 — Web SDK
 - [x] `EyeClient` class: constructor, `ensureSession`, `track`, `flush`
 - [x] `Session` persistence via localStorage
 - [x] Bounded ring buffer (max 1000)
-- [x] Flush batching (size/time threshold)
-- [x] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
+- [ ] Flush batching (size/time threshold)
+- [ ] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
 
 ## Phase 6 — Segmentation & Query API
-- [x] Query service: filter by tenant/session/event/dims/time range
-- [x] Cohort definitions + materialized membership (stream job)
-- [x] gRPC streaming: `QueryStream`
-- [x] TDD: filter correctness, pagination
+- [ ] Query service: filter by tenant/session/event/dims/time range
+- [ ] Cohort definitions + materialized membership (stream job)
+- [ ] gRPC streaming: `QueryStream`
+- [ ] TDD: filter correctness, pagination
 
 ## Phase 7 — Stream Processing & Aggregates
-- [x] Redpanda/Kafka producer in collector
-- [x] Consumer → TimescaleDB hypertable inserts
-- [x] Materialized aggregates (counts by dims)
-- [x] TDD: end-to-end ingest→query
+- [ ] Redpanda/Kafka producer in collector
+- [ ] Consumer → TimescaleDB hypertable inserts
+- [ ] Materialized aggregates (counts by dims)
+- [ ] TDD: end-to-end ingest→query
 
 ## Phase 8 — Alerting & Anomaly
-- [x] Threshold rules per tenant
-- [x] Webhook + email dispatcher
-- [x] Adaptive sampling under load
-- [x] ML anomaly detection (basic statistical)
+- [ ] Threshold rules per tenant
+- [ ] Webhook + email dispatcher
+- [ ] Adaptive sampling under load
+- [ ] ML anomaly detection (basic statistical)
 
 ## Phase 9 — Observability & Ops
-- [x] Prometheus metrics: ingest rate, latency, errors, queue depth
-- [x] Grafana dashboards
-- [x] Docker Compose (dev) + K8s manifests (optional)
+- [ ] Prometheus metrics: ingest rate, latency, errors, queue depth
+- [ ] Grafana dashboards
+- [ ] Docker Compose (dev) + K8s manifests (optional)
 - [x] CI: GitHub Actions (lint, test, build)
 
 ## Phase 10 — Mobile & Server SDKs
-- [x] iOS (Swift) SDK port
-- [x] Android (Kotlin) SDK port
-- [x] Go server SDK
-- [x] Parity tests
+- [ ] iOS (Swift) SDK port
+- [ ] Android (Kotlin) SDK port
+- [ ] Go server SDK
+- [ ] Parity tests
 
 ## Phase 11 — Compliance & DR
-- [x] GDPR erasure: delete by session/user key
-- [x] Automated S3 snapshots
-- [x] Restore drill
+- [ ] GDPR erasure: delete by session/user key
+- [ ] Automated S3 snapshots
+- [ ] Restore drill
 
 ## Phase 12 — Admin Panel (Next.js)
 - [x] Next.js app in `admin/` with App Router
-- [x] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
-- [x] Pages:
+- [ ] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
+- [ ] Pages:
   - [x] `/login` — API key entry
   - [x] `/` dashboard — ingest rate, events count, active sessions, tenants
-  - [x] `/tenants` — list/create/delete tenants, rotate keys
-  - [x] `/tenants/[id]` — tenant detail, usage, retention settings
-  - [x] `/sessions` — list sessions per tenant, event counts
-  - [x] `/events` — paginated event browser with filters (event_name, session, time range)
-  - [x] `/schemas` — register/list Protobuf schemas
-  - [x] `/cohorts` — define segment rules
-  - [x] `/alerts` — threshold rules + webhook config
-  - [x] `/settings` — retention, sampling, rate limits
-- [x] API routes (Next.js) proxy to Go backend via grpc-gateway (REST)
-- [x] Components: DataTable, FilterBar, Chart (recharts), AuthGuard
-- [x] TDD: Playwright e2e for login + CRUD flows
+  - [ ] `/tenants` — list/create/delete tenants, rotate keys
+  - [ ] `/tenants/[id]` — tenant detail, usage, retention settings
+  - [ ] `/sessions` — list sessions per tenant, event counts
+  - [ ] `/events` — paginated event browser with filters (event_name, session, time range)
+  - [ ] `/schemas` — register/list Protobuf schemas
+  - [ ] `/cohorts` — define segment rules
+  - [ ] `/alerts` — threshold rules + webhook config
+  - [ ] `/settings` — retention, sampling, rate limits
+- [ ] API routes (Next.js) proxy to Go backend via grpc-gateway (REST)
+- [ ] Components: DataTable, FilterBar, Chart (recharts), AuthGuard
+- [ ] TDD: Playwright e2e for login + CRUD flows
 
 ## Phase 13 — Aggregators & System Events
 - [x] Event fields: `source` (client|system), `is_aggregated` (bool), `aggregation_id` (nullable)
 - [x] `aggregations` table: id, tenant_id, name, rule (event_name filter, threshold count, window), output_event_name, enabled, created_at, updated_at
-- [x] Admin API: CRUD aggregations; option to reprocess/backfill older events
-- [x] Time-window aggregations: cron-based rollups per minute/hour/day; config `window` (1m/1h/1d) in aggregation rule
+- [ ] Admin API: CRUD aggregations; option to reprocess/backfill older events
+- [ ] Time-window aggregations: cron-based rollups per minute/hour/day; config `window` (1m/1h/1d) in aggregation rule
 - [x] System events stored like client events for unified querying
-- [x] Editable rules: updating an aggregation can recompute/backfill older events
-- [x] TDD: aggregator counting, threshold emission, backfill
+- [ ] Editable rules: updating an aggregation can recompute/backfill older events
+- [ ] TDD: aggregator counting, threshold emission, backfill
 
 ## Phase 14 — Advanced Analytics & Ops
-- [x] Funnel analysis API (ordered event steps, conversion rates)
-- [x] Retention / cohort reports (daily/weekly active, churn)
-- [x] Real-time counters (gRPC streaming live metrics)
-- [x] Event replay (re-ingest historical range)
-- [x] SDK debug mode (verbose logging, local validation)
-- [x] Webhook delivery with retries + dead-letter queue
-- [x] Data export (CSV/JSON) per tenant
-- [x] Schema evolution/versioning + migration tooling
-- [x] Multi-tenant rate tiers
-- [x] Audit log for admin actions
-- [x] SSO for admin panel (OIDC)
-- [x] Feature flags per tenant
+- [ ] Funnel analysis API (ordered event steps, conversion rates)
+- [ ] Retention / cohort reports (daily/weekly active, churn)
+- [ ] Real-time counters (gRPC streaming live metrics)
+- [ ] Event replay (re-ingest historical range)
+- [ ] SDK debug mode (verbose logging, local validation)
+- [ ] Webhook delivery with retries + dead-letter queue
+- [ ] Data export (CSV/JSON) per tenant
+- [ ] Schema evolution/versioning + migration tooling
+- [ ] Multi-tenant rate tiers
+- [ ] Audit log for admin actions
+- [ ] SSO for admin panel (OIDC)
+- [ ] Feature flags per tenant
 
 ## Workflow rule
 - After completing each checkbox: run required tests, commit, push.
 
 ## Phase 15 — Extended Testing
-- [x] Property-based tests (gopter/fast-check) for dedup invariants
-- [x] Fuzz testing for proto parsing
-- [x] Chaos/fault injection (kill DB mid-ingest)
-- [x] Contract tests (Pact) SDK ↔ backend
-- [x] Snapshot tests for admin UI
-- [x] Mutation testing (go-mutesting)
-- [x] Performance regression benchmarks
-- [x] Security tests (auth bypass, tenant isolation)
-- [x] Schema validation tests
-- [x] Backfill correctness tests
+- [ ] Property-based tests (gopter/fast-check) for dedup invariants
+- [ ] Fuzz testing for proto parsing
+- [ ] Chaos/fault injection (kill DB mid-ingest)
+- [ ] Contract tests (Pact) SDK ↔ backend
+- [ ] Snapshot tests for admin UI
+- [ ] Mutation testing (go-mutesting)
+- [ ] Performance regression benchmarks
+- [ ] Security tests (auth bypass, tenant isolation)
+- [ ] Schema validation tests
+- [ ] Backfill correctness tests
 
 ## Phase 16 — Advanced Events & Aggregations
-- [x] Event dedup by content hash
-- [x] Event TTL per type
-- [x] Event versioning
-- [x] Distinct count aggregation (HyperLogLog)
-- [x] Percentile aggregations (p50/p95/p99)
-- [x] Sliding window aggregations
-- [x] Session-based aggregations (events per session)
-- [x] Geolocation-based aggregation
-- [x] Device/platform breakdowns
-- [x] Anomaly detection on aggregated series
-- [x] Aggregation export to webhooks
-- [x] Materialized views
-- [x] Real-time top-N
-- [x] Funnel drop-off aggregation
-- [x] Retention matrix aggregation
+- [ ] Event dedup by content hash
+- [ ] Event TTL per type
+- [ ] Event versioning
+- [ ] Distinct count aggregation (HyperLogLog)
+- [ ] Percentile aggregations (p50/p95/p99)
+- [ ] Sliding window aggregations
+- [ ] Session-based aggregations (events per session)
+- [ ] Geolocation-based aggregation
+- [ ] Device/platform breakdowns
+- [ ] Anomaly detection on aggregated series
+- [ ] Aggregation export to webhooks
+- [ ] Materialized views
+- [ ] Real-time top-N
+- [ ] Funnel drop-off aggregation
+- [ ] Retention matrix aggregation
 
 ## Phase 17 — A/B Testing
 - [x] Experiment definitions (variants, traffic split)
-- [x] Variant assignment (sticky per session/user)
-- [x] Event tagging with experiment_id + variant
-- [x] Statistical significance reporting
-- [x] Auto-stop on winner
+- [ ] Variant assignment (sticky per session/user)
+- [ ] Event tagging with experiment_id + variant
+- [ ] Statistical significance reporting
+- [ ] Auto-stop on winner
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.
