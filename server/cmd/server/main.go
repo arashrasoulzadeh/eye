@@ -24,6 +24,7 @@ func main() {
 	ih := &handler.IngestHandler{Svc: svc}
 	mux := http.NewServeMux()
 	mux.Handle("/ingest", ih)
+	mux.Handle("/metrics", &handler.MetricsHandler{DB: db})
 	log.Println("server starting on", cfg.Addr())
 	http.ListenAndServe(cfg.Addr(), mux)
 }
