@@ -3,7 +3,7 @@ server:
 	cd server && go run ./cmd/server --env=.env
 
 admin:
-	cd admin && npm run dev
+	cd admin && npm run dev -- --webpack
 
 test:
 	go test ./tests/...
