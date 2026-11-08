@@ -6,8 +6,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/server/internal/repository"
-	"github.com/eye/eye/server/internal/service"
+	"github.com/eye/eye/internal/repository"
+	"github.com/eye/eye/internal/service"
 )
 
 func TestAdminCreateTenant(t *testing.T) {

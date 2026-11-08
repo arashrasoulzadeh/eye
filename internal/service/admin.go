@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/eye/eye/server/internal/model"
-	"github.com/eye/eye/server/internal/repository"
+	"github.com/eye/eye/internal/model"
+	"github.com/eye/eye/internal/repository"
 )
 
 type AdminService struct{ Repo *repository.Repo }

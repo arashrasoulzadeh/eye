@@ -6,5 +6,5 @@ admin:
 	cd admin && npm run dev
 
 test:
-	go test ./server/test/...
+	go test ./tests/...
 	cd admin && npm run build -- --webpack

@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/eye/eye/server/internal/service"
+	"github.com/eye/eye/internal/service"
 )
 
 func TestRateLimit(t *testing.T) {

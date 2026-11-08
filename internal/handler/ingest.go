@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/eye/eye/server/internal/service"
+	"github.com/eye/eye/internal/service"
 )
 
 type IngestHandler struct{ Svc *service.IngestService }

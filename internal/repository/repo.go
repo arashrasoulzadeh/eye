@@ -2,7 +2,7 @@ package repository
 
 import (
 	"gorm.io/gorm"
-	"github.com/eye/eye/server/internal/model"
+	"github.com/eye/eye/internal/model"
 )
 
 type Repo struct{ DB *gorm.DB }

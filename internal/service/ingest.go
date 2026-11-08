@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/eye/eye/server/internal/model"
-	"github.com/eye/eye/server/internal/repository"
+	"github.com/eye/eye/internal/model"
+	"github.com/eye/eye/internal/repository"
 )
 
 type IngestService struct{ Repo *repository.Repo }

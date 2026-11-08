@@ -6,9 +6,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/server/internal/model"
-	"github.com/eye/eye/server/internal/repository"
-	"github.com/eye/eye/server/internal/service"
+	"github.com/eye/eye/internal/model"
+	"github.com/eye/eye/internal/repository"
+	"github.com/eye/eye/internal/service"
 )
 
 func TestIngestDedup(t *testing.T) {

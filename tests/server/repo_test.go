@@ -6,8 +6,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/server/internal/model"
-	"github.com/eye/eye/server/internal/repository"
+	"github.com/eye/eye/internal/model"
+	"github.com/eye/eye/internal/repository"
 )
 
 func TestRepoMigrateAndSession(t *testing.T) {
