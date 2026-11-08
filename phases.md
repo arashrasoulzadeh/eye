@@ -9,7 +9,7 @@
 - [x] `go.mod`, module path `github.com/eye/eye`
 - [x] Types: `Event`, `IngestRequest`, `IngestResponse`, `Session`, `CreateSessionRequest/Response`
 - [x] Config loader (env + file): port, db url, api key salt
-- [ ] Logging (structured, slog) + Prometheus metrics scaffold
+- [x] Logging (structured, slog) + Prometheus metrics scaffold
 
 ## Phase 2 — Storage (TimescaleDB)
 - [x] Migration: hypertable `events(tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload jsonb, dims jsonb)`
