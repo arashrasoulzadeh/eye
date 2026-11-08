@@ -76,21 +76,21 @@
 
 ## Phase 12 — Admin Panel (Next.js)
 - [x] Next.js app in `admin/` with App Router
-- [ ] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
+- [x] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
 - [ ] Pages:
   - [x] `/login` — API key entry
   - [x] `/` dashboard — ingest rate, events count, active sessions, tenants
-  - [ ] `/tenants` — list/create/delete tenants, rotate keys
-  - [ ] `/tenants/[id]` — tenant detail, usage, retention settings
-  - [ ] `/sessions` — list sessions per tenant, event counts
-  - [ ] `/events` — paginated event browser with filters (event_name, session, time range)
-  - [ ] `/schemas` — register/list Protobuf schemas
-  - [ ] `/cohorts` — define segment rules
-  - [ ] `/alerts` — threshold rules + webhook config
-  - [ ] `/settings` — retention, sampling, rate limits
-- [ ] API routes (Next.js) proxy to Go backend via grpc-gateway (REST)
-- [ ] Components: DataTable, FilterBar, Chart (recharts), AuthGuard
-- [ ] TDD: Playwright e2e for login + CRUD flows
+  - [x] `/tenants` — list/create/delete tenants, rotate keys
+  - [ ] `/tenants/[id]` — tenant detail, usage, retention settings page — not built; list page covers CRUD, no per-tenant detail route
+  - [x] `/sessions` — list sessions per tenant, event counts
+  - [x] `/events` — paginated event browser with filters (event_name, tenant_id, session_id); no time-range filter yet
+  - [x] `/schemas` — register/list schemas (JSON definitions, not strictly Protobuf) with version history
+  - [ ] `/cohorts` — define segment rules — no backend (Phase 6); explicit "not implemented" placeholder, no fake data
+  - [ ] `/alerts` — threshold rules + webhook config — no backend (Phase 8); explicit "not implemented" placeholder
+  - [ ] `/settings` — retention, sampling, rate limits — read-only honest display only; no update API exists yet, so no editable controls were added
+- [x] API routes (Next.js) proxy to Go backend (`/api/proxy/[...path]`, attaches the admin key from the httpOnly cookie)
+- [ ] Components: DataTable, FilterBar, Chart (recharts), AuthGuard — DataTable and inline filter bars exist; no Chart (recharts); auth protection done via `src/proxy.ts` (Next's middleware-successor) rather than a dedicated AuthGuard component
+- [ ] TDD: Playwright e2e for login + CRUD flows — verified manually end-to-end in the browser instead; no Playwright suite added
 
 ## Phase 13 — Aggregators & System Events
 - [x] Event fields: `source` (client|system), `is_aggregated` (bool), `aggregation_id` (nullable)
