@@ -19,10 +19,10 @@
 - [ ] TTL policy + retention job
 
 ## Phase 3 — Ingestion (Go collector)
-- [ ] `ingest.Service` with `Ingest(ctx, req)` returning counts
+- [x] `ingest.Service` with `Ingest(ctx, req)` returning counts
 - [x] Idempotency: in-memory + DB dedup on (session_id, event_id)
-- [ ] Session validation: `GetSession` → tenant match
-- [ ] Rate limiter: per-IP + per-tenant token bucket middleware
+- [x] Session validation: `GetSession` → tenant match
+- [x] Rate limiter: per-IP + per-tenant token bucket middleware
 - [x] gRPC server wiring + health check
 - [ ] TDD: table tests for dedup, validation, rate limit
 
