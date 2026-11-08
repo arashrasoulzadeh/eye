@@ -27,10 +27,10 @@
 - [ ] TDD: table tests for dedup, validation, rate limit
 
 ## Phase 4 — Admin API
-- [ ] `admin.Service`: CRUD tenants, keys, schemas
-- [ ] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
-- [ ] Auth: admin API key scope
-- [ ] TDD: handler tests
+- [x] `admin.Service`: CRUD tenants, keys, schemas
+- [x] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
+- [x] Auth: admin API key scope
+- [x] TDD: handler tests
 
 ## Phase 5 — Web SDK
 - [ ] `EyeClient` class: constructor, `ensureSession`, `track`, `flush`
