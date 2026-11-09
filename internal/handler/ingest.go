@@ -3,11 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/eye/eye/internal/service"
 )
 
-type IngestHandler struct{ Svc *service.IngestService }
+// Ingester is satisfied by both the synchronous IngestService and the async
+// StreamIngestPipeline, so IngestHandler can front either.
+type Ingester interface {
+	Ingest(events []map[string]any) (int, int)
+}
+
+type IngestHandler struct{ Svc Ingester }
 
 func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var body struct {

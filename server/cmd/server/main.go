@@ -70,6 +70,19 @@ func main() {
 	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
+
+	// Phase 7: an async ingest path backed by an in-process stream
+	// (ChannelStream — see internal/service/stream.go for why this is an
+	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
+	// consumer inserts events and maintains materialized aggregate counts.
+	stream := service.NewChannelStream(256)
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream}
+	streamCtx, cancelStream := context.WithCancel(context.Background())
+	defer cancelStream()
+	stream.Start(streamCtx, streamPipeline.Consume)
+	mux.Handle("/ingest/stream", &handler.IngestHandler{Svc: streamPipeline})
+	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
+
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
 
 	retentionCtx, cancelRetention := context.WithCancel(context.Background())

@@ -46,6 +46,18 @@ type Aggregation struct {
 	UpdatedAt   int64
 }
 
+// AggregateCount is a materialized, incrementally-maintained count of
+// events per (tenant, event_name, dims) combination, kept up to date by the
+// Phase 7 stream pipeline's consumer as events flow through — a real-time
+// read model separate from scanning raw events.
+type AggregateCount struct {
+	TenantID  string `gorm:"primaryKey"`
+	EventName string `gorm:"primaryKey"`
+	DimsKey   string `gorm:"primaryKey"`
+	Count     int64
+	UpdatedAt int64
+}
+
 type Schema struct {
 	ID         string `gorm:"primaryKey"`
 	TenantID   string `gorm:"index"`
