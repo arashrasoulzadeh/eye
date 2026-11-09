@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -127,5 +128,121 @@ func TestStreamPipelineEndToEndIngestToQuery(t *testing.T) {
 	db.Where("tenant_id = ? AND event_name = ?", "t1", "purchase").Find(&raw)
 	if len(raw) != 3 {
 		t.Fatalf("expected 3 raw events queryable, got %d", len(raw))
+	}
+}
+
+func TestStreamPipelineConsumeInsertsEventAndUpdatesSessionAndAggregate(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
+	r := repository.New(db)
+	if err := r.Migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	db.Create(&model.Session{ID: "s1", TenantID: "t1"})
+
+	p := &service.StreamIngestPipeline{Repo: r, DB: db}
+
+	msg := service.StreamMessage{
+		Event: &model.Event{
+			EventID:   "e1",
+			SessionID: "s1",
+			TenantID:  "t1",
+			EventName: "click",
+			ClientTS:  1,
+			IngestTS:  time.Now(),
+			Payload:   "{}",
+			Dims:      `{"platform":"web"}`,
+			Source:    "client",
+		},
+	}
+
+	if err := p.Consume(msg); err != nil {
+		t.Fatalf("consume: %v", err)
+	}
+
+	var count int64
+	db.Model(&model.Event{}).Where("event_id = ?", "e1").Count(&count)
+	if count != 1 {
+		t.Fatalf("expected event to be inserted, found %d", count)
+	}
+
+	var sess model.Session
+	db.First(&sess, "id = ?", "s1")
+	if sess.EventCount != 1 {
+		t.Fatalf("expected session event count 1, got %d", sess.EventCount)
+	}
+
+	got, err := service.GetAggregateCount(db, "t1", "click", `{"platform":"web"}`)
+	if err != nil {
+		t.Fatalf("get aggregate count: %v", err)
+	}
+	if got != 1 {
+		t.Fatalf("expected materialized aggregate count 1, got %d", got)
+	}
+}
+
+func TestUpsertAggregateCountCreatesAndIncrements(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
+	if err := db.AutoMigrate(&model.AggregateCount{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	if err := service.UpsertAggregateCount(db, "t1", "click", `{"platform":"web"}`); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+
+	count, err := service.GetAggregateCount(db, "t1", "click", `{"platform":"web"}`)
+	if err != nil || count != 1 {
+		t.Fatalf("expected count 1, got %d, err %v", count, err)
+	}
+
+	if err := service.UpsertAggregateCount(db, "t1", "click", `{"platform":"web"}`); err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+
+	count, err = service.GetAggregateCount(db, "t1", "click", `{"platform":"web"}`)
+	if err != nil || count != 2 {
+		t.Fatalf("expected count 2, got %d, err %v", count, err)
+	}
+
+	// Different dims should be separate
+	if err := service.UpsertAggregateCount(db, "t1", "click", `{"platform":"ios"}`); err != nil {
+		t.Fatalf("third upsert: %v", err)
+	}
+	count, err = service.GetAggregateCount(db, "t1", "click", `{"platform":"ios"}`)
+	if err != nil || count != 1 {
+		t.Fatalf("expected count 1 for ios, got %d, err %v", count, err)
+	}
+}
+
+func TestGetAggregateCountReturnsZeroForMissing(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
+	if err := db.AutoMigrate(&model.AggregateCount{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	count, err := service.GetAggregateCount(db, "t1", "click", `{"platform":"web"}`)
+	if err != nil {
+		t.Fatalf("get aggregate count: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected 0 for missing, got %d", count)
 	}
 }
