@@ -12,7 +12,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // AlertService provides CRUD for AlertRule and the threshold-evaluation logic

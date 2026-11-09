@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // MetricSample is one periodic, per-bucket snapshot of how many events a

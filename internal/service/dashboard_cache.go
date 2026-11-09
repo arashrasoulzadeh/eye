@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // DashboardCacheService maintains a cached snapshot of dashboard metrics.

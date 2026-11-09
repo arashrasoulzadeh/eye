@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func TestSamplingControllerRateThresholds(t *testing.T) {

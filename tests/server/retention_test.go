@@ -10,8 +10,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/storage"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/storage"
 )
 
 func TestRunRetentionJobDeletesOnTick(t *testing.T) {

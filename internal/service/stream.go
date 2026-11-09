@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // StreamMessage is a unit of work flowing through the ingest pipeline: one

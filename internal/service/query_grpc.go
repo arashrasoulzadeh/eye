@@ -1,7 +1,7 @@
 package service
 
 import (
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
 )
 
 // QueryStreamServer implements the Collector gRPC service's QueryStream RPC

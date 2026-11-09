@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // TimescaleRepo is a GORM-backed Repository implementation. In dev it runs

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // AnomaliesHandler exposes the Phase 8 z-score anomaly detector's current

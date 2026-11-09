@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
-	"github.com/eye/eye/internal/service"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func startLiveCountersServer(t *testing.T, hub *service.LiveCounterHub) (eyev1.CollectorClient, func()) {

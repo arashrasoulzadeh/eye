@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 func TestAuditLogHandlerListsNewestFirst(t *testing.T) {

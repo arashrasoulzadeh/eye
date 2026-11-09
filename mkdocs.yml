@@ -1,0 +1,55 @@
+site_name: Eye Analytics Platform
+site_url: https://arashrasoulzadeh.github.io/eye/
+repo_url: https://github.com/arashrasoulzadeh/eye
+repo_name: arashrasoulzadeh/eye
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started/README.md
+  - API Reference: api/README.md
+  - SDKs:
+    - Web SDK: sdk/web-sdk.md
+    - Go SDK: sdk/go-sdk.md
+  - Components: components/README.md
+  - Architecture: architecture/README.md
+  - Testing & Benchmarks: testing/README.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/arashrasoulzadeh/eye
+
+copyright: Copyright © 2024 Eye Analytics Platform

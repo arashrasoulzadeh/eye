@@ -1,7 +1,7 @@
 syntax = "proto3";
 package eye.v1;
 
-option go_package = "github.com/eye/eye/gen/go/eyev1";
+option go_package = "github.com/arashrasoulzadeh/eye/gen/go/eyev1";
 
 service Collector {
   rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);

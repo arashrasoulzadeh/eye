@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // FunnelHandler serves POST /analytics/funnel.

@@ -16,13 +16,13 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
-	"github.com/eye/eye/internal/config"
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/metrics"
-	"github.com/eye/eye/internal/repository"
-	"github.com/eye/eye/internal/service"
-	"github.com/eye/eye/internal/storage"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
+	"github.com/arashrasoulzadeh/eye/internal/config"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/metrics"
+	"github.com/arashrasoulzadeh/eye/internal/repository"
+	"github.com/arashrasoulzadeh/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/storage"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))

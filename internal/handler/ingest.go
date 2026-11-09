@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/eye/eye/internal/metrics"
+	"github.com/arashrasoulzadeh/eye/internal/metrics"
 )
 
 // Ingester is satisfied by both the synchronous IngestService and the async

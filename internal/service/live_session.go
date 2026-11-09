@@ -3,7 +3,7 @@ package service
 import (
 	"sync"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // LiveSessionHub tracks per-session event count, last seen, and events,

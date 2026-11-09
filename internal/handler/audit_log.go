@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // AuditLogHandler serves GET /audit-log, paginated, newest first.

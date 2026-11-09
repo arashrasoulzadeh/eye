@@ -1,18 +1,130 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
-  go:
+  go-test:
+    name: Go Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with: { go-version: "1.22" }
-      - run: go build ./...
-      - run: go test ./tests/...
-  admin:
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Cache modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./tests/... -v
+
+      - name: Test with coverage
+        run: |
+          go test ./tests/server -coverpkg=./internal/... -coverprofile=coverage.out
+          go tool cover -func=coverage.out
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  web-sdk-test:
+    name: Web SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build CDN
+        run: npm run build:cdn
+
+  admin-test:
+    name: Admin Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build -- --webpack
+
+  go-sdk-test:
+    name: Go SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Test
+        run: go test -v
+
+  docs-build:
+    name: Build Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-      - run: cd admin && npm install && npm run build -- --webpack
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mkdocs
+        run: pip install mkdocs mkdocs-material
+
+      - name: Build
+        run: mkdocs build --strict

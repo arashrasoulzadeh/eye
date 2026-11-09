@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // ComplianceService implements GDPR-style erasure: given a session_id — the

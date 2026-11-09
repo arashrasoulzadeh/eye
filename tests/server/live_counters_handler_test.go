@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 var errTimeout = errors.New("timed out waiting for SSE line")

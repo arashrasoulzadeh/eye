@@ -3,7 +3,7 @@ package service
 import (
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 type QueryService struct{ DB *gorm.DB }

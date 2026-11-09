@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func TestRunCohortMaterializationJobRecomputesOnTick(t *testing.T) {

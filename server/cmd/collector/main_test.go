@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
 )
 
 func ctxWithKey(key string) context.Context {

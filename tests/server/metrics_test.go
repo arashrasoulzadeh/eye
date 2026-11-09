@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/eye/eye/internal/metrics"
+	"github.com/arashrasoulzadeh/eye/internal/metrics"
 )
 
 func TestMetricsInitRegistersCollectorsExactlyOnce(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 type QueryHandler struct{ Svc *service.QueryService }

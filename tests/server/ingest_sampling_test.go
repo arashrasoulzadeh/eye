@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/repository"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/repository"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // fakeSampler always returns a fixed decision, for deterministic handler tests

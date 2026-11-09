@@ -7,7 +7,7 @@ package storage
 import (
 	"time"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // Repository is the storage contract the rest of the system depends on.

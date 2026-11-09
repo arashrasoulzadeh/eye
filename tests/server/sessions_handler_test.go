@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/eye/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
 )
 
 func TestSessionsHandlerCreateAndList(t *testing.T) {

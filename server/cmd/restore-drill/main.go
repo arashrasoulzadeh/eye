@@ -19,8 +19,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func main() {

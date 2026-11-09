@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 type AlertsHandler struct{ Svc *service.AlertService }

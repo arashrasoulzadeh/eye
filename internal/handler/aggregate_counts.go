@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // AggregateCountsHandler reads back the Phase 7 materialized per-(tenant,

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func TestLiveCounterHubIncrementUpdatesSnapshot(t *testing.T) {

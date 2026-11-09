@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/repository"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/repository"
 )
 
 // ExperimentAssigner resolves a session's sticky variant for any experiments

@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 // FeatureFlagService provides per-tenant boolean flags. Nothing in this

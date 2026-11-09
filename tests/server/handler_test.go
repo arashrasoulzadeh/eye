@@ -10,9 +10,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/repository"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/repository"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func newAdminHandlerTestDeps(t *testing.T) *service.AdminService {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/eye/eye/internal/config"
+	"github.com/arashrasoulzadeh/eye/internal/config"
 )
 
 func TestConfigLoadDefaultsAndEnv(t *testing.T) {

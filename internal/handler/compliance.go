@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // ComplianceHandler exposes GDPR-style erasure at DELETE /compliance/erase.

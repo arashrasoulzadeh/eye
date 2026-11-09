@@ -6,8 +6,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func seedPurchaseEvents(t *testing.T, db *gorm.DB, tenantID string, n int, sessionPrefix string) {

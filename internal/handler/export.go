@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // ExportHandler serves GET /export/events?tenant_id=...&format=csv|json&from_ts=&to_ts=&event_name=.

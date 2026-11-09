@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/eye/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 	"gorm.io/gorm"
 )
 

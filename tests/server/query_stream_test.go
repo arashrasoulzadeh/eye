@@ -12,9 +12,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/service"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func newQueryStreamTestDB(t *testing.T) *gorm.DB {

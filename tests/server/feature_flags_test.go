@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func TestFeatureFlagServiceCRUDAndLookup(t *testing.T) {

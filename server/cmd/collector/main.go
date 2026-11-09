@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	eyev1 "github.com/eye/eye/gen/go/eyev1"
-	"github.com/eye/eye/internal/service"
+	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))

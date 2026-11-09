@@ -9,11 +9,11 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/eye/eye/internal/handler"
-	"github.com/eye/eye/internal/metrics"
-	"github.com/eye/eye/internal/model"
-	"github.com/eye/eye/internal/repository"
-	"github.com/eye/eye/internal/service"
+	"github.com/arashrasoulzadeh/eye/internal/handler"
+	"github.com/arashrasoulzadeh/eye/internal/metrics"
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/repository"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 func readCounter(t *testing.T, label string) float64 {
