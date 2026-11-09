@@ -37,6 +37,12 @@
 </section>
 
 <section>
+  <strong>Session:</strong>
+  <span id="session-id" class="muted">(waiting for a session to be created…)</span>
+  <a id="session-link" href="#" style="display: none">view in admin →</a>
+</section>
+
+<section>
   <strong>Try things that fire auto-tracked events:</strong>
   <div class="row">
     <button data-eye-event="manual_cta">Click me (data-eye-event)</button>
@@ -101,11 +107,38 @@
   console.warn = (...a) => { log("[warn]", ...a); origWarn(...a); };
   console.error = (...a) => { log("[error]", ...a); origErr(...a); };
 
+  const sessionIdEl = document.getElementById("session-id");
+  const sessionLinkEl = document.getElementById("session-link");
+
+  // ensureSession() is async (it awaits POST /sessions), so right after
+  // init() the session id isn't resolved yet — poll briefly rather than
+  // relying on a callback the public Eye.init() API doesn't expose.
+  function watchForSessionId(previousId) {
+    sessionIdEl.textContent = "creating…";
+    sessionLinkEl.style.display = "none";
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts++;
+      const id = window.Eye?.getSessionId?.();
+      if (id && id !== previousId) {
+        clearInterval(timer);
+        sessionIdEl.textContent = id;
+        sessionLinkEl.href = "/sessions/" + id;
+        sessionLinkEl.style.display = "";
+      } else if (attempts > 50) {
+        clearInterval(timer);
+        sessionIdEl.textContent = "(failed to establish — see log below)";
+      }
+    }, 100);
+  }
+
   function doInit(extra) {
+    const previousId = window.Eye?.getSessionId?.() ?? null;
     try {
       window.Eye.init(Object.assign({ tenant, apiKey, endpoint, debug: true, idleTimeoutMs: 10000 }, extra));
       statusEl.textContent = "Eye.init() called — watch the log below";
       statusEl.className = "status ok";
+      watchForSessionId(previousId);
     } catch (e) {
       statusEl.textContent = "Eye.init() threw: " + e.message;
       statusEl.className = "status err";

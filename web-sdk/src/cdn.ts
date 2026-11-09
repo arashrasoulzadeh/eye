@@ -169,6 +169,11 @@ class EyeGlobal {
     return this.require().flush();
   }
 
+  /** The current session id, or null if init() hasn't resolved a session yet. */
+  getSessionId(): string | null {
+    return this.client?.getSessionId() ?? null;
+  }
+
   destroy() {
     for (const off of this.teardown.splice(0)) off();
     this.client?.destroy();

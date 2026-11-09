@@ -109,6 +109,11 @@ export class EyeClient {
     if (this.timer) clearInterval(this.timer);
   }
 
+  /** The current session id, or null before ensureSession() has resolved. */
+  getSessionId(): string | null {
+    return this.sessionId;
+  }
+
   /**
    * Creates (or reuses) a session. Pass `{ forceNew: true }` to discard any
    * cached session id — including the one persisted in localStorage — and
