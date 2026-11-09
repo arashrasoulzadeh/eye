@@ -62,6 +62,9 @@ func main() {
 	cohortSvc := &service.CohortService{DB: db}
 	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
 	mux.Handle("/cohorts/", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
+	aggSvc := &service.AggregatorService{DB: db}
+	mux.Handle("/aggregations", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
+	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
@@ -73,6 +76,10 @@ func main() {
 	cohortCtx, cancelCohort := context.WithCancel(context.Background())
 	defer cancelCohort()
 	go service.RunCohortMaterializationJob(cohortCtx, cohortSvc, 5*time.Minute, logger)
+
+	aggCtx, cancelAgg := context.WithCancel(context.Background())
+	defer cancelAgg()
+	go service.RunAggregationJob(aggCtx, aggSvc, 5*time.Minute, logger)
 
 	logger.Info("server starting", "addr", cfg.Addr())
 	if err := http.ListenAndServe(cfg.Addr(), cors(mux)); err != nil {

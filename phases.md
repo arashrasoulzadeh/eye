@@ -95,11 +95,11 @@
 ## Phase 13 — Aggregators & System Events
 - [x] Event fields: `source` (client|system), `is_aggregated` (bool), `aggregation_id` (nullable)
 - [x] `aggregations` table: id, tenant_id, name, rule (event_name filter, threshold count, window), output_event_name, enabled, created_at, updated_at
-- [ ] Admin API: CRUD aggregations; option to reprocess/backfill older events
-- [ ] Time-window aggregations: cron-based rollups per minute/hour/day; config `window` (1m/1h/1d) in aggregation rule
+- [x] Admin API: CRUD aggregations (`/aggregations`, `AggregationsHandler`) + `/aggregations/{id}/backfill` to reprocess older events
+- [x] Time-window aggregations: `Window` field (1m/1h/1d) on the rule, bucketed in `AggregatorService.Backfill`, rolled up on a ticker via `RunAggregationJob` (5m interval) — this is a full on-demand recompute over matching rows each tick, not a real streaming aggregator (Phase 7/Kafka isn't built), same honest simplification as the Phase 6 cohort job
 - [x] System events stored like client events for unified querying
-- [ ] Editable rules: updating an aggregation can recompute/backfill older events
-- [ ] TDD: aggregator counting, threshold emission, backfill
+- [x] Editable rules: `Update` changes the rule in place; `Backfill` only processes events not yet stamped with this aggregation's ID, so edited/older events are picked up on the next run without double-counting
+- [x] TDD: aggregator counting, threshold emission, and backfill idempotency covered in `tests/server/aggregator_backfill_test.go`, `aggregator_crud_test.go`, `aggregator_job_test.go`
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Funnel analysis API (ordered event steps, conversion rates)
