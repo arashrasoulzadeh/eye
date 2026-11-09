@@ -6,28 +6,15 @@
 ## Phase 2 — Storage (TimescaleDB)
 - [ ] RLS policies per tenant — n/a for the dev SQLite path (Postgres/Timescale-only feature); not implemented or faked
 
-## Phase 7 — Stream Processing & Aggregates
-- [x] "Producer" in collector — `service.ChannelStream`, an in-process buffered-channel producer/consumer (see `internal/service/stream.go`), not a real Redpanda/Kafka client: CLAUDE.md's dev overrides rule out Docker/external brokers in dev, so this is the honest substitute fulfilling the same architectural role (decoupling ingest from storage via a real concurrent queue + goroutine worker + backpressure), swappable later for a real `StreamProducer`/`StreamConsumer` impl against an actual broker
-- [x] "Consumer" → DB inserts — `StreamIngestPipeline.Consume` (run by the `ChannelStream` worker) inserts the event into the dev SQLite store and bumps the session count; there is no TimescaleDB hypertable in dev to insert into (prod-only, per dev overrides), so this checks off the *consumer-driven insert* half honestly, not a hypertable-specific behavior
-- [x] Materialized aggregates (counts by dims) — `AggregateCount` table + `UpsertAggregateCount`/`GetAggregateCount`, incremented by the consumer per `(tenant_id, event_name, dims)` as events flow through; readable via `GET /aggregate-counts`
-- [x] TDD: end-to-end ingest→query — `tests/server/stream_test.go` (producer/consumer round trip) and `tests/server/stream_pipeline_test.go` (consumer inserts + aggregates, duplicate/unknown-session rejection, and a full async ingest → materialized-aggregate read-back test)
-
 ## Phase 8 — Alerting & Anomaly
-- [x] Threshold rules per tenant — `AlertRule` model + `AlertService` CRUD (`internal/service/alert.go`), REST at `/alerts` (`AlertsHandler`); threshold is evaluated against the Phase 7 materialized `AggregateCount` running totals (summed across dims when the rule's `DimsKey` is empty, or scoped to one dims bucket otherwise) — not a time-windowed metric, since `AggregateCount` itself is a lifetime total, not per-window
-- [x] Webhook dispatcher — `RunAlertJob` polls every enabled rule on a ticker (1m) and POSTs a JSON payload via an injectable `WebhookClient` when a rule's threshold is newly met (tracked by `LastFiredCount` so it only re-fires once the count has grown, not every tick); this is a polling-based check against the materialized read model, not a real-time push, same honest simplification as the Phase 6/7/13 jobs. Email dispatcher not implemented — no SMTP infra in dev, left undone rather than faked
 - [ ] Adaptive sampling under load — not attempted
 - [ ] ML anomaly detection (basic statistical) — not attempted
 
 ## Phase 9 — Observability & Ops
-- [x] Prometheus metrics: ingest rate (`ingest_events_total{status}`), latency (`ingest_latency_seconds` histogram), errors (`ingest_errors_total{reason}`), and stream queue depth (`stream_queue_depth` gauge, sampled every 1s from the Phase 7 `ChannelStream`'s buffered-channel length) — all wired into the real `/ingest` and `/ingest/stream` request path (`internal/handler/ingest.go`) and exposed via `promhttp.Handler()` at `/metrics/prometheus` (the pre-existing `/metrics` path is left alone — it serves JSON dashboard stats the admin UI already depends on, not Prometheus exposition, so this is a separate path rather than an overload); tested in `tests/server/metrics_ingest_test.go` and `tests/server/stream_test.go`
-- [x] Grafana dashboards — `deploy/grafana/eye-dashboard.json`, a real dashboard JSON with 4 panels (ingest rate by status, latency p50/p95/p99 from the histogram, errors by reason, queue depth gauge) querying exactly the metrics above via a Prometheus datasource; not deployed/screenshotted against a running Grafana, just a valid, matching dashboard definition
 - [ ] Docker Compose (dev) + K8s manifests (optional) — not built; CLAUDE.md's dev overrides explicitly rule out Docker for local dev (SQLite only), and no production Postgres/Timescale/Kafka deployment exists yet to write real manifests against, so nothing here would be verifiable rather than guesswork
 
 ## Phase 10 — Mobile & Server SDKs
-- [x] iOS (Swift) SDK port — `sdk-swift/` (`EyeSDK` package): `EyeClient` ports web-sdk's session persistence (via an injectable `KeyValueStore`, `UserDefaults`-backed by default), bounded ring buffer, and size/time-threshold flush batching; `swift test` passes 5 tests (ring buffer eviction, size/time-threshold flush, session create+persist, flush-clears-buffer) using a mocked `URLProtocol`, no real network — verified with the Swift toolchain actually present in this environment (`swift --version` → Swift 6.4)
-- [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found), and unverified source wasn't worth writing on top of the iOS port already covering the same porting exercise
-- [x] Go server SDK — `sdk-go/` (`github.com/eye/eye/sdk-go`, its own Go module so it doesn't affect the root module's build): `Client` ports `EnsureSession`/`Track`/`Flush` with the same ring buffer + batching semantics, calling the real `/sessions`+`/ingest` REST endpoints; `go test ./...` passes (ring buffer eviction, size/time-threshold flush, session create+cache, and an `httptest.Server` integration test)
-- [x] Parity tests — `tests/fixtures/sdk_ring_buffer_parity.json`, a shared fixture driven through both `web-sdk`'s `EyeClient` (`tests/web/parity.test.ts`, vitest) and `sdk-go`'s `Client` (`sdk-go/parity_test.go`, go test), asserting identical ring-buffer eviction order for the same inputs across both real implementations; both pass. (Swift isn't in this parity fixture — its ring-buffer behavior is covered by its own unit test instead, since adding a third JSON-fixture runner was out of scope here.)
+- [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
 
 ## Phase 11 — Compliance & DR
 - [ ] GDPR erasure: delete by session/user key
@@ -35,11 +22,7 @@
 - [ ] Restore drill
 
 ## Phase 12 — Admin Panel (Next.js)
-- [x] Pages:
-  - [x] `/cohorts` — create/list rule-based cohorts (event_name + min_count) and trigger on-demand materialization, showing the resulting member count; no delete/disable (CohortService exposes none)
-  - [x] `/alerts` — create/list/enable/disable/delete threshold rules with a webhook URL; shows enabled state and last-fired time (added `AlertService.SetEnabled` + `POST /alerts/{id}/enable|disable` to support the toggle)
-  - [ ] `/settings` — retention, sampling, rate limits — still read-only honest display only; no update API exists yet, so no editable controls were added
-- [x] TDD: Playwright e2e for login + CRUD flows — `admin/e2e/login-and-tenant-crud.spec.ts` runs for real (Chromium, headless) against a live Go backend + Next.js dev server started by `playwright.config.ts`'s `webServer`, covering login → create tenant → see it listed → delete it; run via `npm run test:e2e` in `admin/`
+- [ ] `/settings` — retention, sampling, rate limits — still read-only honest display only; no update API exists yet, so no editable controls were added
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Funnel analysis API (ordered event steps, conversion rates)
