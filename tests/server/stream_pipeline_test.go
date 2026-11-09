@@ -17,6 +17,13 @@ func newPipeline(t *testing.T) (*service.StreamIngestPipeline, *service.ChannelS
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
+	// Pin to a single connection — a plain ":memory:" DSN otherwise hands out a
+	// fresh empty DB per pooled connection, which races the consumer goroutine
+	// against the test's own queries (see cohort_test.go's newCohortTestDB for
+	// the same fix applied there).
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
 	r := repository.New(db)
 	if err := r.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)

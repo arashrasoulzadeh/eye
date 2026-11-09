@@ -109,3 +109,25 @@ type ExperimentAssignment struct {
 	Variant      string
 	AssignedAt   int64
 }
+
+// AlertRule is a per-tenant threshold rule: when the materialized,
+// cumulative count for (TenantID, EventName, DimsKey) — see AggregateCount —
+// reaches Threshold, the evaluation job (see service.RunAlertJob) fires
+// WebhookURL. DimsKey empty means "any dims" and is matched against the sum
+// of all AggregateCount rows for EventName regardless of dims. There is no
+// time-windowing here: AggregateCount is a running lifetime total, not a
+// per-window one, so "Window" is deliberately not a field on this rule.
+type AlertRule struct {
+	ID          string `gorm:"primaryKey"`
+	TenantID    string `gorm:"index"`
+	EventName   string
+	DimsKey     string
+	Metric      string // currently only "count" is supported
+	Threshold   int64
+	WebhookURL  string
+	Enabled     bool
+	LastFiredAt    int64 // 0 if never fired; used to avoid re-firing every tick while still above threshold
+	LastFiredCount int64 // the count value at the time of the last fire, so a rule only re-fires once the count has grown
+	CreatedAt      int64
+	UpdatedAt      int64
+}

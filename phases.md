@@ -16,10 +16,10 @@
 - [x] TDD: end-to-end ingest→query — `tests/server/stream_test.go` (producer/consumer round trip) and `tests/server/stream_pipeline_test.go` (consumer inserts + aggregates, duplicate/unknown-session rejection, and a full async ingest → materialized-aggregate read-back test)
 
 ## Phase 8 — Alerting & Anomaly
-- [ ] Threshold rules per tenant
-- [ ] Webhook + email dispatcher
-- [ ] Adaptive sampling under load
-- [ ] ML anomaly detection (basic statistical)
+- [x] Threshold rules per tenant — `AlertRule` model + `AlertService` CRUD (`internal/service/alert.go`), REST at `/alerts` (`AlertsHandler`); threshold is evaluated against the Phase 7 materialized `AggregateCount` running totals (summed across dims when the rule's `DimsKey` is empty, or scoped to one dims bucket otherwise) — not a time-windowed metric, since `AggregateCount` itself is a lifetime total, not per-window
+- [x] Webhook dispatcher — `RunAlertJob` polls every enabled rule on a ticker (1m) and POSTs a JSON payload via an injectable `WebhookClient` when a rule's threshold is newly met (tracked by `LastFiredCount` so it only re-fires once the count has grown, not every tick); this is a polling-based check against the materialized read model, not a real-time push, same honest simplification as the Phase 6/7/13 jobs. Email dispatcher not implemented — no SMTP infra in dev, left undone rather than faked
+- [ ] Adaptive sampling under load — not attempted
+- [ ] ML anomaly detection (basic statistical) — not attempted
 
 ## Phase 9 — Observability & Ops
 - [ ] Prometheus metrics: ingest rate, latency, errors, queue depth

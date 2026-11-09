@@ -88,9 +88,15 @@ func UpsertAggregateCount(db *gorm.DB, tenantID, eventName, dimsKey string) erro
 		if err != nil {
 			return err
 		}
-		ac.Count++
-		ac.UpdatedAt = time.Now().Unix()
-		return tx.Save(&ac).Error
+		// Not tx.Save(&ac): AggregateCount's composite primary key can
+		// legitimately have an empty-string DimsKey (the "no dims" case), and
+		// GORM's Save() treats any zero-value primary key field as "this is a
+		// new record," silently turning the intended UPDATE into a duplicate
+		// INSERT that fails the table's unique constraint. An explicit
+		// Updates() against the matched WHERE clause has no such ambiguity.
+		return tx.Model(&model.AggregateCount{}).
+			Where("tenant_id = ? AND event_name = ? AND dims_key = ?", tenantID, eventName, dimsKey).
+			Updates(map[string]any{"count": ac.Count + 1, "updated_at": time.Now().Unix()}).Error
 	})
 }
 

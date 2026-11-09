@@ -13,7 +13,7 @@ func (r *Repo) Migrate() error {
 	return r.DB.AutoMigrate(
 		&model.Tenant{}, &model.Session{}, &model.Event{}, &model.Schema{},
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
-		&model.AggregateCount{},
+		&model.AggregateCount{}, &model.AlertRule{},
 	)
 }
 
