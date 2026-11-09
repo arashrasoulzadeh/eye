@@ -19,6 +19,12 @@ export type EyeClientOptions = {
   batchSize?: number;
   /** Auto-flush on this interval (ms) regardless of buffer size. 0 disables it. */
   flushIntervalMs?: number;
+  /**
+   * When true: logs verbose console info for track/flush/session lifecycle,
+   * and validates each tracked event's shape locally (missing event name,
+   * non-JSON-serializable payload) instead of silently sending it.
+   */
+  debug?: boolean;
 };
 
 const DEFAULTS = {
@@ -39,6 +45,7 @@ export class EyeClient {
   private endpoint?: string;
   private apiKey?: string;
   private timer?: ReturnType<typeof setInterval>;
+  private debug: boolean;
 
   constructor(opts: EyeClientOptions) {
     this.tenantId = opts.tenantId;
@@ -48,7 +55,9 @@ export class EyeClient {
     this.flushIntervalMs = opts.flushIntervalMs ?? DEFAULTS.flushIntervalMs;
     this.endpoint = opts.endpoint;
     this.apiKey = opts.apiKey;
+    this.debug = opts.debug ?? false;
     this.sessionId = typeof localStorage !== "undefined" ? localStorage.getItem(this.storageKey) : null;
+    if (this.debug) console.info("[eye] client created", { tenantId: this.tenantId, sessionId: this.sessionId });
 
     if (this.flushIntervalMs > 0 && typeof setInterval !== "undefined") {
       this.timer = setInterval(() => {
@@ -74,11 +83,38 @@ export class EyeClient {
     const data = await res.json();
     this.sessionId = data.session_id;
     if (typeof localStorage !== "undefined") localStorage.setItem(this.storageKey, this.sessionId!);
+    if (this.debug) console.info("[eye] session established", this.sessionId);
     return this.sessionId!;
+  }
+
+  /**
+   * Validates an event's shape before it's queued. Returns a list of
+   * problems (empty means valid) rather than throwing, so callers in debug
+   * mode can decide whether a warning or a hard failure is appropriate.
+   */
+  private validateEvent(name: string, payload?: Record<string, any>): string[] {
+    const problems: string[] = [];
+    if (!name || typeof name !== "string") problems.push("event name is missing or not a string");
+    if (payload !== undefined) {
+      try {
+        JSON.stringify(payload);
+      } catch {
+        problems.push("payload is not JSON-serializable");
+      }
+    }
+    return problems;
   }
 
   track(name: string, props?: Record<string, any>, payload?: Record<string, any>) {
     if (!this.sessionId) throw new Error("call ensureSession first");
+    if (this.debug) {
+      const problems = this.validateEvent(name, payload);
+      if (problems.length) {
+        console.warn("[eye] invalid event", { name, problems });
+        throw new Error("[eye] invalid event: " + problems.join("; "));
+      }
+      console.info("[eye] track", { name, props, payload });
+    }
     const ev: Event = {
       eventId: crypto.randomUUID(),
       eventName: name,
@@ -100,13 +136,18 @@ export class EyeClient {
   async flush(endpointOverride?: string, apiKeyOverride?: string) {
     const endpoint = endpointOverride ?? this.endpoint;
     const apiKey = apiKeyOverride ?? this.apiKey;
-    if (!endpoint || !this.buffer.length) return;
+    if (!endpoint || !this.buffer.length) {
+      if (this.debug) console.info("[eye] flush skipped", { endpoint, bufferLength: this.buffer.length });
+      return;
+    }
     const events = this.buffer.splice(0);
     const body = { events };
+    if (this.debug) console.info("[eye] flushing", events.length, "events");
     await fetch(endpoint + "/ingest", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey ?? "" },
       body: JSON.stringify(body),
     });
+    if (this.debug) console.info("[eye] flush complete");
   }
 }

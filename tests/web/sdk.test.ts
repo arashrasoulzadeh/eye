@@ -117,4 +117,55 @@ describe("EyeClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     c.destroy();
   });
+
+  describe("debug mode", () => {
+    it("logs verbose info for track and flush when debug is true", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) });
+      (globalThis as any).fetch = fetchMock;
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      const c = new EyeClient({ tenantId: "t1", endpoint: "http://api", apiKey: "key", flushIntervalMs: 0, debug: true });
+      (c as any).sessionId = "s1";
+      c.track("page_view", { page: "/home" });
+      await c.flush();
+
+      expect(infoSpy).toHaveBeenCalledWith("[eye] track", expect.objectContaining({ name: "page_view" }));
+      expect(infoSpy).toHaveBeenCalledWith("[eye] flushing", 1, "events");
+    });
+
+    it("does not log when debug is false (default)", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) });
+      (globalThis as any).fetch = fetchMock;
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      const c = new EyeClient({ tenantId: "t1", endpoint: "http://api", apiKey: "key", flushIntervalMs: 0 });
+      (c as any).sessionId = "s1";
+      c.track("page_view");
+      await c.flush();
+
+      expect(infoSpy).not.toHaveBeenCalled();
+    });
+
+    it("throws on a missing event name when debug is true", () => {
+      const c = new EyeClient({ tenantId: "t1", flushIntervalMs: 0, debug: true });
+      (c as any).sessionId = "s1";
+      expect(() => c.track("")).toThrow(/invalid event/);
+    });
+
+    it("throws on a non-serializable payload when debug is true", () => {
+      const c = new EyeClient({ tenantId: "t1", flushIntervalMs: 0, debug: true });
+      (c as any).sessionId = "s1";
+      const circular: Record<string, any> = {};
+      circular.self = circular;
+      expect(() => c.track("click", undefined, circular)).toThrow(/invalid event/);
+    });
+
+    it("does not validate when debug is false, even for a bad event name", () => {
+      const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) });
+      (globalThis as any).fetch = fetchMock;
+      const c = new EyeClient({ tenantId: "t1", flushIntervalMs: 0 });
+      (c as any).sessionId = "s1";
+      expect(() => c.track("")).not.toThrow();
+    });
+  });
 });

@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -37,6 +38,14 @@ type Options struct {
 	BatchSize     int
 	FlushInterval time.Duration
 	HTTPClient    *http.Client
+	// Debug, when true, logs verbose info for Track/Flush/session lifecycle
+	// (via Go's standard "log" package) and validates each tracked event's
+	// shape (missing name, nil payload) instead of silently buffering it —
+	// mirrors web-sdk's debug option for cross-SDK parity.
+	Debug bool
+	// Logger is used for debug output when Debug is true; defaults to
+	// log.Default() if nil. Exposed so tests can capture output.
+	Logger *log.Logger
 }
 
 const (
@@ -73,6 +82,9 @@ func NewClient(opts Options) *Client {
 	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = http.DefaultClient
+	}
+	if opts.Debug && opts.Logger == nil {
+		opts.Logger = log.Default()
 	}
 	c := &Client{
 		opts:   opts,
@@ -168,6 +180,19 @@ func randomEventID() string {
 // background flush is triggered (errors are swallowed; the events remain
 // buffered for the next attempt — same best-effort semantics as web-sdk).
 func (c *Client) Track(name string, payload, dims map[string]any) error {
+	if c.opts.Debug {
+		if name == "" {
+			c.opts.Logger.Printf("[eye] invalid event: name is empty")
+			return fmt.Errorf("eyesdk: invalid event: name is empty")
+		}
+		if payload != nil {
+			if _, err := json.Marshal(payload); err != nil {
+				c.opts.Logger.Printf("[eye] invalid event: payload is not JSON-serializable: %v", err)
+				return fmt.Errorf("eyesdk: invalid event: payload is not JSON-serializable: %w", err)
+			}
+		}
+		c.opts.Logger.Printf("[eye] track name=%s", name)
+	}
 	c.mu.Lock()
 	sid := c.sessionID
 	if sid == "" {
@@ -201,11 +226,17 @@ func (c *Client) Flush(ctx context.Context) error {
 	c.mu.Lock()
 	if len(c.buffer) == 0 {
 		c.mu.Unlock()
+		if c.opts.Debug {
+			c.opts.Logger.Printf("[eye] flush skipped: buffer empty")
+		}
 		return nil
 	}
 	events := c.buffer
 	c.buffer = nil
 	c.mu.Unlock()
+	if c.opts.Debug {
+		c.opts.Logger.Printf("[eye] flushing %d events", len(events))
+	}
 
 	body, err := json.Marshal(map[string]any{"events": events})
 	if err != nil {
