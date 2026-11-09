@@ -73,6 +73,11 @@ func (c *ChannelStream) Start(ctx context.Context, handler func(StreamMessage) e
 // with the async consumer without polling.
 func (c *ChannelStream) Wait() { c.wg.Wait() }
 
+// QueueDepth reports how many messages are currently buffered and not yet
+// picked up by the consumer goroutine — the Phase 9 "queue depth" metric's
+// source of truth for this in-process stream.
+func (c *ChannelStream) QueueDepth() int { return len(c.ch) }
+
 // UpsertAggregateCount folds one event occurrence into the materialized
 // per-(tenant, event_name, dims) count — the "materialized aggregates" piece
 // of Phase 7. dimsKey is the event's raw Dims JSON string, used verbatim as

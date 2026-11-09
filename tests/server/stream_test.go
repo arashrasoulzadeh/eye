@@ -50,3 +50,35 @@ func TestChannelStreamStopsOnContextCancel(t *testing.T) {
 		t.Fatalf("expected 0 processed after immediate cancel, got %d", got)
 	}
 }
+
+// TestChannelStreamQueueDepthReflectsOccupancy is the Phase 9 "queue depth"
+// metric's underlying contract: no consumer running, so published messages
+// sit in the buffered channel and QueueDepth must report exactly how many.
+func TestChannelStreamQueueDepthReflectsOccupancy(t *testing.T) {
+	cs := service.NewChannelStream(8)
+
+	if got := cs.QueueDepth(); got != 0 {
+		t.Fatalf("empty queue depth = %d, want 0", got)
+	}
+	for i := 0; i < 3; i++ {
+		if err := cs.Publish(service.StreamMessage{Event: &model.Event{EventID: "e"}}); err != nil {
+			t.Fatalf("publish failed: %v", err)
+		}
+	}
+	if got := cs.QueueDepth(); got != 3 {
+		t.Fatalf("queue depth after 3 publishes = %d, want 3", got)
+	}
+
+	var processed atomic.Int64
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cs.Start(ctx, func(msg service.StreamMessage) error {
+		processed.Add(1)
+		return nil
+	})
+	cs.Wait()
+
+	if got := cs.QueueDepth(); got != 0 {
+		t.Fatalf("queue depth after draining = %d, want 0", got)
+	}
+}

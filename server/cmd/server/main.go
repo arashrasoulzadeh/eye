@@ -7,11 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/eye/eye/internal/config"
 	"github.com/eye/eye/internal/handler"
+	"github.com/eye/eye/internal/metrics"
 	"github.com/eye/eye/internal/repository"
 	"github.com/eye/eye/internal/service"
 	"github.com/eye/eye/internal/storage"
@@ -84,6 +86,27 @@ func main() {
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
+
+	// Phase 9: real Prometheus exposition, separate from the JSON dashboard
+	// stats already served at /metrics above (that path predates this work
+	// and the admin UI depends on its JSON shape, so it's left alone rather
+	// than overloading one path with two incompatible response formats).
+	metrics.Init()
+	mux.Handle("/metrics/prometheus", promhttp.Handler())
+	queueCtx, cancelQueue := context.WithCancel(context.Background())
+	defer cancelQueue()
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-queueCtx.Done():
+				return
+			case <-ticker.C:
+				metrics.StreamQueueDepth.Set(float64(stream.QueueDepth()))
+			}
+		}
+	}()
 
 	retentionCtx, cancelRetention := context.WithCancel(context.Background())
 	defer cancelRetention()

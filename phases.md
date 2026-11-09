@@ -22,9 +22,9 @@
 - [ ] ML anomaly detection (basic statistical) — not attempted
 
 ## Phase 9 — Observability & Ops
-- [ ] Prometheus metrics: ingest rate, latency, errors, queue depth
-- [ ] Grafana dashboards
-- [ ] Docker Compose (dev) + K8s manifests (optional)
+- [x] Prometheus metrics: ingest rate (`ingest_events_total{status}`), latency (`ingest_latency_seconds` histogram), errors (`ingest_errors_total{reason}`), and stream queue depth (`stream_queue_depth` gauge, sampled every 1s from the Phase 7 `ChannelStream`'s buffered-channel length) — all wired into the real `/ingest` and `/ingest/stream` request path (`internal/handler/ingest.go`) and exposed via `promhttp.Handler()` at `/metrics/prometheus` (the pre-existing `/metrics` path is left alone — it serves JSON dashboard stats the admin UI already depends on, not Prometheus exposition, so this is a separate path rather than an overload); tested in `tests/server/metrics_ingest_test.go` and `tests/server/stream_test.go`
+- [x] Grafana dashboards — `deploy/grafana/eye-dashboard.json`, a real dashboard JSON with 4 panels (ingest rate by status, latency p50/p95/p99 from the histogram, errors by reason, queue depth gauge) querying exactly the metrics above via a Prometheus datasource; not deployed/screenshotted against a running Grafana, just a valid, matching dashboard definition
+- [ ] Docker Compose (dev) + K8s manifests (optional) — not built; CLAUDE.md's dev overrides explicitly rule out Docker for local dev (SQLite only), and no production Postgres/Timescale/Kafka deployment exists yet to write real manifests against, so nothing here would be verifiable rather than guesswork
 
 ## Phase 10 — Mobile & Server SDKs
 - [ ] iOS (Swift) SDK port
