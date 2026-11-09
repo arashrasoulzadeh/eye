@@ -62,6 +62,8 @@ type Client struct {
 	mu        sync.Mutex
 	buffer    []Event
 	sessionID string
+	userID    string
+	traits    map[string]any
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
@@ -169,6 +171,33 @@ func (c *Client) SetSessionID(id string) {
 	c.mu.Unlock()
 }
 
+// Identify records a user identity + traits that get merged into every
+// subsequent Track() call's dims (as user_id/<trait keys>) until the next
+// Identify call or process restart — the Go port of the CDN script's
+// Eye.identify(), for cross-SDK parity. Not DOM-based (Go has no DOM): this
+// is the one auto-enrichment concept that actually carries over server-side.
+func (c *Client) Identify(userID string, traits map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.userID = userID
+	c.traits = traits
+}
+
+func (c *Client) withIdentity(dims map[string]any) map[string]any {
+	if c.userID == "" {
+		return dims
+	}
+	out := make(map[string]any, len(dims)+len(c.traits)+1)
+	for k, v := range dims {
+		out[k] = v
+	}
+	for k, v := range c.traits {
+		out[k] = v
+	}
+	out["user_id"] = c.userID
+	return out
+}
+
 func randomEventID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
@@ -205,7 +234,7 @@ func (c *Client) Track(name string, payload, dims map[string]any) error {
 		EventName: name,
 		ClientTS:  time.Now().UnixMilli(),
 		Payload:   payload,
-		Dims:      dims,
+		Dims:      c.withIdentity(dims),
 	}
 	if len(c.buffer) >= c.opts.MaxBufferSize {
 		c.buffer = c.buffer[1:]

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "sync:cdn": "cp ../web-sdk/dist/eye.min.js public/cdn-eye.min.js && cp ../web-sdk/dist/eye.min.js.map public/cdn-eye.min.js.map"
   },
   "dependencies": {
     "next": "16.4.5",

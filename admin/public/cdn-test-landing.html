@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eye CDN test landing</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  header { margin-bottom: 1.5rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+  .muted { color: #888; font-size: 0.85rem; }
+  .config { background: color-mix(in srgb, currentColor 6%, transparent); border-radius: 8px; padding: 0.75rem 1rem; font-family: ui-monospace, monospace; font-size: 0.8rem; margin-bottom: 1.5rem; white-space: pre-wrap; word-break: break-all; }
+  section { margin-bottom: 1.5rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+  button { padding: 0.5rem 0.9rem; border-radius: 6px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); background: color-mix(in srgb, currentColor 4%, transparent); cursor: pointer; font-size: 0.85rem; }
+  button:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+  a.dl-link { font-size: 0.85rem; }
+  video { max-width: 280px; display: block; margin-top: 0.5rem; }
+  #log { background: #111; color: #0f0; font-family: ui-monospace, monospace; font-size: 0.75rem; padding: 0.75rem; border-radius: 8px; height: 280px; overflow-y: auto; white-space: pre-wrap; }
+  .status { font-weight: 600; }
+  .status.ok { color: #2a7; }
+  .status.err { color: #c33; }
+  #scroll-filler { height: 1400px; background: linear-gradient(to bottom, transparent, color-mix(in srgb, currentColor 4%, transparent)); border-radius: 8px; margin-top: 1rem; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Eye CDN test landing</h1>
+  <p class="muted">A plain static page — no framework, no build step — loading the CDN script exactly the way a real customer site would.</p>
+</header>
+
+<div id="config" class="config">loading config…</div>
+
+<section>
+  <strong>Status:</strong> <span id="status" class="status">initializing…</span>
+</section>
+
+<section>
+  <strong>Try things that fire auto-tracked events:</strong>
+  <div class="row">
+    <button data-eye-event="manual_cta">Click me (data-eye-event)</button>
+    <a href="https://example.com" target="_blank" rel="noopener">outbound link</a>
+    <a href="/sample.pdf" class="dl-link">file download link</a>
+  </div>
+  <form id="demo-form" class="row" onsubmit="return false">
+    <input name="email" placeholder="email for form_submit test" />
+    <button type="submit">Submit form</button>
+  </form>
+  <form class="row" role="search" onsubmit="return false">
+    <input type="search" name="q" placeholder="type + enter for search test" />
+    <button type="submit">Search</button>
+  </form>
+  <video controls width="280" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"></video>
+  <p class="muted">Select some of this text and copy it (⌘/Ctrl+C) to test the "copy" event. Sit idle for 10s to test the "idle" event (this page uses a short 10s timeout, not the 30s default).</p>
+  <div id="scroll-filler">keep scrolling down to trigger scroll_depth…</div>
+</section>
+
+<section>
+  <strong>Manual track:</strong>
+  <div class="row">
+    <button id="btn-manual-track">Eye.track("manual_test_event")</button>
+    <button id="btn-identify">Eye.identify("test-user-1", &#123;plan:"pro"&#125;)</button>
+    <button id="btn-flush">Eye.flush()</button>
+  </div>
+</section>
+
+<section>
+  <strong>Event log:</strong>
+  <div id="log"></div>
+</section>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const tenant = params.get("tenant") || "";
+  const apiKey = params.get("apiKey") || "";
+  const endpoint = params.get("endpoint") || "http://localhost:8080";
+  const scriptUrl = params.get("script") || "/cdn-eye.min.js";
+
+  document.getElementById("config").textContent =
+    "tenant:   " + tenant + "\n" +
+    "endpoint: " + endpoint + "\n" +
+    "script:   " + scriptUrl + "\n" +
+    "apiKey:   " + (apiKey ? apiKey.slice(0, 6) + "…" + apiKey.slice(-4) : "(none)");
+
+  const logEl = document.getElementById("log");
+  const statusEl = document.getElementById("status");
+  function log(...args) {
+    const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    logEl.textContent += line + "\n";
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  const origInfo = console.info, origWarn = console.warn, origErr = console.error;
+  console.info = (...a) => { log("[info]", ...a); origInfo(...a); };
+  console.warn = (...a) => { log("[warn]", ...a); origWarn(...a); };
+  console.error = (...a) => { log("[error]", ...a); origErr(...a); };
+
+  if (!tenant || !apiKey) {
+    statusEl.textContent = "missing tenant/apiKey in URL — open this from the admin CDN Test page";
+    statusEl.className = "status err";
+  } else {
+    const script = document.createElement("script");
+    script.src = scriptUrl;
+    script.onload = () => {
+      try {
+        window.Eye.init({
+          tenant,
+          apiKey,
+          endpoint,
+          debug: true,
+          idleTimeoutMs: 10000,
+        });
+        statusEl.textContent = "Eye.init() called — watch the log below";
+        statusEl.className = "status ok";
+      } catch (e) {
+        statusEl.textContent = "Eye.init() threw: " + e.message;
+        statusEl.className = "status err";
+      }
+    };
+    script.onerror = () => {
+      statusEl.textContent = "failed to load script from " + scriptUrl;
+      statusEl.className = "status err";
+    };
+    document.head.appendChild(script);
+  }
+
+  document.getElementById("btn-manual-track").addEventListener("click", () => {
+    window.Eye?.track("manual_test_event", { source: "cdn-test-landing" });
+  });
+  document.getElementById("btn-identify").addEventListener("click", () => {
+    window.Eye?.identify("test-user-1", { plan: "pro" });
+    log("[info] identified as test-user-1");
+  });
+  document.getElementById("btn-flush").addEventListener("click", () => {
+    window.Eye?.flush();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+name: Publish CDN bundle
+
+# Builds web-sdk/src/cdn.ts into a single minified IIFE and publishes it to
+# the `cdn` branch, which jsDelivr serves globally with no extra infra:
+#   https://cdn.jsdelivr.net/gh/<owner>/<repo>@cdn/eye.min.js
+# (also reachable, unminified by a CDN but still live, straight off GitHub at
+#   https://raw.githubusercontent.com/<owner>/<repo>/cdn/eye.min.js )
+# jsDelivr fronts the `cdn` branch's current HEAD automatically — no need to
+# purge a cache or bump a version for a plain `@cdn` URL; pin an immutable
+# `@<commit-sha>` URL instead when a page wants to freeze a specific build.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web-sdk/src/**"
+      - ".github/workflows/publish-cdn.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+
+      - name: Install web-sdk dependencies
+        run: cd web-sdk && npm install
+
+      - name: Type-check the CDN entry point
+        run: cd web-sdk && npx tsc --noEmit --lib es2020,dom --target es2020 --module es2020 --moduleResolution bundler src/cdn.ts
+
+      - name: Build the CDN bundle
+        run: cd web-sdk && npm run build:cdn
+
+      - name: Record build provenance
+        run: |
+          mkdir -p cdn-publish
+          cp web-sdk/dist/eye.min.js cdn-publish/eye.min.js
+          cp web-sdk/dist/eye.min.js.map cdn-publish/eye.min.js.map
+          echo "{\"commit\":\"${GITHUB_SHA}\",\"builtAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > cdn-publish/build-info.json
+
+      - name: Publish to the cdn branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./cdn-publish
+          publish_branch: cdn
+          force_orphan: true
+          commit_message: "cdn: publish eye.min.js built from ${{ github.sha }}"
