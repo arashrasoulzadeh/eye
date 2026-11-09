@@ -27,6 +27,12 @@ var IngestErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "i
 // value.
 var StreamQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{Name: "stream_queue_depth"})
 
+// IngestSampleRate reports the Phase 8 SamplingController's current accept
+// rate (1.0 normally, dropping as StreamQueueDepth rises) so the adaptive
+// sampling behavior is directly observable, not just inferred from dropped
+// counts.
+var IngestSampleRate = prometheus.NewGauge(prometheus.GaugeOpts{Name: "ingest_sample_rate"})
+
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate)
 }

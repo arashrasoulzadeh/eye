@@ -16,11 +16,6 @@
 ## Phase 10 — Mobile & Server SDKs
 - [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
 
-## Phase 11 — Compliance & DR
-- [ ] GDPR erasure: delete by session/user key
-- [ ] Automated S3 snapshots
-- [ ] Restore drill
-
 ## Phase 12 — Admin Panel (Next.js)
 - [ ] `/settings` — retention, sampling, rate limits — still read-only honest display only; no update API exists yet, so no editable controls were added
 

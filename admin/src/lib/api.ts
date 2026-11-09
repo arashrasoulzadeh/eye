@@ -15,6 +15,7 @@ export type Event = {
 };
 export type Schema = { ID: string; TenantID: string; Name: string; Version: number; Definition: string; CreatedAt: number };
 export type Metrics = { events: number; sessions: number; tenants: number };
+export type RuntimeSettings = { ID: number; RetentionHours: number; RateLimitPerSecond: number; UpdatedAt: number };
 export type Cohort = { ID: string; TenantID: string; Name: string; EventName: string; MinCount: number; CreatedAt: number; UpdatedAt: number };
 export type AlertRule = {
   ID: string;
@@ -128,6 +129,12 @@ export const api = {
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
     remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),
     setEnabled: (id: string, enabled: boolean) => req<AlertRule>(`alerts/${id}/${enabled ? "enable" : "disable"}`, { method: "POST" }),
+  },
+
+  settings: {
+    get: () => req<RuntimeSettings>("settings"),
+    update: (partial: { retention_hours?: number; rate_limit_per_second?: number }) =>
+      req<RuntimeSettings>("settings", { method: "PUT", body: JSON.stringify(partial) }),
   },
 
   ingest: {

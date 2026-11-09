@@ -13,6 +13,7 @@ type Config struct {
 	AdminKey       string `mapstructure:"admin_key"`
 	APIKeySalt     string `mapstructure:"api_key_salt"`
 	RetentionHours int    `mapstructure:"retention_hours"`
+	SnapshotDir    string `mapstructure:"snapshot_dir"`
 }
 
 func Load() (*Config, error) {
@@ -34,6 +35,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("api_key_salt", "dev-insecure-salt")
 	viper.SetDefault("admin_key", "dev-insecure-admin-key")
 	viper.SetDefault("retention_hours", 24*30)
+	viper.SetDefault("snapshot_dir", "./snapshots")
 	c := &Config{}
 	if err := viper.Unmarshal(c); err != nil {
 		return nil, err

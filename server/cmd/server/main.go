@@ -65,6 +65,8 @@ func main() {
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	mux.Handle("/sessions", adminAuth(&handler.SessionsHandler{DB: db}))
+	complianceSvc := &service.ComplianceService{DB: db}
+	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))
 	qs := &service.QueryService{DB: db}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
@@ -76,7 +78,19 @@ func main() {
 	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	mux.Handle("/experiments", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
-	ih := &handler.IngestHandler{Svc: svc}
+	// Phase 12: retention + the ingest rate limit become genuinely
+	// DB-backed and live-updatable via PUT /settings (see settings.go) —
+	// not just env-file values read once at startup.
+	settingsSvc := &service.SettingsService{Repo: repo, DefaultRetentionHours: cfg.RetentionHours, DefaultRateLimitPerSecond: 50}
+	mux.Handle("/settings", adminAuth(&handler.SettingsHandler{Svc: settingsSvc}))
+	liveLimiter := &service.LiveRateLimiter{Provider: settingsSvc}
+
+	// Phase 8: adaptive sampling under load. The controller's rate is driven
+	// by the Phase 7 stream's queue depth (see the ticker below) and shared
+	// across both ingest paths so a backed-up async queue also throttles the
+	// synchronous one, since they feed the same downstream storage.
+	sampler := service.NewSamplingController()
+	ih := &handler.IngestHandler{Svc: svc, Sampler: sampler, Limiter: liveLimiter}
 	mux.Handle("/ingest", ih)
 
 	// Phase 7: an async ingest path backed by an in-process stream
@@ -88,7 +102,7 @@ func main() {
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)
-	mux.Handle("/ingest/stream", &handler.IngestHandler{Svc: streamPipeline})
+	mux.Handle("/ingest/stream", &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter})
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
@@ -116,7 +130,7 @@ func main() {
 
 	retentionCtx, cancelRetention := context.WithCancel(context.Background())
 	defer cancelRetention()
-	go storage.RunRetentionJob(retentionCtx, storage.NewTimescaleRepo(db), time.Duration(cfg.RetentionHours)*time.Hour, time.Hour, logger)
+	go storage.RunRetentionJob(retentionCtx, storage.NewTimescaleRepo(db), settingsSvc.CurrentRetention, time.Hour, logger)
 
 	cohortCtx, cancelCohort := context.WithCancel(context.Background())
 	defer cancelCohort()
@@ -132,6 +146,15 @@ func main() {
 	alertCtx, cancelAlert := context.WithCancel(context.Background())
 	defer cancelAlert()
 	go service.RunAlertJob(alertCtx, alertSvc, &service.HTTPWebhookClient{}, time.Minute, logger)
+
+	// Phase 11: periodic local-filesystem snapshots (see snapshot.go for why
+	// this is a local substitute, not real S3).
+	snapshotSvc := &service.SnapshotService{DB: db, DBPath: cfg.DBPath, Store: &service.LocalFSSnapshotStore{Dir: cfg.SnapshotDir}}
+	snapshotCtx, cancelSnapshot := context.WithCancel(context.Background())
+	defer cancelSnapshot()
+	go service.RunSnapshotJob(snapshotCtx, snapshotSvc, time.Hour, func(err error) {
+		logger.Error("snapshot job failed", "err", err)
+	})
 
 	// Phase 6: gRPC server-streaming QueryStream, backed by the same
 	// DB-connected QueryService as the REST /query endpoint. This process

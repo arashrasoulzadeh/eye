@@ -8,7 +8,12 @@ import (
 
 // RunRetentionJob periodically deletes events older than retention, until
 // ctx is cancelled. Intended to be launched with `go RunRetentionJob(...)`.
-func RunRetentionJob(ctx context.Context, repo Repository, retention, interval time.Duration, logger *slog.Logger) {
+//
+// retentionFn is called fresh on every tick rather than taking a fixed
+// time.Duration, so a live settings change (service.SettingsService,
+// backing the admin /settings PUT endpoint) takes effect on the very next
+// tick instead of requiring a process restart.
+func RunRetentionJob(ctx context.Context, repo Repository, retentionFn func() time.Duration, interval time.Duration, logger *slog.Logger) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -16,7 +21,7 @@ func RunRetentionJob(ctx context.Context, repo Repository, retention, interval t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n, err := repo.DeleteExpiredEvents(retention)
+			n, err := repo.DeleteExpiredEvents(retentionFn())
 			if err != nil {
 				if logger != nil {
 					logger.Error("retention job failed", "err", err)

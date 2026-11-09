@@ -1,38 +1,96 @@
 "use client";
+import { useEffect, useState } from "react";
+import { api, ApiError, RuntimeSettings } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
+import { Button } from "@/components/Button";
+import { Input, Label } from "@/components/Input";
+import { useToast } from "@/components/Toast";
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState<RuntimeSettings | null>(null);
+  const [retentionHours, setRetentionHours] = useState(0);
+  const [rateLimitPerSecond, setRateLimitPerSecond] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { push } = useToast();
+
+  async function load() {
+    setLoading(true);
+    try {
+      const s = await api.settings.get();
+      setSettings(s);
+      setRetentionHours(s.RetentionHours);
+      setRateLimitPerSecond(s.RateLimitPerSecond);
+    } catch (e) {
+      push("error", e instanceof ApiError ? e.message : "Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const s = await api.settings.update({ retention_hours: retentionHours, rate_limit_per_second: rateLimitPerSecond });
+      setSettings(s);
+      push("success", "Settings saved — the retention job and ingest rate limit pick this up immediately, no restart needed");
+    } catch (e) {
+      push("error", e instanceof ApiError ? e.message : "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Settings</h1>
-      <p className="mt-1 text-sm text-fg-muted">Current backend configuration (read-only — there is no settings-update API yet).</p>
+      <p className="mt-1 text-sm text-fg-muted">
+        Retention and the ingest rate limit are DB-backed and live: a save here takes effect on the retention job&apos;s
+        next tick and the very next ingest request, not just on the next server restart.
+      </p>
 
       <Card className="mt-6">
-        <CardHeader title="Backend" />
-        <dl className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">Admin auth</dt>
-            <dd className="mt-1 text-sm text-fg">x-admin-key header, checked by the Go backend's AdminAuth middleware</dd>
+        <CardHeader title="Retention &amp; rate limit" />
+        <div className="flex flex-wrap items-end gap-4 p-5">
+          <div className="w-48">
+            <Label>Retention (hours)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={retentionHours}
+              onChange={(e) => setRetentionHours(Math.max(1, Number(e.target.value) || 1))}
+              disabled={loading}
+            />
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">Storage</dt>
-            <dd className="mt-1 text-sm text-fg">SQLite via GORM (dev) — see CLAUDE.md</dd>
+          <div className="w-48">
+            <Label>Ingest rate limit (events/sec)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={rateLimitPerSecond}
+              onChange={(e) => setRateLimitPerSecond(Math.max(1, Number(e.target.value) || 1))}
+              disabled={loading}
+            />
           </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">Retention</dt>
-            <dd className="mt-1 text-sm text-fg">Configured via RETENTION_HOURS env var on the server; not yet editable from this panel</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">Rate limiting / sampling</dt>
-            <dd className="mt-1 text-sm text-fg">Enforced server-side (per-IP + per-tenant token bucket); no admin API to change limits yet</dd>
-          </div>
-        </dl>
+          <Button onClick={save} loading={saving} disabled={loading}>
+            Save
+          </Button>
+        </div>
+        {settings && (
+          <p className="px-5 pb-5 text-xs text-fg-muted">
+            Last updated: {settings.UpdatedAt ? new Date(settings.UpdatedAt * 1000).toLocaleString() : "never (showing defaults)"}
+          </p>
+        )}
       </Card>
 
       <Card className="mt-6 border-dashed">
         <div className="p-5 text-sm text-fg-muted">
-          Editable settings (retention, sampling, rate limits via API) are not implemented — there is no backend
-          endpoint for it yet. We're not shipping controls here that wouldn't actually do anything.
+          Adaptive sampling (Phase 8) is driven by live system load, not a manual setting here — see the dashboard&apos;s
+          sample-rate metric. There is no admin control for it, by design.
         </div>
       </Card>
     </div>

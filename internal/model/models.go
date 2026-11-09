@@ -131,3 +131,16 @@ type AlertRule struct {
 	CreatedAt      int64
 	UpdatedAt      int64
 }
+
+// RuntimeSettings is a singleton row (ID is always 1) holding
+// admin-editable, live-updatable backend settings: retention and the
+// ingest rate limit. Unlike internal/config.Config (env-file values read
+// once at process startup), a change here takes effect immediately for
+// the retention job (next tick) and the ingest rate limiter (next
+// request) — see service.SettingsService.
+type RuntimeSettings struct {
+	ID                  uint `gorm:"primaryKey"`
+	RetentionHours      int
+	RateLimitPerSecond  int
+	UpdatedAt           int64
+}

@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ func TestRunRetentionJobDeletesOnTick(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go storage.RunRetentionJob(ctx, repo, 24*time.Hour, 10*time.Millisecond, nil)
+	go storage.RunRetentionJob(ctx, repo, func() time.Duration { return 24 * time.Hour }, 10*time.Millisecond, nil)
 	defer cancel()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -50,4 +51,57 @@ func TestRunRetentionJobDeletesOnTick(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("expected retention job to delete the expired event within the deadline")
+}
+
+// TestRunRetentionJobObservesLiveRetentionChange proves retentionFn is
+// re-read on every tick: an event that's too young to be deleted under a
+// long retention window gets deleted once the caller (standing in for a
+// live settings update) shortens the window, without restarting the job.
+func TestRunRetentionJobObservesLiveRetentionChange(t *testing.T) {
+	dsn := fmt.Sprintf("file:retention_live_test_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	repo := storage.NewTimescaleRepo(db)
+	if err := repo.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateSession(&model.Session{ID: "s1", TenantID: "t1"}); err != nil {
+		t.Fatal(err)
+	}
+	// 2 hours old: survives a 24h retention window, but not a 1h one.
+	e := &model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "x", IngestTS: time.Now().Add(-2 * time.Hour)}
+	if err := repo.InsertEvents([]*model.Event{e}); err != nil {
+		t.Fatal(err)
+	}
+
+	var live atomic.Int64
+	live.Store(int64(24 * time.Hour))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go storage.RunRetentionJob(ctx, repo, func() time.Duration { return time.Duration(live.Load()) }, 10*time.Millisecond, nil)
+
+	time.Sleep(100 * time.Millisecond)
+	events, err := repo.GetEvents("t1", "s1", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected the event to survive the 24h window, got %d events", len(events))
+	}
+
+	// Simulate a live settings update shortening retention to 1h.
+	live.Store(int64(time.Hour))
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		events, err := repo.GetEvents("t1", "s1", 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(events) == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expected the retention job to observe the shortened live retention window and delete the event")
 }
