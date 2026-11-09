@@ -24,10 +24,10 @@
 - [ ] Docker Compose (dev) + K8s manifests (optional) — not built; CLAUDE.md's dev overrides explicitly rule out Docker for local dev (SQLite only), and no production Postgres/Timescale/Kafka deployment exists yet to write real manifests against, so nothing here would be verifiable rather than guesswork
 
 ## Phase 10 — Mobile & Server SDKs
-- [ ] iOS (Swift) SDK port
-- [ ] Android (Kotlin) SDK port
-- [ ] Go server SDK
-- [ ] Parity tests
+- [x] iOS (Swift) SDK port — `sdk-swift/` (`EyeSDK` package): `EyeClient` ports web-sdk's session persistence (via an injectable `KeyValueStore`, `UserDefaults`-backed by default), bounded ring buffer, and size/time-threshold flush batching; `swift test` passes 5 tests (ring buffer eviction, size/time-threshold flush, session create+persist, flush-clears-buffer) using a mocked `URLProtocol`, no real network — verified with the Swift toolchain actually present in this environment (`swift --version` → Swift 6.4)
+- [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found), and unverified source wasn't worth writing on top of the iOS port already covering the same porting exercise
+- [x] Go server SDK — `sdk-go/` (`github.com/eye/eye/sdk-go`, its own Go module so it doesn't affect the root module's build): `Client` ports `EnsureSession`/`Track`/`Flush` with the same ring buffer + batching semantics, calling the real `/sessions`+`/ingest` REST endpoints; `go test ./...` passes (ring buffer eviction, size/time-threshold flush, session create+cache, and an `httptest.Server` integration test)
+- [x] Parity tests — `tests/fixtures/sdk_ring_buffer_parity.json`, a shared fixture driven through both `web-sdk`'s `EyeClient` (`tests/web/parity.test.ts`, vitest) and `sdk-go`'s `Client` (`sdk-go/parity_test.go`, go test), asserting identical ring-buffer eviction order for the same inputs across both real implementations; both pass. (Swift isn't in this parity fixture — its ring-buffer behavior is covered by its own unit test instead, since adding a third JSON-fixture runner was out of scope here.)
 
 ## Phase 11 — Compliance & DR
 - [ ] GDPR erasure: delete by session/user key

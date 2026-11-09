@@ -1,0 +1,26 @@
+{
+  "description": "Shared ring-buffer parity fixture: drives the same track() calls through both the TS web-sdk and the Go sdk-go EyeClient ports with identical maxBufferSize/batchSize, asserting both end up with the same remaining event names in the same order.",
+  "cases": [
+    {
+      "name": "no eviction, under capacity",
+      "maxBufferSize": 5,
+      "batchSize": 0,
+      "trackNames": ["a", "b", "c"],
+      "expectedRemaining": ["a", "b", "c"]
+    },
+    {
+      "name": "eviction at capacity",
+      "maxBufferSize": 3,
+      "batchSize": 0,
+      "trackNames": ["e1", "e2", "e3", "e4", "e5"],
+      "expectedRemaining": ["e3", "e4", "e5"]
+    },
+    {
+      "name": "exact capacity, no eviction",
+      "maxBufferSize": 4,
+      "batchSize": 0,
+      "trackNames": ["w", "x", "y", "z"],
+      "expectedRemaining": ["w", "x", "y", "z"]
+    }
+  ]
+}
