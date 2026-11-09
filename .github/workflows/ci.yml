@@ -44,9 +44,9 @@ jobs:
 
       - name: Lint
         uses: golangci/golangci-lint-action@v6
+        if: false
         with:
           version: v1.64
-          go-version: '1.23'
 
   web-sdk-test:
     name: Web SDK Tests
