@@ -35,11 +35,11 @@
 - [ ] Restore drill
 
 ## Phase 12 — Admin Panel (Next.js)
-- [ ] Pages:
-  - [ ] `/cohorts` — define segment rules — no backend (Phase 6); explicit "not implemented" placeholder, no fake data
-  - [ ] `/alerts` — threshold rules + webhook config — no backend (Phase 8); explicit "not implemented" placeholder
-  - [ ] `/settings` — retention, sampling, rate limits — read-only honest display only; no update API exists yet, so no editable controls were added
-- [ ] TDD: Playwright e2e for login + CRUD flows — verified manually end-to-end in the browser instead; no Playwright suite added
+- [x] Pages:
+  - [x] `/cohorts` — create/list rule-based cohorts (event_name + min_count) and trigger on-demand materialization, showing the resulting member count; no delete/disable (CohortService exposes none)
+  - [x] `/alerts` — create/list/enable/disable/delete threshold rules with a webhook URL; shows enabled state and last-fired time (added `AlertService.SetEnabled` + `POST /alerts/{id}/enable|disable` to support the toggle)
+  - [ ] `/settings` — retention, sampling, rate limits — still read-only honest display only; no update API exists yet, so no editable controls were added
+- [x] TDD: Playwright e2e for login + CRUD flows — `admin/e2e/login-and-tenant-crud.spec.ts` runs for real (Chromium, headless) against a live Go backend + Next.js dev server started by `playwright.config.ts`'s `webServer`, covering login → create tenant → see it listed → delete it; run via `npm run test:e2e` in `admin/`
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Funnel analysis API (ordered event steps, conversion rates)

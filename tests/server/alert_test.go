@@ -74,6 +74,28 @@ func TestAlertServiceCRUD(t *testing.T) {
 	}
 }
 
+func TestAlertServiceSetEnabled(t *testing.T) {
+	db := newAlertTestDB(t)
+	svc := &service.AlertService{DB: db}
+	rule, _ := svc.Create("t1", "purchase", "", "count", 5, "https://example.com/hook")
+
+	disabled, err := svc.SetEnabled(rule.ID, false)
+	if err != nil {
+		t.Fatalf("set enabled false: %v", err)
+	}
+	if disabled.Enabled {
+		t.Fatal("expected rule to be disabled")
+	}
+
+	enabled, err := svc.SetEnabled(rule.ID, true)
+	if err != nil {
+		t.Fatalf("set enabled true: %v", err)
+	}
+	if !enabled.Enabled {
+		t.Fatal("expected rule to be enabled")
+	}
+}
+
 func TestAlertServiceGetMissing(t *testing.T) {
 	db := newAlertTestDB(t)
 	svc := &service.AlertService{DB: db}

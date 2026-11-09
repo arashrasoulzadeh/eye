@@ -22,6 +22,18 @@ type alertRuleBody struct {
 func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/alerts"), "/")
 
+	if r.Method == http.MethodPost && (strings.HasSuffix(path, "/enable") || strings.HasSuffix(path, "/disable")) {
+		enabled := strings.HasSuffix(path, "/enable")
+		id := strings.TrimSuffix(strings.TrimSuffix(path, "/enable"), "/disable")
+		rule, err := h.Svc.SetEnabled(id, enabled)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(rule)
+		return
+	}
+
 	if path != "" {
 		switch r.Method {
 		case http.MethodGet:

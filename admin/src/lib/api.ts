@@ -15,6 +15,21 @@ export type Event = {
 };
 export type Schema = { ID: string; TenantID: string; Name: string; Version: number; Definition: string; CreatedAt: number };
 export type Metrics = { events: number; sessions: number; tenants: number };
+export type Cohort = { ID: string; TenantID: string; Name: string; EventName: string; MinCount: number; CreatedAt: number; UpdatedAt: number };
+export type AlertRule = {
+  ID: string;
+  TenantID: string;
+  EventName: string;
+  DimsKey: string;
+  Metric: string;
+  Threshold: number;
+  WebhookURL: string;
+  Enabled: boolean;
+  LastFiredAt: number;
+  LastFiredCount: number;
+  CreatedAt: number;
+  UpdatedAt: number;
+};
 
 class ApiError extends Error {
   status: number;
@@ -94,6 +109,25 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ tenant_id: tenantId, name, definition }),
       }),
+  },
+
+  cohorts: {
+    list: (tenantId: string) => req<Cohort[]>(`cohorts?tenant_id=${encodeURIComponent(tenantId)}`),
+    create: (tenantId: string, name: string, eventName: string, minCount: number) =>
+      req<Cohort>("cohorts", {
+        method: "POST",
+        body: JSON.stringify({ tenant_id: tenantId, name, event_name: eventName, min_count: minCount }),
+      }),
+    materialize: (id: string) => req<{ members: number }>(`cohorts/${id}/materialize`, { method: "POST" }),
+    members: (id: string) => req<string[]>(`cohorts/${id}/members`),
+  },
+
+  alerts: {
+    list: (tenantId: string) => req<AlertRule[]>(`alerts?tenant_id=${encodeURIComponent(tenantId)}`),
+    create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
+      req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
+    remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),
+    setEnabled: (id: string, enabled: boolean) => req<AlertRule>(`alerts/${id}/${enabled ? "enable" : "disable"}`, { method: "POST" }),
   },
 
   ingest: {

@@ -80,6 +80,20 @@ func (a *AlertService) Delete(id string) error {
 	return a.DB.Delete(&model.AlertRule{}, "id = ?", id).Error
 }
 
+// SetEnabled toggles whether a rule is evaluated by RunAlertJob.
+func (a *AlertService) SetEnabled(id string, enabled bool) (*model.AlertRule, error) {
+	rule, err := a.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	rule.Enabled = enabled
+	rule.UpdatedAt = time.Now().Unix()
+	if err := a.DB.Save(rule).Error; err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
 // Evaluate checks whether rule's threshold is currently met against the
 // materialized AggregateCount totals. Only "count" is a supported metric for
 // now. If rule.DimsKey is empty, counts are summed across every distinct
