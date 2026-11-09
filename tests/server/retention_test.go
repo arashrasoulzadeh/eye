@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,7 +14,14 @@ import (
 )
 
 func TestRunRetentionJobDeletesOnTick(t *testing.T) {
-	db, _ := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	// A plain ":memory:" DSN gives each pooled connection its own empty DB,
+	// which breaks once the driver opens more than one connection; a bare
+	// "cache=shared" DSN fixes that but shares the DB by name across the
+	// whole process, colliding with other runs of this same test (e.g.
+	// `-count=N`, parallel packages). Scope the shared cache to a unique
+	// name per run instead.
+	dsn := fmt.Sprintf("file:retention_test_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	repo := storage.NewTimescaleRepo(db)
 	if err := repo.Migrate(); err != nil {
 		t.Fatal(err)

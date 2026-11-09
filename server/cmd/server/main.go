@@ -59,6 +59,9 @@ func main() {
 	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))
 	qs := &service.QueryService{DB: db}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
+	cohortSvc := &service.CohortService{DB: db}
+	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
+	mux.Handle("/cohorts/", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
@@ -66,6 +69,10 @@ func main() {
 	retentionCtx, cancelRetention := context.WithCancel(context.Background())
 	defer cancelRetention()
 	go storage.RunRetentionJob(retentionCtx, storage.NewTimescaleRepo(db), time.Duration(cfg.RetentionHours)*time.Hour, time.Hour, logger)
+
+	cohortCtx, cancelCohort := context.WithCancel(context.Background())
+	defer cancelCohort()
+	go service.RunCohortMaterializationJob(cohortCtx, cohortSvc, 5*time.Minute, logger)
 
 	logger.Info("server starting", "addr", cfg.Addr())
 	if err := http.ListenAndServe(cfg.Addr(), cors(mux)); err != nil {

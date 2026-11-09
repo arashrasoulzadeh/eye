@@ -53,6 +53,29 @@ type Schema struct {
 	CreatedAt  int64
 }
 
+// Cohort defines a rule-based segment: sessions that triggered EventName at
+// least MinCount times belong to it. Membership is materialized separately
+// (see service.CohortService) rather than computed on every read.
+type Cohort struct {
+	ID        string `gorm:"primaryKey"`
+	TenantID  string `gorm:"index"`
+	Name      string
+	EventName string
+	MinCount  int
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+// CohortMembership is one (cohort, session) pairing produced by the most
+// recent materialization run. Materialize() replaces a cohort's rows
+// wholesale rather than diffing, so membership always reflects a single
+// point-in-time computation.
+type CohortMembership struct {
+	CohortID   string `gorm:"primaryKey"`
+	SessionID  string `gorm:"primaryKey"`
+	ComputedAt int64
+}
+
 type Experiment struct {
 	ID        string `gorm:"primaryKey"`
 	TenantID  string
