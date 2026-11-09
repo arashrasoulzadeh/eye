@@ -8,3 +8,21 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   };
 }
+
+// jsdom has no EventSource; LiveCounter/LiveSession components use it for SSE.
+if (typeof globalThis.EventSource === "undefined") {
+  globalThis.EventSource = class EventSource {
+    constructor() {
+      this.readyState = 0;
+      this.url = "";
+      this.onopen = null;
+      this.onmessage = null;
+      this.onerror = null;
+      setTimeout(() => this.onerror?.(new Event("error")), 0);
+    }
+    close() { this.readyState = 2; }
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent() { return true; }
+  };
+}

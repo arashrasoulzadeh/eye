@@ -52,6 +52,28 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
+        working-directory: tests/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+  web-sdk-build:
+    name: Web SDK Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
         working-directory: web-sdk
     steps:
       - uses: actions/checkout@v4
@@ -64,9 +86,6 @@ jobs:
 
       - name: Install
         run: npm ci
-
-      - name: Test
-        run: npm test
 
       - name: Build CDN
         run: npm run build:cdn
