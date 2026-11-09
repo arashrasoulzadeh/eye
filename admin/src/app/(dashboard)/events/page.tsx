@@ -8,7 +8,7 @@ import { Combobox, ComboOption } from "@/components/Combobox";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
-import { CopyButton } from "@/components/CopyButton";
+import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
 
 export default function EventsPage() {
@@ -69,8 +69,8 @@ export default function EventsPage() {
   const columns: Column<Event>[] = [
     { key: "name", header: "Event", render: (e) => <span className="font-medium text-fg">{e.EventName}</span>, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
-    { key: "session", header: "Session", render: (e) => <CopyButton value={e.SessionID} label={e.SessionID.slice(0, 10) + "…"} /> },
-    { key: "tenant", header: "Tenant", render: (e) => <CopyButton value={e.TenantID} label={e.TenantID.slice(0, 10) + "…"} /> },
+    { key: "session", header: "Session", render: (e) => <EntityLink kind="session" id={e.SessionID} /> },
+    { key: "tenant", header: "Tenant", render: (e) => <EntityLink kind="tenant" id={e.TenantID} /> },
     { key: "payload", header: "Payload", render: (e) => <JsonView value={e.Payload} /> },
     { key: "dims", header: "Dims", render: (e) => <JsonView value={e.Dims} /> },
     { key: "time", header: "Ingested", render: (e) => (e.IngestTS ? new Date(e.IngestTS).toLocaleString() : "—"), sortValue: (e) => e.IngestTS },

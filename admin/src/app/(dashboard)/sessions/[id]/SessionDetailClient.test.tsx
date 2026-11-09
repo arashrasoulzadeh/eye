@@ -1,0 +1,61 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import SessionDetailClient from "./SessionDetailClient";
+import { ToastProvider } from "@/components/Toast";
+
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ id: "s1" }),
+}));
+
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    api: {
+      tenants: { list: vi.fn() },
+      sessions: { list: vi.fn() },
+      events: { list: vi.fn() },
+    },
+  };
+});
+
+import { api } from "@/lib/api";
+
+describe("SessionDetailClient", () => {
+  beforeEach(() => {
+    vi.mocked(api.tenants.list).mockResolvedValue([{ ID: "t1", Name: "acme", APIKey: "", CreatedAt: "" }]);
+    vi.mocked(api.sessions.list).mockResolvedValue([
+      { ID: "s1", TenantID: "t1", StartedAt: "2024-01-01T00:00:00Z", LastSeen: "2024-01-01T01:00:00Z", EventCount: 2 },
+      { ID: "s2", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 0 },
+    ]);
+    vi.mocked(api.events.list).mockResolvedValue([
+      { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
+    ]);
+  });
+
+  it("shows the session's tenant (as a link) and its events, scoped to this session only", async () => {
+    render(
+      <ToastProvider>
+        <SessionDetailClient />
+      </ToastProvider>
+    );
+    await waitFor(() => expect(screen.getByText("Session")).toBeInTheDocument());
+
+    const tenantLink = screen.getByRole("link", { name: "acme" });
+    expect(tenantLink).toHaveAttribute("href", "/tenants/t1");
+
+    expect(api.events.list).toHaveBeenCalledWith({ session_id: "s1" });
+    expect(screen.getByText("Events in this session (1)")).toBeInTheDocument();
+    expect(screen.getByText("click")).toBeInTheDocument();
+  });
+
+  it("shows a not-found state for an unknown session id", async () => {
+    vi.mocked(api.sessions.list).mockResolvedValue([]);
+    render(
+      <ToastProvider>
+        <SessionDetailClient />
+      </ToastProvider>
+    );
+    await waitFor(() => expect(screen.getByText("Session not found")).toBeInTheDocument());
+  });
+});

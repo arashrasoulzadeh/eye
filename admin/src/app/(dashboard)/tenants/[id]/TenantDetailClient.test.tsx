@@ -42,6 +42,13 @@ describe("TenantDetailPage", () => {
     await waitFor(() => expect(screen.getByText("acme")).toBeInTheDocument());
     expect(screen.getByText("Sessions").nextElementSibling).toHaveTextContent("1"); // scoped to t1 only, not s2
     expect(screen.getByText(/no per-tenant retention setting/i)).toBeInTheDocument();
+
+    // The sessions table lists only this tenant's session (s1, not s2), as a
+    // real link to its detail page — not just a count.
+    expect(screen.getByText("Sessions (1)")).toBeInTheDocument();
+    const sessionLink = screen.getByRole("link", { name: /s1/ });
+    expect(sessionLink).toHaveAttribute("href", "/sessions/s1");
+    expect(screen.queryByRole("link", { name: /s2/ })).not.toBeInTheDocument();
   });
 
   it("shows a not-found state for an unknown tenant id", async () => {

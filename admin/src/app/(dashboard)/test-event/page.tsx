@@ -5,7 +5,7 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input, Label, Select, Textarea } from "@/components/Input";
 import { Badge } from "@/components/Badge";
-import { CopyButton } from "@/components/CopyButton";
+import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
 
 export default function TestEventPage() {
@@ -246,7 +246,7 @@ export default function TestEventPage() {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-fg-muted">
                   <span>session</span>
-                  <CopyButton value={e.SessionID} label={e.SessionID.slice(0, 10) + "…"} />
+                  <EntityLink kind="session" id={e.SessionID} />
                 </div>
                 <pre className="mt-1 overflow-auto rounded-md bg-surface-2 p-2 text-xs text-fg">{e.Payload}</pre>
               </div>

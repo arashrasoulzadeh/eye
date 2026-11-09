@@ -5,6 +5,8 @@ import { api, Tenant, Session, Event, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { CopyButton } from "@/components/CopyButton";
+import { EntityLink } from "@/components/EntityLink";
+import { DataTable, Column } from "@/components/DataTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LineTrend, ChartPoint } from "@/components/Chart";
 import { useToast } from "@/components/Toast";
@@ -66,6 +68,13 @@ export default function TenantDetailClient() {
 
   const eventCount = useMemo(() => events.length, [events]);
 
+  const sessionColumns: Column<Session>[] = [
+    { key: "id", header: "Session ID", render: (s) => <EntityLink kind="session" id={s.ID} truncate={14} /> },
+    { key: "events", header: "Events", render: (s) => s.EventCount, sortValue: (s) => s.EventCount },
+    { key: "started", header: "Started", render: (s) => (s.StartedAt ? new Date(s.StartedAt).toLocaleString() : "—"), sortValue: (s) => s.StartedAt },
+    { key: "last_seen", header: "Last seen", render: (s) => (s.LastSeen ? new Date(s.LastSeen).toLocaleString() : "—"), sortValue: (s) => s.LastSeen },
+  ];
+
   async function rotate() {
     if (!tenant) return;
     try {
@@ -122,6 +131,11 @@ export default function TenantDetailClient() {
         <div className="p-5">
           <LineTrend data={eventsPerHour(events)} />
         </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title={`Sessions (${sessions.length})`} />
+        <DataTable columns={sessionColumns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions for this tenant yet." />
       </Card>
 
       <Card className="mt-6">
