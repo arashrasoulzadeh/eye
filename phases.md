@@ -40,10 +40,10 @@
 - [x] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
 
 ## Phase 6 — Segmentation & Query API
-- [ ] Query service: filter by tenant/session/event/dims/time range
-- [ ] Cohort definitions + materialized membership (stream job)
-- [ ] gRPC streaming: `QueryStream`
-- [ ] TDD: filter correctness, pagination
+- [x] Query service: filter by tenant/session/event/dims/time range
+- [x] Cohort definitions + materialized membership — rule-based (event_name + min_count), `CohortService.Materialize` + `RunCohortMaterializationJob` ticker; this is a full on-demand recompute on each run, not a real incremental stream job (Phase 7/Kafka isn't built yet) — honest substitute, not faked
+- [ ] gRPC streaming: `QueryStream` — not implemented; `/query` is a plain REST (paginated) endpoint, no gRPC streaming RPC added yet
+- [x] TDD: filter correctness, pagination
 
 ## Phase 7 — Stream Processing & Aggregates
 - [ ] Redpanda/Kafka producer in collector
