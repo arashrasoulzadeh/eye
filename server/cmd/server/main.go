@@ -70,6 +70,10 @@ func main() {
 	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))
 	qs := &service.QueryService{DB: db}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
+	analyticsSvc := &service.AnalyticsService{DB: db}
+	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
+	mux.Handle("/export/events", adminAuth(&handler.ExportHandler{Svc: qs}))
 	cohortSvc := &service.CohortService{DB: db}
 	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
 	mux.Handle("/cohorts/", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))

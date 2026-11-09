@@ -13,13 +13,10 @@
 - [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
 
 ## Phase 14 — Advanced Analytics & Ops
-- [ ] Funnel analysis API (ordered event steps, conversion rates)
-- [ ] Retention / cohort reports (daily/weekly active, churn)
 - [ ] Real-time counters (gRPC streaming live metrics)
 - [ ] Event replay (re-ingest historical range)
 - [ ] SDK debug mode (verbose logging, local validation)
 - [ ] Webhook delivery with retries + dead-letter queue
-- [ ] Data export (CSV/JSON) per tenant
 - [ ] Schema evolution/versioning + migration tooling
 - [ ] Multi-tenant rate tiers
 - [ ] Audit log for admin actions
