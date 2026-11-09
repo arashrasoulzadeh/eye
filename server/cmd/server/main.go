@@ -78,6 +78,12 @@ func main() {
 	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	mux.Handle("/experiments", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
+	// Phase 8: adaptive sampling under load. The controller's rate is driven
+	// by the Phase 7 stream's queue depth (see the ticker below) and shared
+	// across both ingest paths so a backed-up async queue also throttles the
+	// synchronous one, since they feed the same downstream storage.
+	sampler := service.NewSamplingController()
+
 	// Phase 12: retention + the ingest rate limit become genuinely
 	// DB-backed and live-updatable via PUT /settings (see settings.go) —
 	// not just env-file values read once at startup.
@@ -85,11 +91,6 @@ func main() {
 	mux.Handle("/settings", adminAuth(&handler.SettingsHandler{Svc: settingsSvc}))
 	liveLimiter := &service.LiveRateLimiter{Provider: settingsSvc}
 
-	// Phase 8: adaptive sampling under load. The controller's rate is driven
-	// by the Phase 7 stream's queue depth (see the ticker below) and shared
-	// across both ingest paths so a backed-up async queue also throttles the
-	// synchronous one, since they feed the same downstream storage.
-	sampler := service.NewSamplingController()
 	ih := &handler.IngestHandler{Svc: svc, Sampler: sampler, Limiter: liveLimiter}
 	mux.Handle("/ingest", ih)
 
@@ -123,7 +124,9 @@ func main() {
 			case <-queueCtx.Done():
 				return
 			case <-ticker.C:
-				metrics.StreamQueueDepth.Set(float64(stream.QueueDepth()))
+				depth := stream.QueueDepth()
+				metrics.StreamQueueDepth.Set(float64(depth))
+				metrics.IngestSampleRate.Set(sampler.UpdateRate(depth))
 			}
 		}
 	}()
@@ -146,6 +149,20 @@ func main() {
 	alertCtx, cancelAlert := context.WithCancel(context.Background())
 	defer cancelAlert()
 	go service.RunAlertJob(alertCtx, alertSvc, &service.HTTPWebhookClient{}, time.Minute, logger)
+
+	// Phase 8: basic statistical (z-score over a rolling window) anomaly
+	// detection, sampled from the same materialized AggregateCount read
+	// model as the alert job — see anomaly.go's doc comments for why this is
+	// a named simple method, not "ML".
+	if err := db.AutoMigrate(&service.MetricSample{}); err != nil {
+		logger.Error("migrate failed", "err", err)
+		os.Exit(1)
+	}
+	anomalySvc := service.NewAnomalyService(db)
+	mux.Handle("/anomalies", adminAuth(&handler.AnomaliesHandler{Svc: anomalySvc}))
+	anomalyCtx, cancelAnomaly := context.WithCancel(context.Background())
+	defer cancelAnomaly()
+	go service.RunAnomalySamplingJob(anomalyCtx, anomalySvc, 5*time.Minute, logger)
 
 	// Phase 11: periodic local-filesystem snapshots (see snapshot.go for why
 	// this is a local substitute, not real S3).
