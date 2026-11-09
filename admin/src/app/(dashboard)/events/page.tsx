@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column } from "@/components/DataTable";
-import { Label } from "@/components/Input";
+import { Input, Label } from "@/components/Input";
 import { Combobox, ComboOption } from "@/components/Combobox";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -16,6 +16,8 @@ export default function EventsPage() {
   const [eventName, setEventName] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [sessionId, setSessionId] = useState("");
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -26,7 +28,15 @@ export default function EventsPage() {
   async function load() {
     setLoading(true);
     try {
-      setEvents(await api.events.list({ event_name: eventName, tenant_id: tenantId, session_id: sessionId }));
+      setEvents(
+        await api.events.list({
+          event_name: eventName,
+          tenant_id: tenantId,
+          session_id: sessionId,
+          from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
+          to_ts: toTime ? new Date(toTime).getTime() : undefined,
+        })
+      );
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load events");
     } finally {
@@ -85,6 +95,14 @@ export default function EventsPage() {
           <div className="min-w-[160px] flex-1">
             <Label>Session ID</Label>
             <Combobox value={sessionId} onChange={setSessionId} options={sessionOptions} placeholder="session id" />
+          </div>
+          <div className="min-w-[160px]">
+            <Label>From</Label>
+            <Input type="datetime-local" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+          </div>
+          <div className="min-w-[160px]">
+            <Label>To</Label>
+            <Input type="datetime-local" value={toTime} onChange={(e) => setToTime(e.target.value)} />
           </div>
           <Button onClick={load} loading={loading}>
             Apply

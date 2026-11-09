@@ -71,10 +71,19 @@ export const api = {
   },
 
   events: {
-    list: (filters: { event_name?: string; tenant_id?: string; session_id?: string } = {}) => {
-      const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v) as [string, string][]);
+    // Hits /query (not /events) because that's the endpoint that actually
+    // supports the from_ts/to_ts time-range filter (added for Phase 6);
+    // /events only ever supported event_name/tenant_id/session_id.
+    list: (
+      filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number } = {}
+    ) => {
+      const qs = new URLSearchParams(
+        Object.entries(filters)
+          .filter(([, v]) => v !== undefined && v !== "")
+          .map(([k, v]) => [k, String(v)])
+      );
       const suffix = qs.toString() ? `?${qs}` : "";
-      return req<Event[]>(`events${suffix}`);
+      return req<Event[]>(`query${suffix}`);
     },
   },
 

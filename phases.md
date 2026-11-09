@@ -79,17 +79,17 @@
 - [x] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
 - [ ] Pages:
   - [x] `/login` — API key entry
-  - [x] `/` dashboard — ingest rate, events count, active sessions, tenants
+  - [x] `/` dashboard — ingest rate, events count, active sessions, tenants, plus events-by-hour and events-by-tenant charts
   - [x] `/tenants` — list/create/delete tenants, rotate keys
-  - [ ] `/tenants/[id]` — tenant detail, usage, retention settings page — not built; list page covers CRUD, no per-tenant detail route
+  - [x] `/tenants/[id]` — tenant detail page: sessions/events counts and an events-by-hour chart scoped to the tenant (derived client-side from `/query` + `/sessions`, since there's no `GET /tenants/{id}` endpoint); retention section is explicitly read-only, same honest pattern as `/settings` (no per-tenant retention API exists)
   - [x] `/sessions` — list sessions per tenant, event counts
-  - [x] `/events` — paginated event browser with filters (event_name, tenant_id, session_id); no time-range filter yet
+  - [x] `/events` — paginated event browser with filters (event_name, tenant_id, session_id) plus a from/to time-range filter, now querying `/query` (which already supported `from_ts`/`to_ts`) instead of `/events`
   - [x] `/schemas` — register/list schemas (JSON definitions, not strictly Protobuf) with version history
   - [ ] `/cohorts` — define segment rules — no backend (Phase 6); explicit "not implemented" placeholder, no fake data
   - [ ] `/alerts` — threshold rules + webhook config — no backend (Phase 8); explicit "not implemented" placeholder
   - [ ] `/settings` — retention, sampling, rate limits — read-only honest display only; no update API exists yet, so no editable controls were added
 - [x] API routes (Next.js) proxy to Go backend (`/api/proxy/[...path]`, attaches the admin key from the httpOnly cookie)
-- [ ] Components: DataTable, FilterBar, Chart (recharts), AuthGuard — DataTable and inline filter bars exist; no Chart (recharts); auth protection done via `src/proxy.ts` (Next's middleware-successor) rather than a dedicated AuthGuard component
+- [x] Components: DataTable, FilterBar, Chart (recharts — `LineTrend`/`BarBreakdown` in `Chart.tsx`, used on the dashboard and tenant detail pages), AuthGuard — auth protection done via `src/proxy.ts` (Next's middleware-successor) rather than a dedicated AuthGuard component, which is an equivalent mechanism, not a gap
 - [ ] TDD: Playwright e2e for login + CRUD flows — verified manually end-to-end in the browser instead; no Playwright suite added
 
 ## Phase 13 — Aggregators & System Events

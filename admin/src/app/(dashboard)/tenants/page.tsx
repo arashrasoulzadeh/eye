@@ -66,7 +66,16 @@ export default function TenantsPage() {
   }
 
   const columns: Column<Tenant>[] = [
-    { key: "name", header: "Name", render: (t) => <span className="font-medium text-fg">{t.Name}</span>, sortValue: (t) => t.Name },
+    {
+      key: "name",
+      header: "Name",
+      render: (t) => (
+        <a href={`/tenants/${t.ID}`} className="font-medium text-fg hover:text-accent hover:underline">
+          {t.Name}
+        </a>
+      ),
+      sortValue: (t) => t.Name,
+    },
     { key: "id", header: "ID", render: (t) => <CopyButton value={t.ID} label={t.ID.slice(0, 10) + "…"} /> },
     { key: "created", header: "Created", render: (t) => (t.CreatedAt ? new Date(t.CreatedAt).toLocaleString() : "—"), sortValue: (t) => t.CreatedAt },
     {

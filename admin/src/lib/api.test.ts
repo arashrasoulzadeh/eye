@@ -65,6 +65,16 @@ describe("api client", () => {
     expect(locationSpy).toHaveBeenCalledWith("/login");
   });
 
+  it("events.list hits /query (not /events) and forwards from_ts/to_ts", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
+    await api.events.list({ tenant_id: "t1", from_ts: 1000, to_ts: 2000 });
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toContain("/api/proxy/query?");
+    expect(url).toContain("tenant_id=t1");
+    expect(url).toContain("from_ts=1000");
+    expect(url).toContain("to_ts=2000");
+  });
+
   it("returns null for an empty (e.g. 204) response body", async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, status: 204, text: async () => "" } as Response);
     const result = await api.tenants.remove("t1");
