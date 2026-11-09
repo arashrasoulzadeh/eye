@@ -11,9 +11,11 @@ import {
   type ChannelCredentials,
   Client,
   type ClientOptions,
+  type ClientReadableStream,
   type ClientUnaryCall,
   type ClientWritableStream,
   type handleClientStreamingCall,
+  type handleServerStreamingCall,
   type handleUnaryCall,
   makeGenericClientConstructor,
   type Metadata,
@@ -59,6 +61,28 @@ export interface IngestRequest {
 export interface IngestResponse {
   accepted: number;
   rejected: number;
+}
+
+/**
+ * QueryStreamRequest mirrors service.EventFilter's filters plus a page size
+ * used to chunk the streamed response.
+ */
+export interface QueryStreamRequest {
+  tenantId: string;
+  sessionId: string;
+  eventName: string;
+  /** 0 means unbounded */
+  fromTs: number;
+  /** 0 means unbounded */
+  toTs: number;
+  dimsContains: string;
+  /** defaults to 100 if <= 0 */
+  pageSize: number;
+}
+
+/** QueryStreamResponse carries one page (batch) of matching events. */
+export interface QueryStreamResponse {
+  events: Event[];
 }
 
 function createBaseCreateSessionRequest(): CreateSessionRequest {
@@ -725,6 +749,266 @@ export const IngestResponse: MessageFns<IngestResponse> = {
   },
 };
 
+function createBaseQueryStreamRequest(): QueryStreamRequest {
+  return { tenantId: "", sessionId: "", eventName: "", fromTs: 0, toTs: 0, dimsContains: "", pageSize: 0 };
+}
+
+export const QueryStreamRequest: MessageFns<QueryStreamRequest> = {
+  encode(message: QueryStreamRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.tenantId !== "") {
+      writer.uint32(10).string(message.tenantId);
+    }
+    if (message.sessionId !== "") {
+      writer.uint32(18).string(message.sessionId);
+    }
+    if (message.eventName !== "") {
+      writer.uint32(26).string(message.eventName);
+    }
+    if (message.fromTs !== 0) {
+      writer.uint32(32).int64(message.fromTs);
+    }
+    if (message.toTs !== 0) {
+      writer.uint32(40).int64(message.toTs);
+    }
+    if (message.dimsContains !== "") {
+      writer.uint32(50).string(message.dimsContains);
+    }
+    if (message.pageSize !== 0) {
+      writer.uint32(56).int32(message.pageSize);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QueryStreamRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseQueryStreamRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.tenantId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.sessionId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.eventName = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.fromTs = longToNumber(reader.int64());
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.toTs = longToNumber(reader.int64());
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.dimsContains = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.pageSize = reader.int32();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): QueryStreamRequest {
+    return {
+      tenantId: isSet(object.tenantId)
+        ? globalThis.String(object.tenantId)
+        : isSet(object.tenant_id)
+        ? globalThis.String(object.tenant_id)
+        : "",
+      sessionId: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      eventName: isSet(object.eventName)
+        ? globalThis.String(object.eventName)
+        : isSet(object.event_name)
+        ? globalThis.String(object.event_name)
+        : "",
+      fromTs: isSet(object.fromTs)
+        ? globalThis.Number(object.fromTs)
+        : isSet(object.from_ts)
+        ? globalThis.Number(object.from_ts)
+        : 0,
+      toTs: isSet(object.toTs)
+        ? globalThis.Number(object.toTs)
+        : isSet(object.to_ts)
+        ? globalThis.Number(object.to_ts)
+        : 0,
+      dimsContains: isSet(object.dimsContains)
+        ? globalThis.String(object.dimsContains)
+        : isSet(object.dims_contains)
+        ? globalThis.String(object.dims_contains)
+        : "",
+      pageSize: isSet(object.pageSize)
+        ? globalThis.Number(object.pageSize)
+        : isSet(object.page_size)
+        ? globalThis.Number(object.page_size)
+        : 0,
+    };
+  },
+
+  toJSON(message: QueryStreamRequest): unknown {
+    const obj: any = {};
+    if (message.tenantId !== "") {
+      obj.tenantId = message.tenantId;
+    }
+    if (message.sessionId !== "") {
+      obj.sessionId = message.sessionId;
+    }
+    if (message.eventName !== "") {
+      obj.eventName = message.eventName;
+    }
+    if (message.fromTs !== 0) {
+      obj.fromTs = Math.round(message.fromTs);
+    }
+    if (message.toTs !== 0) {
+      obj.toTs = Math.round(message.toTs);
+    }
+    if (message.dimsContains !== "") {
+      obj.dimsContains = message.dimsContains;
+    }
+    if (message.pageSize !== 0) {
+      obj.pageSize = Math.round(message.pageSize);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QueryStreamRequest>, I>>(base?: I): QueryStreamRequest {
+    return QueryStreamRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QueryStreamRequest>, I>>(object: I): QueryStreamRequest {
+    const message = createBaseQueryStreamRequest();
+    message.tenantId = object.tenantId ?? "";
+    message.sessionId = object.sessionId ?? "";
+    message.eventName = object.eventName ?? "";
+    message.fromTs = object.fromTs ?? 0;
+    message.toTs = object.toTs ?? 0;
+    message.dimsContains = object.dimsContains ?? "";
+    message.pageSize = object.pageSize ?? 0;
+    return message;
+  },
+};
+
+function createBaseQueryStreamResponse(): QueryStreamResponse {
+  return { events: [] };
+}
+
+export const QueryStreamResponse: MessageFns<QueryStreamResponse> = {
+  encode(message: QueryStreamResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.events) {
+      Event.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QueryStreamResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseQueryStreamResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.events.push(Event.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): QueryStreamResponse {
+    return { events: globalThis.Array.isArray(object?.events) ? object.events.map((e: any) => Event.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: QueryStreamResponse): unknown {
+    const obj: any = {};
+    if (message.events?.length) {
+      obj.events = message.events.map((e) => Event.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QueryStreamResponse>, I>>(base?: I): QueryStreamResponse {
+    return QueryStreamResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QueryStreamResponse>, I>>(object: I): QueryStreamResponse {
+    const message = createBaseQueryStreamResponse();
+    message.events = object.events?.map((e) => Event.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 export type CollectorService = typeof CollectorService;
 export const CollectorService = {
   createSession: {
@@ -755,12 +1039,22 @@ export const CollectorService = {
     responseSerialize: (value: IngestResponse): Buffer => Buffer.from(IngestResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): IngestResponse => IngestResponse.decode(value),
   },
+  queryStream: {
+    path: "/eye.v1.Collector/QueryStream" as const,
+    requestStream: false as const,
+    responseStream: true as const,
+    requestSerialize: (value: QueryStreamRequest): Buffer => Buffer.from(QueryStreamRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): QueryStreamRequest => QueryStreamRequest.decode(value),
+    responseSerialize: (value: QueryStreamResponse): Buffer => Buffer.from(QueryStreamResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): QueryStreamResponse => QueryStreamResponse.decode(value),
+  },
 } as const;
 
 export interface CollectorServer extends UntypedServiceImplementation {
   createSession: handleUnaryCall<CreateSessionRequest, CreateSessionResponse>;
   ingest: handleUnaryCall<IngestRequest, IngestResponse>;
   ingestStream: handleClientStreamingCall<IngestRequest, IngestResponse>;
+  queryStream: handleServerStreamingCall<QueryStreamRequest, QueryStreamResponse>;
 }
 
 export interface CollectorClient extends Client {
@@ -810,6 +1104,12 @@ export interface CollectorClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: IngestResponse) => void,
   ): ClientWritableStream<IngestRequest>;
+  queryStream(request: QueryStreamRequest, options?: Partial<CallOptions>): ClientReadableStream<QueryStreamResponse>;
+  queryStream(
+    request: QueryStreamRequest,
+    metadata?: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<QueryStreamResponse>;
 }
 
 export const CollectorClient = makeGenericClientConstructor(CollectorService, "eye.v1.Collector") as unknown as {

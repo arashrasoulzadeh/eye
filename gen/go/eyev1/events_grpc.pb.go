@@ -22,6 +22,7 @@ const (
 	Collector_CreateSession_FullMethodName = "/eye.v1.Collector/CreateSession"
 	Collector_Ingest_FullMethodName        = "/eye.v1.Collector/Ingest"
 	Collector_IngestStream_FullMethodName  = "/eye.v1.Collector/IngestStream"
+	Collector_QueryStream_FullMethodName   = "/eye.v1.Collector/QueryStream"
 )
 
 // CollectorClient is the client API for Collector service.
@@ -31,6 +32,7 @@ type CollectorClient interface {
 	CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResponse, error)
 	Ingest(ctx context.Context, in *IngestRequest, opts ...grpc.CallOption) (*IngestResponse, error)
 	IngestStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[IngestRequest, IngestResponse], error)
+	QueryStream(ctx context.Context, in *QueryStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryStreamResponse], error)
 }
 
 type collectorClient struct {
@@ -74,6 +76,25 @@ func (c *collectorClient) IngestStream(ctx context.Context, opts ...grpc.CallOpt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Collector_IngestStreamClient = grpc.ClientStreamingClient[IngestRequest, IngestResponse]
 
+func (c *collectorClient) QueryStream(ctx context.Context, in *QueryStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryStreamResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Collector_ServiceDesc.Streams[1], Collector_QueryStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[QueryStreamRequest, QueryStreamResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Collector_QueryStreamClient = grpc.ServerStreamingClient[QueryStreamResponse]
+
 // CollectorServer is the server API for Collector service.
 // All implementations must embed UnimplementedCollectorServer
 // for forward compatibility.
@@ -81,6 +102,7 @@ type CollectorServer interface {
 	CreateSession(context.Context, *CreateSessionRequest) (*CreateSessionResponse, error)
 	Ingest(context.Context, *IngestRequest) (*IngestResponse, error)
 	IngestStream(grpc.ClientStreamingServer[IngestRequest, IngestResponse]) error
+	QueryStream(*QueryStreamRequest, grpc.ServerStreamingServer[QueryStreamResponse]) error
 	mustEmbedUnimplementedCollectorServer()
 }
 
@@ -99,6 +121,9 @@ func (UnimplementedCollectorServer) Ingest(context.Context, *IngestRequest) (*In
 }
 func (UnimplementedCollectorServer) IngestStream(grpc.ClientStreamingServer[IngestRequest, IngestResponse]) error {
 	return status.Error(codes.Unimplemented, "method IngestStream not implemented")
+}
+func (UnimplementedCollectorServer) QueryStream(*QueryStreamRequest, grpc.ServerStreamingServer[QueryStreamResponse]) error {
+	return status.Error(codes.Unimplemented, "method QueryStream not implemented")
 }
 func (UnimplementedCollectorServer) mustEmbedUnimplementedCollectorServer() {}
 func (UnimplementedCollectorServer) testEmbeddedByValue()                   {}
@@ -164,6 +189,17 @@ func _Collector_IngestStream_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Collector_IngestStreamServer = grpc.ClientStreamingServer[IngestRequest, IngestResponse]
 
+func _Collector_QueryStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(QueryStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CollectorServer).QueryStream(m, &grpc.GenericServerStream[QueryStreamRequest, QueryStreamResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Collector_QueryStreamServer = grpc.ServerStreamingServer[QueryStreamResponse]
+
 // Collector_ServiceDesc is the grpc.ServiceDesc for Collector service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -185,6 +221,11 @@ var Collector_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "IngestStream",
 			Handler:       _Collector_IngestStream_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "QueryStream",
+			Handler:       _Collector_QueryStream_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "proto/events.proto",

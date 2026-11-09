@@ -321,6 +321,145 @@ func (x *IngestResponse) GetRejected() int32 {
 	return 0
 }
 
+// QueryStreamRequest mirrors service.EventFilter's filters plus a page size
+// used to chunk the streamed response.
+type QueryStreamRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	EventName     string                 `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	FromTs        int64                  `protobuf:"varint,4,opt,name=from_ts,json=fromTs,proto3" json:"from_ts,omitempty"` // 0 means unbounded
+	ToTs          int64                  `protobuf:"varint,5,opt,name=to_ts,json=toTs,proto3" json:"to_ts,omitempty"`       // 0 means unbounded
+	DimsContains  string                 `protobuf:"bytes,6,opt,name=dims_contains,json=dimsContains,proto3" json:"dims_contains,omitempty"`
+	PageSize      int32                  `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"` // defaults to 100 if <= 0
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryStreamRequest) Reset() {
+	*x = QueryStreamRequest{}
+	mi := &file_proto_events_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryStreamRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryStreamRequest) ProtoMessage() {}
+
+func (x *QueryStreamRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_events_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryStreamRequest.ProtoReflect.Descriptor instead.
+func (*QueryStreamRequest) Descriptor() ([]byte, []int) {
+	return file_proto_events_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *QueryStreamRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *QueryStreamRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *QueryStreamRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *QueryStreamRequest) GetFromTs() int64 {
+	if x != nil {
+		return x.FromTs
+	}
+	return 0
+}
+
+func (x *QueryStreamRequest) GetToTs() int64 {
+	if x != nil {
+		return x.ToTs
+	}
+	return 0
+}
+
+func (x *QueryStreamRequest) GetDimsContains() string {
+	if x != nil {
+		return x.DimsContains
+	}
+	return ""
+}
+
+func (x *QueryStreamRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// QueryStreamResponse carries one page (batch) of matching events.
+type QueryStreamResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryStreamResponse) Reset() {
+	*x = QueryStreamResponse{}
+	mi := &file_proto_events_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryStreamResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryStreamResponse) ProtoMessage() {}
+
+func (x *QueryStreamResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_events_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryStreamResponse.ProtoReflect.Descriptor instead.
+func (*QueryStreamResponse) Descriptor() ([]byte, []int) {
+	return file_proto_events_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *QueryStreamResponse) GetEvents() []*Event {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
 var File_proto_events_proto protoreflect.FileDescriptor
 
 const file_proto_events_proto_rawDesc = "" +
@@ -352,11 +491,24 @@ const file_proto_events_proto_rawDesc = "" +
 	"\x06events\x18\x01 \x03(\v2\r.eye.v1.EventR\x06events\"H\n" +
 	"\x0eIngestResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\x05R\baccepted\x12\x1a\n" +
-	"\brejected\x18\x02 \x01(\x05R\brejected2\xd3\x01\n" +
+	"\brejected\x18\x02 \x01(\x05R\brejected\"\xdf\x01\n" +
+	"\x12QueryStreamRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1d\n" +
+	"\n" +
+	"event_name\x18\x03 \x01(\tR\teventName\x12\x17\n" +
+	"\afrom_ts\x18\x04 \x01(\x03R\x06fromTs\x12\x13\n" +
+	"\x05to_ts\x18\x05 \x01(\x03R\x04toTs\x12#\n" +
+	"\rdims_contains\x18\x06 \x01(\tR\fdimsContains\x12\x1b\n" +
+	"\tpage_size\x18\a \x01(\x05R\bpageSize\"<\n" +
+	"\x13QueryStreamResponse\x12%\n" +
+	"\x06events\x18\x01 \x03(\v2\r.eye.v1.EventR\x06events2\x9d\x02\n" +
 	"\tCollector\x12L\n" +
 	"\rCreateSession\x12\x1c.eye.v1.CreateSessionRequest\x1a\x1d.eye.v1.CreateSessionResponse\x127\n" +
 	"\x06Ingest\x12\x15.eye.v1.IngestRequest\x1a\x16.eye.v1.IngestResponse\x12?\n" +
-	"\fIngestStream\x12\x15.eye.v1.IngestRequest\x1a\x16.eye.v1.IngestResponse(\x01B!Z\x1fgithub.com/eye/eye/gen/go/eyev1b\x06proto3"
+	"\fIngestStream\x12\x15.eye.v1.IngestRequest\x1a\x16.eye.v1.IngestResponse(\x01\x12H\n" +
+	"\vQueryStream\x12\x1a.eye.v1.QueryStreamRequest\x1a\x1b.eye.v1.QueryStreamResponse0\x01B!Z\x1fgithub.com/eye/eye/gen/go/eyev1b\x06proto3"
 
 var (
 	file_proto_events_proto_rawDescOnce sync.Once
@@ -370,29 +522,34 @@ func file_proto_events_proto_rawDescGZIP() []byte {
 	return file_proto_events_proto_rawDescData
 }
 
-var file_proto_events_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_proto_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_events_proto_goTypes = []any{
 	(*CreateSessionRequest)(nil),  // 0: eye.v1.CreateSessionRequest
 	(*CreateSessionResponse)(nil), // 1: eye.v1.CreateSessionResponse
 	(*Event)(nil),                 // 2: eye.v1.Event
 	(*IngestRequest)(nil),         // 3: eye.v1.IngestRequest
 	(*IngestResponse)(nil),        // 4: eye.v1.IngestResponse
-	nil,                           // 5: eye.v1.Event.DimsEntry
+	(*QueryStreamRequest)(nil),    // 5: eye.v1.QueryStreamRequest
+	(*QueryStreamResponse)(nil),   // 6: eye.v1.QueryStreamResponse
+	nil,                           // 7: eye.v1.Event.DimsEntry
 }
 var file_proto_events_proto_depIdxs = []int32{
-	5, // 0: eye.v1.Event.dims:type_name -> eye.v1.Event.DimsEntry
+	7, // 0: eye.v1.Event.dims:type_name -> eye.v1.Event.DimsEntry
 	2, // 1: eye.v1.IngestRequest.events:type_name -> eye.v1.Event
-	0, // 2: eye.v1.Collector.CreateSession:input_type -> eye.v1.CreateSessionRequest
-	3, // 3: eye.v1.Collector.Ingest:input_type -> eye.v1.IngestRequest
-	3, // 4: eye.v1.Collector.IngestStream:input_type -> eye.v1.IngestRequest
-	1, // 5: eye.v1.Collector.CreateSession:output_type -> eye.v1.CreateSessionResponse
-	4, // 6: eye.v1.Collector.Ingest:output_type -> eye.v1.IngestResponse
-	4, // 7: eye.v1.Collector.IngestStream:output_type -> eye.v1.IngestResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	2, // 2: eye.v1.QueryStreamResponse.events:type_name -> eye.v1.Event
+	0, // 3: eye.v1.Collector.CreateSession:input_type -> eye.v1.CreateSessionRequest
+	3, // 4: eye.v1.Collector.Ingest:input_type -> eye.v1.IngestRequest
+	3, // 5: eye.v1.Collector.IngestStream:input_type -> eye.v1.IngestRequest
+	5, // 6: eye.v1.Collector.QueryStream:input_type -> eye.v1.QueryStreamRequest
+	1, // 7: eye.v1.Collector.CreateSession:output_type -> eye.v1.CreateSessionResponse
+	4, // 8: eye.v1.Collector.Ingest:output_type -> eye.v1.IngestResponse
+	4, // 9: eye.v1.Collector.IngestStream:output_type -> eye.v1.IngestResponse
+	6, // 10: eye.v1.Collector.QueryStream:output_type -> eye.v1.QueryStreamResponse
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_events_proto_init() }
@@ -406,7 +563,7 @@ func file_proto_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_events_proto_rawDesc), len(file_proto_events_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

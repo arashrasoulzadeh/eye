@@ -3,14 +3,20 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	eyev1 "github.com/eye/eye/gen/go/eyev1"
 	"github.com/eye/eye/internal/config"
 	"github.com/eye/eye/internal/handler"
 	"github.com/eye/eye/internal/metrics"
@@ -126,6 +132,29 @@ func main() {
 	alertCtx, cancelAlert := context.WithCancel(context.Background())
 	defer cancelAlert()
 	go service.RunAlertJob(alertCtx, alertSvc, &service.HTTPWebhookClient{}, time.Minute, logger)
+
+	// Phase 6: gRPC server-streaming QueryStream, backed by the same
+	// DB-connected QueryService as the REST /query endpoint. This process
+	// (not the separate in-memory server/cmd/collector) owns the DB, so
+	// QueryStream is served here; CreateSession/Ingest/IngestStream remain
+	// the collector binary's responsibility.
+	grpcLis, err := net.Listen("tcp", ":50052")
+	if err != nil {
+		logger.Error("grpc listen failed", "err", err)
+		os.Exit(1)
+	}
+	gs := grpc.NewServer()
+	eyev1.RegisterCollectorServer(gs, &service.QueryStreamServer{Svc: qs, PageSize: 100})
+	healthSrv := health.NewServer()
+	healthSrv.SetServingStatus("eye.v1.Collector", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(gs, healthSrv)
+	reflection.Register(gs)
+	go func() {
+		logger.Info("grpc query server listening", "addr", ":50052")
+		if err := gs.Serve(grpcLis); err != nil {
+			logger.Error("grpc serve failed", "err", err)
+		}
+	}()
 
 	logger.Info("server starting", "addr", cfg.Addr())
 	if err := http.ListenAndServe(cfg.Addr(), cors(mux)); err != nil {

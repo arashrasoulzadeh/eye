@@ -7,6 +7,7 @@ service Collector {
   rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);
   rpc Ingest (IngestRequest) returns (IngestResponse);
   rpc IngestStream (stream IngestRequest) returns (IngestResponse);
+  rpc QueryStream (QueryStreamRequest) returns (stream QueryStreamResponse);
 }
 
 message CreateSessionRequest { string tenant_id = 1; }
@@ -31,4 +32,21 @@ message IngestRequest {
 message IngestResponse {
   int32 accepted = 1;
   int32 rejected = 2;
+}
+
+// QueryStreamRequest mirrors service.EventFilter's filters plus a page size
+// used to chunk the streamed response.
+message QueryStreamRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+  string event_name = 3;
+  int64 from_ts = 4; // 0 means unbounded
+  int64 to_ts = 5;   // 0 means unbounded
+  string dims_contains = 6;
+  int32 page_size = 7; // defaults to 100 if <= 0
+}
+
+// QueryStreamResponse carries one page (batch) of matching events.
+message QueryStreamResponse {
+  repeated Event events = 1;
 }

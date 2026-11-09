@@ -6,9 +6,6 @@
 ## Phase 2 — Storage (TimescaleDB)
 - [ ] RLS policies per tenant — n/a for the dev SQLite path (Postgres/Timescale-only feature); not implemented or faked
 
-## Phase 6 — Segmentation & Query API
-- [ ] gRPC streaming: `QueryStream` — not implemented; `/query` is a plain REST (paginated) endpoint, no gRPC streaming RPC added yet
-
 ## Phase 7 — Stream Processing & Aggregates
 - [x] "Producer" in collector — `service.ChannelStream`, an in-process buffered-channel producer/consumer (see `internal/service/stream.go`), not a real Redpanda/Kafka client: CLAUDE.md's dev overrides rule out Docker/external brokers in dev, so this is the honest substitute fulfilling the same architectural role (decoupling ingest from storage via a real concurrent queue + goroutine worker + backpressure), swappable later for a real `StreamProducer`/`StreamConsumer` impl against an actual broker
 - [x] "Consumer" → DB inserts — `StreamIngestPipeline.Consume` (run by the `ChannelStream` worker) inserts the event into the dev SQLite store and bumps the session count; there is no TimescaleDB hypertable in dev to insert into (prod-only, per dev overrides), so this checks off the *consumer-driven insert* half honestly, not a hypertable-specific behavior
