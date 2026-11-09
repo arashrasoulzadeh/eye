@@ -29,6 +29,8 @@ type Event struct {
 	Source        string
 	IsAggregated  bool
 	AggregationID string
+	ExperimentID  string
+	Variant       string
 }
 
 type Aggregation struct {
@@ -84,4 +86,14 @@ type Experiment struct {
 	Traffic   int
 	Enabled   bool
 	CreatedAt int64
+}
+
+// ExperimentAssignment is the sticky (experiment, session) -> variant pairing
+// produced the first time a session is assigned a variant. Looked up again on
+// every later call for that session so the assignment never changes.
+type ExperimentAssignment struct {
+	ExperimentID string `gorm:"primaryKey"`
+	SessionID    string `gorm:"primaryKey"`
+	Variant      string
+	AssignedAt   int64
 }

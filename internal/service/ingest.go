@@ -8,7 +8,18 @@ import (
 	"github.com/eye/eye/internal/repository"
 )
 
-type IngestService struct{ Repo *repository.Repo }
+// ExperimentAssigner resolves a session's sticky variant for any experiments
+// it is tagged into. It's an interface (not *ExperimentService directly) so
+// IngestService doesn't depend on experiment internals, and because not every
+// deployment of IngestService needs experiment tagging.
+type ExperimentAssigner interface {
+	ActiveAssignmentForSession(sessionID string) (experimentID, variant string, ok bool)
+}
+
+type IngestService struct {
+	Repo   *repository.Repo
+	ExpSvc ExperimentAssigner
+}
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 	accepted, rejected := 0, 0
@@ -23,6 +34,12 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			ClientTS: int64(e["client_ts"].(float64)), IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims),
 			Source: "client", IsAggregated: false,
+		}
+		if s.ExpSvc != nil {
+			if expID, variant, ok := s.ExpSvc.ActiveAssignmentForSession(sid); ok {
+				ev.ExperimentID = expID
+				ev.Variant = variant
+			}
 		}
 		// resolve tenant from session
 		sess, err := s.Repo.GetSession(sid)

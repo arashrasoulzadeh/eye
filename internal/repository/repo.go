@@ -12,7 +12,7 @@ func New(db *gorm.DB) *Repo { return &Repo{DB: db} }
 func (r *Repo) Migrate() error {
 	return r.DB.AutoMigrate(
 		&model.Tenant{}, &model.Session{}, &model.Event{}, &model.Schema{},
-		&model.Aggregation{}, &model.Experiment{}, &model.Cohort{}, &model.CohortMembership{},
+		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 	)
 }
 

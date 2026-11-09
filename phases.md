@@ -149,8 +149,8 @@
 
 ## Phase 17 — A/B Testing
 - [x] Experiment definitions (variants, traffic split)
-- [ ] Variant assignment (sticky per session/user)
-- [ ] Event tagging with experiment_id + variant
+- [x] Variant assignment (sticky per session/user) — `ExperimentService.AssignVariant` hash-buckets (experiment_id, session_id) deterministically against the traffic split, persists the result in `experiment_assignments`, and returns the stored variant on every later call for that session
+- [x] Event tagging with experiment_id + variant — `IngestService` looks up a session's active sticky assignment (if any) and stamps the ingested `Event.ExperimentID`/`Event.Variant` automatically; no explicit client opt-in required
 - [ ] Statistical significance reporting
 - [ ] Auto-stop on winner
 

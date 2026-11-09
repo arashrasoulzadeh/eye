@@ -49,7 +49,8 @@ func main() {
 		os.Exit(1)
 	}
 	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt}
-	svc := &service.IngestService{Repo: repo}
+	expSvc := &service.ExperimentService{DB: db}
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc}
 	mux := http.NewServeMux()
 	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, h) }
 	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
@@ -65,6 +66,8 @@ func main() {
 	aggSvc := &service.AggregatorService{DB: db}
 	mux.Handle("/aggregations", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
+	mux.Handle("/experiments", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
+	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	ih := &handler.IngestHandler{Svc: svc}
 	mux.Handle("/ingest", ih)
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
