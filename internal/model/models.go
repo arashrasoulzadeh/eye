@@ -6,7 +6,24 @@ type Tenant struct {
 	ID        string `gorm:"primaryKey"`
 	Name      string
 	APIKey    string
+	// Tier picks the tenant's ingest rate limit (see service.TierRates /
+	// service.TenantRateLimiter). Empty means "free", the lowest tier, so
+	// existing rows created before this field existed behave unchanged.
+	Tier      string
 	CreatedAt time.Time
+}
+
+// FeatureFlag is a per-tenant boolean toggle, looked up by (TenantID, Key).
+// Nothing in this codebase gates behavior on one yet — the deliverable is
+// the capability to define and check flags per tenant, via
+// service.FeatureFlagService.
+type FeatureFlag struct {
+	ID        string `gorm:"primaryKey"`
+	TenantID  string `gorm:"index:idx_flag_tenant_key,unique"`
+	Key       string `gorm:"index:idx_flag_tenant_key,unique"`
+	Enabled   bool
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 type Session struct {
@@ -143,4 +160,32 @@ type RuntimeSettings struct {
 	RetentionHours      int
 	RateLimitPerSecond  int
 	UpdatedAt           int64
+}
+
+// WebhookDeadLetter is a webhook delivery that exhausted its retries without
+// a successful response, persisted instead of being silently dropped (see
+// service.DispatchWithRetry / RunAlertJob).
+type WebhookDeadLetter struct {
+	ID          string `gorm:"primaryKey"`
+	AlertRuleID string `gorm:"index"`
+	URL         string
+	Payload     string // JSON
+	LastError   string
+	Attempts    int
+	FailedAt    int64
+}
+
+// AuditLog is one admin-auth-gated mutating request, written by the audit
+// middleware (see handler.AuditLog) after the request completes. This
+// project has a single shared admin API key with no per-user identity, so
+// ActorKey is always the fixed label "admin" — there is no way to
+// distinguish which human used the key.
+type AuditLog struct {
+	ID         string `gorm:"primaryKey"`
+	Action     string // HTTP method, e.g. "POST"
+	Resource   string // request path, e.g. "/tenants/abc123"
+	ActorKey   string // always "admin" — see doc comment above
+	StatusCode int
+	BodySnippet string // first ~256 bytes of the request body, best-effort
+	CreatedAt  int64
 }

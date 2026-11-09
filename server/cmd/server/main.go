@@ -58,12 +58,22 @@ func main() {
 	}
 	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt}
 	expSvc := &service.ExperimentService{DB: db}
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc}
+	// Phase 14: per-tenant rate tiers. Only the synchronous /ingest path
+	// (IngestService) is tier-limited; the async /ingest/stream path
+	// (StreamIngestPipeline) has its own separate ingestion logic and is
+	// not wired to this limiter yet — an honest, documented scope limit.
+	tenantLimiter := service.NewTenantRateLimiter()
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter}
 	mux := http.NewServeMux()
-	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, h) }
+	// Phase 14: audit log for admin actions. Audit must sit INSIDE AdminAuth
+	// so a request that fails authentication is never logged as an action —
+	// only requests that actually passed admin auth reach it. See
+	// handler.Audit's doc comment for the single-shared-admin-key caveat.
+	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, handler.Audit(db, h)) }
 	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
+	mux.Handle("/schemas/", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	mux.Handle("/sessions", adminAuth(&handler.SessionsHandler{DB: db}))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
@@ -82,6 +92,12 @@ func main() {
 	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	mux.Handle("/experiments", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
+
+	// Phase 14: per-tenant feature flags. Nothing in this codebase gates
+	// behavior on one yet — the deliverable is the capability to define
+	// and check flags per tenant.
+	flagSvc := &service.FeatureFlagService{DB: db}
+	mux.Handle("/feature-flags", adminAuth(&handler.FeatureFlagsHandler{Svc: flagSvc}))
 	// Phase 8: adaptive sampling under load. The controller's rate is driven
 	// by the Phase 7 stream's queue depth (see the ticker below) and shared
 	// across both ingest paths so a backed-up async queue also throttles the
@@ -153,6 +169,20 @@ func main() {
 	alertCtx, cancelAlert := context.WithCancel(context.Background())
 	defer cancelAlert()
 	go service.RunAlertJob(alertCtx, alertSvc, &service.HTTPWebhookClient{}, time.Minute, logger)
+
+	// Phase 14: webhook delivery retries + dead-letter queue (see
+	// DispatchWithRetry, now used by RunAlertJob above) and a listing
+	// endpoint for deliveries that exhausted every retry.
+	mux.Handle("/webhooks/dead-letter", adminAuth(&handler.WebhookDeadLetterHandler{Svc: &service.WebhookDeadLetterService{DB: db}}))
+
+	// Phase 14: event replay — re-ingests a tenant's historical events for a
+	// time range through the real ingest path (see service.ReplayService's
+	// doc comment for the additive, non-duplicating design).
+	mux.Handle("/replay", adminAuth(&handler.ReplayHandler{Svc: &service.ReplayService{DB: db, Ingest: svc}}))
+
+	// Phase 14: audit log listing (writes happen via the Audit middleware
+	// wrapping adminAuth above).
+	mux.Handle("/audit-log", adminAuth(&handler.AuditLogHandler{DB: db}))
 
 	// Phase 8: basic statistical (z-score over a rolling window) anomaly
 	// detection, sampled from the same materialized AggregateCount read

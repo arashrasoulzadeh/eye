@@ -191,9 +191,15 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 			"count":      count,
 			"fired_at":   time.Now().Unix(),
 		}
-		if err := client.PostJSON(rule.WebhookURL, payload); err != nil {
+		// Phase 14: retries + dead-letter queue. A transient failure gets a
+		// few attempts with a short backoff before giving up; if every
+		// attempt fails, DispatchWithRetry persists the delivery to
+		// WebhookDeadLetter instead of this just silently dropping it.
+		if err := DispatchWithRetry(svc.DB, client, rule.ID, rule.WebhookURL, payload, 3, func(attempt int) {
+			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
+		}); err != nil {
 			if logger != nil {
-				logger.Error("alert job: webhook dispatch failed", "id", rule.ID, "err", err)
+				logger.Error("alert job: webhook dispatch failed after retries, dead-lettered", "id", rule.ID, "err", err)
 			}
 			continue
 		}

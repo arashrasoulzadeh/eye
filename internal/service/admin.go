@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -104,10 +105,37 @@ func (a *AdminService) RegisterSchema(tenantID, name, definition string) (*model
 	return s, nil
 }
 
+// SetTier updates a tenant's rate tier (see service.TierRates). An unknown
+// tier is rejected so a typo can't silently drop a tenant onto whatever
+// rateForTier's fallback happens to be.
+func (a *AdminService) SetTier(tenantID, tier string) error {
+	if _, ok := TierRates[tier]; !ok {
+		return fmt.Errorf("unknown tier %q", tier)
+	}
+	res := a.Repo.DB.Model(&model.Tenant{}).Where("id = ?", tenantID).Update("tier", tier)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (a *AdminService) ListSchemas(tenantID string) ([]model.Schema, error) {
 	var list []model.Schema
 	if err := a.Repo.DB.Where("tenant_id = ?", tenantID).Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil
+}
+
+// GetSchema looks up a single registered schema version by ID, for
+// ValidateEventAgainstSchema.
+func (a *AdminService) GetSchema(id string) (*model.Schema, error) {
+	var s model.Schema
+	if err := a.Repo.DB.First(&s, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &s, nil
 }

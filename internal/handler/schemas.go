@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/eye/eye/internal/service"
 )
@@ -10,6 +11,32 @@ import (
 type SchemasHandler struct{ Svc *service.AdminService }
 
 func (h *SchemasHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/schemas")
+	path = strings.Trim(path, "/")
+
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/validate") {
+		schemaID := strings.TrimSuffix(path, "/validate")
+		var b struct {
+			Payload map[string]any `json:"payload"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		schema, err := h.Svc.GetSchema(schemaID)
+		if err != nil {
+			http.Error(w, "schema not found", http.StatusNotFound)
+			return
+		}
+		errs, err := service.ValidateEventAgainstSchema(b.Payload, schema)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"valid": len(errs) == 0, "errors": errs})
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		tenantID := r.URL.Query().Get("tenant_id")

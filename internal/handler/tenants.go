@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/eye/eye/internal/service"
 )
 
@@ -22,6 +24,25 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]string{"api_key": newKey})
+		return
+	}
+
+	if r.Method == http.MethodPut && strings.HasSuffix(path, "/tier") {
+		tenantID := strings.TrimSuffix(path, "/tier")
+		var b struct{ Tier string `json:"tier"` }
+		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.SetTier(tenantID, b.Tier); err != nil {
+			status := http.StatusBadRequest
+			if err == gorm.ErrRecordNotFound {
+				status = http.StatusNotFound
+			}
+			http.Error(w, err.Error(), status)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 

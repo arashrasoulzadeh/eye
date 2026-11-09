@@ -16,9 +16,20 @@ type ExperimentAssigner interface {
 	ActiveAssignmentForSession(sessionID string) (experimentID, variant string, ok bool)
 }
 
+// TenantLimiter is satisfied by *TenantRateLimiter. Nil (the zero value)
+// means no per-tenant tier limiting, so existing callers/tests that don't
+// set it are unaffected.
+type TenantLimiter interface {
+	Allow(tenantID, tier string) bool
+}
+
 type IngestService struct {
 	Repo   *repository.Repo
 	ExpSvc ExperimentAssigner
+	// TierLimiter, if set, is consulted once per event after its tenant is
+	// resolved from the session, gating ingestion by the tenant's Tier
+	// (see TenantRateLimiter). A denied event counts toward "rejected".
+	TierLimiter TenantLimiter
 }
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
@@ -29,11 +40,15 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		if s.Repo.EventExists(sid, eid) { rejected++; continue }
 		payload, _ := json.Marshal(e["payload"])
 		dims, _ := json.Marshal(e["dims"])
+		source, _ := e["source"].(string)
+		if source == "" {
+			source = "client"
+		}
 		ev := &model.Event{
 			EventID: eid, SessionID: sid, EventName: e["event_name"].(string),
 			ClientTS: int64(e["client_ts"].(float64)), IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims),
-			Source: "client", IsAggregated: false,
+			Source: source, IsAggregated: false,
 		}
 		if s.ExpSvc != nil {
 			if expID, variant, ok := s.ExpSvc.ActiveAssignmentForSession(sid); ok {
@@ -45,6 +60,16 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		sess, err := s.Repo.GetSession(sid)
 		if err != nil { rejected++; continue }
 		ev.TenantID = sess.TenantID
+		if s.TierLimiter != nil {
+			tier := ""
+			if tenant, terr := s.Repo.GetTenant(sess.TenantID); terr == nil {
+				tier = tenant.Tier
+			}
+			if !s.TierLimiter.Allow(sess.TenantID, tier) {
+				rejected++
+				continue
+			}
+		}
 		if err := s.Repo.InsertEvent(ev); err != nil { rejected++; continue }
 		sess.EventCount++
 		s.Repo.UpdateSession(sess)

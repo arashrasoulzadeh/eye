@@ -14,12 +14,9 @@
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Real-time counters (gRPC streaming live metrics)
-- [ ] Event replay (re-ingest historical range)
 - [ ] SDK debug mode (verbose logging, local validation)
-- [ ] Webhook delivery with retries + dead-letter queue
 - [ ] Schema evolution/versioning + migration tooling
 - [ ] Multi-tenant rate tiers
-- [ ] Audit log for admin actions
 - [ ] SSO for admin panel (OIDC)
 - [ ] Feature flags per tenant
 

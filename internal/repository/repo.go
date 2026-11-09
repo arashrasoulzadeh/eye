@@ -14,6 +14,7 @@ func (r *Repo) Migrate() error {
 		&model.Tenant{}, &model.Session{}, &model.Event{}, &model.Schema{},
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 		&model.AggregateCount{}, &model.AlertRule{}, &model.RuntimeSettings{},
+		&model.WebhookDeadLetter{}, &model.AuditLog{}, &model.FeatureFlag{},
 	)
 }
 
@@ -49,6 +50,16 @@ func (r *Repo) UpsertSettings(s *model.RuntimeSettings) error {
 		"rate_limit_per_second": s.RateLimitPerSecond,
 		"updated_at":            s.UpdatedAt,
 	}).Error
+}
+
+// GetTenant looks up a tenant by ID, used by IngestService to resolve a
+// session's tenant's Tier for TenantRateLimiter.
+func (r *Repo) GetTenant(id string) (*model.Tenant, error) {
+	var t model.Tenant
+	if err := r.DB.First(&t, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (r *Repo) CreateSession(s *model.Session) error { return r.DB.Create(s).Error }
