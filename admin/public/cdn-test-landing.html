@@ -40,6 +40,14 @@
   <strong>Session:</strong>
   <span id="session-id" class="muted">(waiting for a session to be created…)</span>
   <a id="session-link" href="#" style="display: none">view in admin →</a>
+  <div class="row" style="margin-top: 0.5rem">
+    <button id="btn-new-session">New session</button>
+  </div>
+  <p class="muted">
+    Discards the current session id (including the one cached in this browser's localStorage) and re-initializes,
+    so you can create a fresh session without closing the tab — useful for checking that each one captures its own
+    device info correctly.
+  </p>
 </section>
 
 <section>
@@ -68,13 +76,7 @@
     <button id="btn-manual-track">Eye.track("manual_test_event")</button>
     <button id="btn-identify">Eye.identify("test-user-1", &#123;plan:"pro"&#125;)</button>
     <button id="btn-flush">Eye.flush()</button>
-    <button id="btn-new-session">New session (re-init)</button>
   </div>
-  <p class="muted">
-    "New session" discards the current session id (including the one cached in this browser's localStorage) and
-    re-initializes, so you can create a fresh session without closing the tab — useful for checking that each one
-    captures its own device info correctly.
-  </p>
 </section>
 
 <section>
