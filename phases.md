@@ -6,18 +6,11 @@
 ## Phase 2 — Storage (TimescaleDB)
 - [ ] RLS policies per tenant — n/a for the dev SQLite path (Postgres/Timescale-only feature); not implemented or faked
 
-## Phase 8 — Alerting & Anomaly
-- [ ] Adaptive sampling under load — not attempted
-- [ ] ML anomaly detection (basic statistical) — not attempted
-
 ## Phase 9 — Observability & Ops
 - [ ] Docker Compose (dev) + K8s manifests (optional) — not built; CLAUDE.md's dev overrides explicitly rule out Docker for local dev (SQLite only), and no production Postgres/Timescale/Kafka deployment exists yet to write real manifests against, so nothing here would be verifiable rather than guesswork
 
 ## Phase 10 — Mobile & Server SDKs
 - [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
-
-## Phase 12 — Admin Panel (Next.js)
-- [ ] `/settings` — retention, sampling, rate limits — still read-only honest display only; no update API exists yet, so no editable controls were added
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Funnel analysis API (ordered event steps, conversion rates)
