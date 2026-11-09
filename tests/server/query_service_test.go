@@ -49,6 +49,44 @@ func TestQueryServiceEventsByNameRespectsLimit(t *testing.T) {
 	}
 }
 
+func TestQueryServiceFilterSortDescOrdersNewestFirst(t *testing.T) {
+	db := newQueryServiceFilterTestDB(t)
+	db.Create(&model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 100})
+	db.Create(&model.Event{EventID: "e2", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 300})
+	db.Create(&model.Event{EventID: "e3", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 200})
+
+	svc := &service.QueryService{DB: db}
+	list, err := svc.Filter(service.EventFilter{TenantID: "t1", SortDesc: true}, 100, 0)
+	if err != nil {
+		t.Fatalf("filter: %v", err)
+	}
+	if len(list) != 3 {
+		t.Fatalf("expected 3 events, got %d", len(list))
+	}
+	got := []string{list[0].EventID, list[1].EventID, list[2].EventID}
+	want := []string{"e2", "e3", "e1"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected newest-first order %v, got %v", want, got)
+		}
+	}
+}
+
+func TestQueryServiceFilterDefaultsToAscending(t *testing.T) {
+	db := newQueryServiceFilterTestDB(t)
+	db.Create(&model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 300})
+	db.Create(&model.Event{EventID: "e2", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 100})
+
+	svc := &service.QueryService{DB: db}
+	list, err := svc.Filter(service.EventFilter{TenantID: "t1"}, 100, 0)
+	if err != nil {
+		t.Fatalf("filter: %v", err)
+	}
+	if len(list) != 2 || list[0].EventID != "e2" || list[1].EventID != "e1" {
+		t.Fatalf("expected unchanged ascending default order, got %+v", list)
+	}
+}
+
 func newQueryServiceFilterTestDB(t *testing.T) *gorm.DB {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err := db.AutoMigrate(&model.Event{}); err != nil {

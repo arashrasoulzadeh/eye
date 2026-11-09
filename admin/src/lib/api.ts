@@ -91,10 +91,20 @@ export const api = {
     // supports the from_ts/to_ts time-range filter (added for Phase 6);
     // /events only ever supported event_name/tenant_id/session_id.
     list: (
-      filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number } = {}
+      filters: {
+        event_name?: string;
+        tenant_id?: string;
+        session_id?: string;
+        from_ts?: number;
+        to_ts?: number;
+        sort?: "desc" | "asc";
+      } = {}
     ) => {
+      // Newest-first by default — the admin events page always wants the
+      // most recent activity on top; pass sort: "asc" explicitly to opt out.
+      const { sort = "desc", ...rest } = filters;
       const qs = new URLSearchParams(
-        Object.entries(filters)
+        Object.entries({ ...rest, sort })
           .filter(([, v]) => v !== undefined && v !== "")
           .map(([k, v]) => [k, String(v)])
       );

@@ -31,6 +31,12 @@ type EventFilter struct {
 	// operator dependency, at the cost of being a text match rather than a
 	// structural one.
 	DimsContains string
+	// SortDesc orders results by ClientTS descending (newest first) instead
+	// of the default ascending order. Ascending stays the default because
+	// gRPC streaming pagination (query_grpc.go) and existing callers rely on
+	// a stable, append-only chronological order; only the admin Events page
+	// opts into newest-first via the REST handler's `sort=desc` param.
+	SortDesc bool
 }
 
 // Filter returns events matching all set fields of f, ordered by ClientTS
@@ -56,8 +62,12 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 		query = query.Where("dims LIKE ?", "%"+f.DimsContains+"%")
 	}
 
+	order := "client_ts asc"
+	if f.SortDesc {
+		order = "client_ts desc"
+	}
 	var list []model.Event
-	if err := query.Order("client_ts asc").Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil

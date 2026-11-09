@@ -31,6 +31,7 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		SessionID:    q.Get("session_id"),
 		EventName:    q.Get("event_name"),
 		DimsContains: q.Get("dims_contains"),
+		SortDesc:     q.Get("sort") == "desc",
 	}
 	if v := q.Get("from_ts"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {

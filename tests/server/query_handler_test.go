@@ -49,6 +49,26 @@ func TestQueryHandlerFiltersByEventName(t *testing.T) {
 	}
 }
 
+func TestQueryHandlerSortDescReturnsNewestFirst(t *testing.T) {
+	db := newQueryTestDB(t)
+	db.Create(&model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 100})
+	db.Create(&model.Event{EventID: "e2", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 300})
+	db.Create(&model.Event{EventID: "e3", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 200})
+
+	h := &handler.QueryHandler{Svc: &service.QueryService{DB: db}}
+	req := httptest.NewRequest(http.MethodGet, "/query?tenant_id=t1&sort=desc", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	var list []model.Event
+	if err := json.NewDecoder(w.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 3 || list[0].EventID != "e2" || list[1].EventID != "e3" || list[2].EventID != "e1" {
+		t.Fatalf("expected newest-first order [e2 e3 e1], got %+v", list)
+	}
+}
+
 func TestQueryHandlerNoMatchesReturnsEmptyList(t *testing.T) {
 	db := newQueryTestDB(t)
 	h := &handler.QueryHandler{Svc: &service.QueryService{DB: db}}
