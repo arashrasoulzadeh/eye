@@ -30,6 +30,11 @@ type IngestService struct {
 	// resolved from the session, gating ingestion by the tenant's Tier
 	// (see TenantRateLimiter). A denied event counts toward "rejected".
 	TierLimiter TenantLimiter
+	// Counters, if set, is bumped once per accepted event for the event's
+	// tenant, feeding the LiveCounters real-time gRPC stream (see
+	// live_counters.go). Nil means no live-counter tracking, so existing
+	// callers/tests that don't set it are unaffected.
+	Counters *LiveCounterHub
 }
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
@@ -83,6 +88,9 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		sess.EventCount++
 		s.Repo.UpdateSession(sess)
 		accepted++
+		if s.Counters != nil {
+			s.Counters.Increment(ev.TenantID)
+		}
 	}
 	return accepted, rejected
 }

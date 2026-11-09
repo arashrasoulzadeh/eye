@@ -23,6 +23,7 @@ const (
 	Collector_Ingest_FullMethodName        = "/eye.v1.Collector/Ingest"
 	Collector_IngestStream_FullMethodName  = "/eye.v1.Collector/IngestStream"
 	Collector_QueryStream_FullMethodName   = "/eye.v1.Collector/QueryStream"
+	Collector_LiveCounters_FullMethodName  = "/eye.v1.Collector/LiveCounters"
 )
 
 // CollectorClient is the client API for Collector service.
@@ -33,6 +34,7 @@ type CollectorClient interface {
 	Ingest(ctx context.Context, in *IngestRequest, opts ...grpc.CallOption) (*IngestResponse, error)
 	IngestStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[IngestRequest, IngestResponse], error)
 	QueryStream(ctx context.Context, in *QueryStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryStreamResponse], error)
+	LiveCounters(ctx context.Context, in *LiveCountersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LiveCountersResponse], error)
 }
 
 type collectorClient struct {
@@ -95,6 +97,25 @@ func (c *collectorClient) QueryStream(ctx context.Context, in *QueryStreamReques
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Collector_QueryStreamClient = grpc.ServerStreamingClient[QueryStreamResponse]
 
+func (c *collectorClient) LiveCounters(ctx context.Context, in *LiveCountersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LiveCountersResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Collector_ServiceDesc.Streams[2], Collector_LiveCounters_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[LiveCountersRequest, LiveCountersResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Collector_LiveCountersClient = grpc.ServerStreamingClient[LiveCountersResponse]
+
 // CollectorServer is the server API for Collector service.
 // All implementations must embed UnimplementedCollectorServer
 // for forward compatibility.
@@ -103,6 +124,7 @@ type CollectorServer interface {
 	Ingest(context.Context, *IngestRequest) (*IngestResponse, error)
 	IngestStream(grpc.ClientStreamingServer[IngestRequest, IngestResponse]) error
 	QueryStream(*QueryStreamRequest, grpc.ServerStreamingServer[QueryStreamResponse]) error
+	LiveCounters(*LiveCountersRequest, grpc.ServerStreamingServer[LiveCountersResponse]) error
 	mustEmbedUnimplementedCollectorServer()
 }
 
@@ -124,6 +146,9 @@ func (UnimplementedCollectorServer) IngestStream(grpc.ClientStreamingServer[Inge
 }
 func (UnimplementedCollectorServer) QueryStream(*QueryStreamRequest, grpc.ServerStreamingServer[QueryStreamResponse]) error {
 	return status.Error(codes.Unimplemented, "method QueryStream not implemented")
+}
+func (UnimplementedCollectorServer) LiveCounters(*LiveCountersRequest, grpc.ServerStreamingServer[LiveCountersResponse]) error {
+	return status.Error(codes.Unimplemented, "method LiveCounters not implemented")
 }
 func (UnimplementedCollectorServer) mustEmbedUnimplementedCollectorServer() {}
 func (UnimplementedCollectorServer) testEmbeddedByValue()                   {}
@@ -200,6 +225,17 @@ func _Collector_QueryStream_Handler(srv interface{}, stream grpc.ServerStream) e
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Collector_QueryStreamServer = grpc.ServerStreamingServer[QueryStreamResponse]
 
+func _Collector_LiveCounters_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(LiveCountersRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CollectorServer).LiveCounters(m, &grpc.GenericServerStream[LiveCountersRequest, LiveCountersResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Collector_LiveCountersServer = grpc.ServerStreamingServer[LiveCountersResponse]
+
 // Collector_ServiceDesc is the grpc.ServiceDesc for Collector service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -225,6 +261,11 @@ var Collector_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "QueryStream",
 			Handler:       _Collector_QueryStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "LiveCounters",
+			Handler:       _Collector_LiveCounters_Handler,
 			ServerStreams: true,
 		},
 	},

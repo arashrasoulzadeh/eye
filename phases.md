@@ -13,7 +13,7 @@
 - [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
 
 ## Phase 14 — Advanced Analytics & Ops
-- [ ] Real-time counters (gRPC streaming live metrics) — not attempted; the proto/gRPC surface was under concurrent edit by another in-flight task (Phase 6's QueryStream work) and regenerating stubs again on top of that was too risky to land safely, so this was skipped rather than rushed
+- [x] Real-time counters (gRPC streaming live metrics) — `LiveCounterHub` (internal/service/live_counters.go) tracks a per-tenant running count, bumped by IngestService on every accepted event; the new `LiveCounters` gRPC server-streaming RPC (proto/events.proto, served by QueryStreamServer in server/cmd/server/main.go on :50052) sends an immediate snapshot then pushes one update per subsequent event for that tenant until the client disconnects. Verified with real bufconn gRPC client/server tests (tests/server/live_counters_test.go, tests/server/live_counters_grpc_test.go) plus an IngestService test confirming only accepted events bump the counter.
 - [ ] SSO for admin panel (OIDC) — not attempted; no real OIDC identity provider is available in this environment to integrate against and verify
 
 ## Workflow rule

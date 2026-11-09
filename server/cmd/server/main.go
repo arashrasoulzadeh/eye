@@ -63,7 +63,11 @@ func main() {
 	// (StreamIngestPipeline) has its own separate ingestion logic and is
 	// not wired to this limiter yet — an honest, documented scope limit.
 	tenantLimiter := service.NewTenantRateLimiter()
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter}
+	// Phase 14: real-time per-tenant event counters, streamed live over
+	// gRPC (LiveCounters below). liveCounters is bumped synchronously by
+	// IngestService on every accepted event.
+	liveCounters := service.NewLiveCounterHub()
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters}
 	mux := http.NewServeMux()
 	// Phase 14: audit log for admin actions. Audit must sit INSIDE AdminAuth
 	// so a request that fails authentication is never logged as an action —
@@ -221,7 +225,7 @@ func main() {
 		os.Exit(1)
 	}
 	gs := grpc.NewServer()
-	eyev1.RegisterCollectorServer(gs, &service.QueryStreamServer{Svc: qs, PageSize: 100})
+	eyev1.RegisterCollectorServer(gs, &service.QueryStreamServer{Svc: qs, PageSize: 100, Hub: liveCounters})
 	healthSrv := health.NewServer()
 	healthSrv.SetServingStatus("eye.v1.Collector", healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(gs, healthSrv)

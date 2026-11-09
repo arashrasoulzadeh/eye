@@ -16,6 +16,14 @@ type QueryStreamServer struct {
 	// PageSize is the default number of events sent per stream message when
 	// the request doesn't specify one.
 	PageSize int
+	// Hub, if set, also serves the LiveCounters RPC (see live_counters_grpc.go)
+	// from this same registered server instance — a process can only
+	// register one implementation of the Collector service per gRPC server.
+	Hub *LiveCounterHub
+}
+
+func (s *QueryStreamServer) LiveCounters(req *eyev1.LiveCountersRequest, stream eyev1.Collector_LiveCountersServer) error {
+	return liveCounters(s.Hub, req, stream)
 }
 
 func (s *QueryStreamServer) QueryStream(req *eyev1.QueryStreamRequest, stream eyev1.Collector_QueryStreamServer) error {

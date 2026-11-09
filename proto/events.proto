@@ -8,6 +8,7 @@ service Collector {
   rpc Ingest (IngestRequest) returns (IngestResponse);
   rpc IngestStream (stream IngestRequest) returns (IngestResponse);
   rpc QueryStream (QueryStreamRequest) returns (stream QueryStreamResponse);
+  rpc LiveCounters (LiveCountersRequest) returns (stream LiveCountersResponse);
 }
 
 message CreateSessionRequest { string tenant_id = 1; }
@@ -49,4 +50,15 @@ message QueryStreamRequest {
 // QueryStreamResponse carries one page (batch) of matching events.
 message QueryStreamResponse {
   repeated Event events = 1;
+}
+
+// LiveCountersRequest asks for a live-updating running event count for one
+// tenant. The server sends an immediate snapshot, then one message per
+// subsequent ingested event for that tenant until the client disconnects.
+message LiveCountersRequest {
+  string tenant_id = 1;
+}
+
+message LiveCountersResponse {
+  int64 count = 1;
 }

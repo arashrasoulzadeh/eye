@@ -460,6 +460,97 @@ func (x *QueryStreamResponse) GetEvents() []*Event {
 	return nil
 }
 
+// LiveCountersRequest asks for a live-updating running event count for one
+// tenant. The server sends an immediate snapshot, then one message per
+// subsequent ingested event for that tenant until the client disconnects.
+type LiveCountersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LiveCountersRequest) Reset() {
+	*x = LiveCountersRequest{}
+	mi := &file_proto_events_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LiveCountersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LiveCountersRequest) ProtoMessage() {}
+
+func (x *LiveCountersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_events_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LiveCountersRequest.ProtoReflect.Descriptor instead.
+func (*LiveCountersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_events_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LiveCountersRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+type LiveCountersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         int64                  `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LiveCountersResponse) Reset() {
+	*x = LiveCountersResponse{}
+	mi := &file_proto_events_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LiveCountersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LiveCountersResponse) ProtoMessage() {}
+
+func (x *LiveCountersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_events_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LiveCountersResponse.ProtoReflect.Descriptor instead.
+func (*LiveCountersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_events_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *LiveCountersResponse) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 var File_proto_events_proto protoreflect.FileDescriptor
 
 const file_proto_events_proto_rawDesc = "" +
@@ -503,12 +594,17 @@ const file_proto_events_proto_rawDesc = "" +
 	"\rdims_contains\x18\x06 \x01(\tR\fdimsContains\x12\x1b\n" +
 	"\tpage_size\x18\a \x01(\x05R\bpageSize\"<\n" +
 	"\x13QueryStreamResponse\x12%\n" +
-	"\x06events\x18\x01 \x03(\v2\r.eye.v1.EventR\x06events2\x9d\x02\n" +
+	"\x06events\x18\x01 \x03(\v2\r.eye.v1.EventR\x06events\"2\n" +
+	"\x13LiveCountersRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\",\n" +
+	"\x14LiveCountersResponse\x12\x14\n" +
+	"\x05count\x18\x01 \x01(\x03R\x05count2\xea\x02\n" +
 	"\tCollector\x12L\n" +
 	"\rCreateSession\x12\x1c.eye.v1.CreateSessionRequest\x1a\x1d.eye.v1.CreateSessionResponse\x127\n" +
 	"\x06Ingest\x12\x15.eye.v1.IngestRequest\x1a\x16.eye.v1.IngestResponse\x12?\n" +
 	"\fIngestStream\x12\x15.eye.v1.IngestRequest\x1a\x16.eye.v1.IngestResponse(\x01\x12H\n" +
-	"\vQueryStream\x12\x1a.eye.v1.QueryStreamRequest\x1a\x1b.eye.v1.QueryStreamResponse0\x01B!Z\x1fgithub.com/eye/eye/gen/go/eyev1b\x06proto3"
+	"\vQueryStream\x12\x1a.eye.v1.QueryStreamRequest\x1a\x1b.eye.v1.QueryStreamResponse0\x01\x12K\n" +
+	"\fLiveCounters\x12\x1b.eye.v1.LiveCountersRequest\x1a\x1c.eye.v1.LiveCountersResponse0\x01B!Z\x1fgithub.com/eye/eye/gen/go/eyev1b\x06proto3"
 
 var (
 	file_proto_events_proto_rawDescOnce sync.Once
@@ -522,7 +618,7 @@ func file_proto_events_proto_rawDescGZIP() []byte {
 	return file_proto_events_proto_rawDescData
 }
 
-var file_proto_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_events_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_events_proto_goTypes = []any{
 	(*CreateSessionRequest)(nil),  // 0: eye.v1.CreateSessionRequest
 	(*CreateSessionResponse)(nil), // 1: eye.v1.CreateSessionResponse
@@ -531,22 +627,26 @@ var file_proto_events_proto_goTypes = []any{
 	(*IngestResponse)(nil),        // 4: eye.v1.IngestResponse
 	(*QueryStreamRequest)(nil),    // 5: eye.v1.QueryStreamRequest
 	(*QueryStreamResponse)(nil),   // 6: eye.v1.QueryStreamResponse
-	nil,                           // 7: eye.v1.Event.DimsEntry
+	(*LiveCountersRequest)(nil),   // 7: eye.v1.LiveCountersRequest
+	(*LiveCountersResponse)(nil),  // 8: eye.v1.LiveCountersResponse
+	nil,                           // 9: eye.v1.Event.DimsEntry
 }
 var file_proto_events_proto_depIdxs = []int32{
-	7, // 0: eye.v1.Event.dims:type_name -> eye.v1.Event.DimsEntry
+	9, // 0: eye.v1.Event.dims:type_name -> eye.v1.Event.DimsEntry
 	2, // 1: eye.v1.IngestRequest.events:type_name -> eye.v1.Event
 	2, // 2: eye.v1.QueryStreamResponse.events:type_name -> eye.v1.Event
 	0, // 3: eye.v1.Collector.CreateSession:input_type -> eye.v1.CreateSessionRequest
 	3, // 4: eye.v1.Collector.Ingest:input_type -> eye.v1.IngestRequest
 	3, // 5: eye.v1.Collector.IngestStream:input_type -> eye.v1.IngestRequest
 	5, // 6: eye.v1.Collector.QueryStream:input_type -> eye.v1.QueryStreamRequest
-	1, // 7: eye.v1.Collector.CreateSession:output_type -> eye.v1.CreateSessionResponse
-	4, // 8: eye.v1.Collector.Ingest:output_type -> eye.v1.IngestResponse
-	4, // 9: eye.v1.Collector.IngestStream:output_type -> eye.v1.IngestResponse
-	6, // 10: eye.v1.Collector.QueryStream:output_type -> eye.v1.QueryStreamResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
+	7, // 7: eye.v1.Collector.LiveCounters:input_type -> eye.v1.LiveCountersRequest
+	1, // 8: eye.v1.Collector.CreateSession:output_type -> eye.v1.CreateSessionResponse
+	4, // 9: eye.v1.Collector.Ingest:output_type -> eye.v1.IngestResponse
+	4, // 10: eye.v1.Collector.IngestStream:output_type -> eye.v1.IngestResponse
+	6, // 11: eye.v1.Collector.QueryStream:output_type -> eye.v1.QueryStreamResponse
+	8, // 12: eye.v1.Collector.LiveCounters:output_type -> eye.v1.LiveCountersResponse
+	8, // [8:13] is the sub-list for method output_type
+	3, // [3:8] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -563,7 +663,7 @@ func file_proto_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_events_proto_rawDesc), len(file_proto_events_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

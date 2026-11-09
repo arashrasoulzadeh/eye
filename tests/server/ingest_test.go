@@ -50,3 +50,27 @@ func TestIngestRejectsMalformedEventsWithoutPanicking(t *testing.T) {
 		}
 	}
 }
+
+// Phase 14: an IngestService with a LiveCounters hub attached must bump the
+// tenant's running count on every accepted event, for the real-time gRPC
+// counters stream — and must NOT bump it for rejected (malformed/dup) ones.
+func TestIngestIncrementsLiveCounterOnAcceptedEventsOnly(t *testing.T) {
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	r := repository.New(db)
+	r.Migrate()
+	db.Create(&model.Session{ID: "s1", TenantID: "t1"})
+	hub := service.NewLiveCounterHub()
+	svc := &service.IngestService{Repo: r, Counters: hub}
+
+	a, rej := svc.Ingest([]map[string]any{
+		{"event_id": "e1", "event_name": "x", "client_ts": float64(1), "payload": map[string]any{}, "dims": map[string]any{}, "session_id": "s1"},
+		{"event_id": "e2", "event_name": "x", "client_ts": float64(2), "payload": map[string]any{}, "dims": map[string]any{}, "session_id": "s1"},
+		{"event_id": "e-bad", "client_ts": float64(3)}, // missing event_name: rejected
+	})
+	if a != 2 || rej != 1 {
+		t.Fatalf("expected 2 accepted, 1 rejected, got accepted=%d rejected=%d", a, rej)
+	}
+	if got := hub.Snapshot("t1"); got != 2 {
+		t.Fatalf("expected tenant t1 live count 2, got %d", got)
+	}
+}
