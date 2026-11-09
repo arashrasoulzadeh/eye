@@ -24,6 +24,14 @@ export type Event = {
 };
 export type Schema = { ID: string; TenantID: string; Name: string; Version: number; Definition: string; CreatedAt: number };
 export type Metrics = { events: number; sessions: number; tenants: number };
+export type DashboardCache = {
+  events: number;
+  sessions: number;
+  tenants: number;
+  events_by_hour: Array<{ label: string; value: number }>;
+  events_by_tenant: Array<{ label: string; value: number }>;
+  cached_at: number;
+};
 export type RuntimeSettings = { ID: number; RetentionHours: number; RateLimitPerSecond: number; UpdatedAt: number };
 export type Cohort = { ID: string; TenantID: string; Name: string; EventName: string; MinCount: number; CreatedAt: number; UpdatedAt: number };
 export type AlertRule = {
@@ -80,6 +88,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   metrics: () => req<Metrics>("metrics"),
+
+  dashboardCache: () => req<DashboardCache>("dashboard-cache"),
 
   tenants: {
     list: () => req<Tenant[]>("tenants"),

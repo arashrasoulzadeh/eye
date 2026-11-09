@@ -67,6 +67,43 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var list []model.Session
 		h.DB.Find(&list)
 		json.NewEncoder(w).Encode(list)
+	case http.MethodPut, http.MethodPatch:
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID == "" {
+			http.Error(w, "session_id required", http.StatusBadRequest)
+			return
+		}
+		var b struct {
+			Device   map[string]any `json:"device"`
+			IP       string         `json:"ip"`
+			UserAgent string        `json:"user_agent"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		var s model.Session
+		if err := h.DB.First(&s, "id = ?", sessionID).Error; err != nil {
+			http.Error(w, "session not found", http.StatusNotFound)
+			return
+		}
+		updates := map[string]any{"LastSeen": time.Now()}
+		if b.Device != nil {
+			deviceJSON, _ := json.Marshal(b.Device)
+			updates["DeviceInfo"] = string(deviceJSON)
+		}
+		if b.IP != "" {
+			updates["IP"] = b.IP
+		}
+		if b.UserAgent != "" {
+			updates["UserAgent"] = b.UserAgent
+		}
+		if err := h.DB.Model(&s).Updates(updates).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		h.DB.First(&s, "id = ?", sessionID)
+		json.NewEncoder(w).Encode(s)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}

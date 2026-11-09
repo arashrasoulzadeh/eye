@@ -67,7 +67,11 @@ func main() {
 	// gRPC (LiveCounters below). liveCounters is bumped synchronously by
 	// IngestService on every accepted event.
 	liveCounters := service.NewLiveCounterHub()
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters}
+	// Phase 14: real-time per-session updates (EventCount, LastSeen),
+	// streamed live via SSE. liveSessions is updated by both IngestService
+	// (sync path) and StreamIngestPipeline (async path) on every accepted event.
+	liveSessions := service.NewLiveSessionHub()
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters, Sessions: liveSessions}
 	mux := http.NewServeMux()
 	// Phase 14: audit log for admin actions. Audit must sit INSIDE AdminAuth
 	// so a request that fails authentication is never logged as an action —
@@ -126,7 +130,7 @@ func main() {
 	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
 	// consumer inserts events and maintains materialized aggregate counts.
 	stream := service.NewChannelStream(256)
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream, Sessions: liveSessions}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)
@@ -134,6 +138,17 @@ func main() {
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
+	// Dashboard cache: serves pre-computed metrics updated by a background job.
+	dashboardCacheSvc := &service.DashboardCacheService{DB: db}
+	mux.Handle("/dashboard-cache", adminAuth(&handler.DashboardCacheHandler{Svc: dashboardCacheSvc}))
+	// Phase 14: SSE bridge for the admin panel, since a browser can't speak
+	// gRPC directly — wraps the same liveCounters hub the LiveCounters gRPC
+	// stream above serves.
+	mux.Handle("/live-counters", adminAuth(&handler.LiveCountersHandler{Hub: liveCounters}))
+	// Phase 14: SSE bridge for live per-session updates (EventCount, LastSeen).
+	mux.Handle("/live-session", adminAuth(&handler.LiveSessionHandler{Hub: liveSessions}))
+	// Phase 14: SSE bridge for live per-session events.
+	mux.Handle("/live-events", adminAuth(&handler.LiveEventsHandler{Hub: liveSessions}))
 
 	// Phase 9: real Prometheus exposition, separate from the JSON dashboard
 	// stats already served at /metrics above (that path predates this work
@@ -213,6 +228,12 @@ func main() {
 	go service.RunSnapshotJob(snapshotCtx, snapshotSvc, time.Hour, func(err error) {
 		logger.Error("snapshot job failed", "err", err)
 	})
+
+	// Dashboard cache: periodic refresh of pre-computed dashboard metrics.
+	// Default 1 minute, configurable via settings.
+	dashboardCacheCtx, cancelDashboardCache := context.WithCancel(context.Background())
+	defer cancelDashboardCache()
+	go service.RunDashboardCacheJob(dashboardCacheCtx, dashboardCacheSvc, time.Minute, logger)
 
 	// Phase 6: gRPC server-streaming QueryStream, backed by the same
 	// DB-connected QueryService as the REST /query endpoint. This process

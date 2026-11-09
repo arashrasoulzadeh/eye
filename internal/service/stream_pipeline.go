@@ -21,6 +21,10 @@ type StreamIngestPipeline struct {
 	Repo     *repository.Repo
 	DB       *gorm.DB
 	Producer StreamProducer
+	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
+	// to subscribers via the LiveSessionHub. Nil means no live-session
+	// tracking, so existing callers/tests that don't set it are unaffected.
+	Sessions *LiveSessionHub
 }
 
 // Ingest has the same accepted/rejected contract as IngestService.Ingest,
@@ -68,7 +72,12 @@ func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 	}
 	if sess, err := p.Repo.GetSession(ev.SessionID); err == nil {
 		sess.EventCount++
+		sess.LastSeen = time.Now()
 		_ = p.Repo.UpdateSession(sess)
+		if p.Sessions != nil {
+			p.Sessions.Update(sess)
+			p.Sessions.AddEvent(ev.SessionID, ev)
+		}
 	}
 	return UpsertAggregateCount(p.DB, ev.TenantID, ev.EventName, ev.Dims)
 }

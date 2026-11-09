@@ -8,7 +8,7 @@ const LINE_COLOR = "var(--color-accent, #6366f1)";
 
 /** Small reusable line chart over {label, value} points — no legend/series config, matches the app's single-series usage (events over time, etc). */
 export function LineTrend({ data, height = 220 }: { data: ChartPoint[]; height?: number }) {
-  if (data.length === 0) {
+  if (!data || data.length === 0) {
     return <div className="flex h-[220px] items-center justify-center text-sm text-fg-muted">No data yet.</div>;
   }
   return (
@@ -26,7 +26,7 @@ export function LineTrend({ data, height = 220 }: { data: ChartPoint[]; height?:
 
 /** Small reusable bar chart over {label, value} points — e.g. events per tenant. */
 export function BarBreakdown({ data, height = 220 }: { data: ChartPoint[]; height?: number }) {
-  if (data.length === 0) {
+  if (!data || data.length === 0) {
     return <div className="flex h-[220px] items-center justify-center text-sm text-fg-muted">No data yet.</div>;
   }
   return (

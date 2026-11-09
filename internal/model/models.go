@@ -200,3 +200,16 @@ type AuditLog struct {
 	BodySnippet string // first ~256 bytes of the request body, best-effort
 	CreatedAt  int64
 }
+
+// DashboardCache holds pre-computed dashboard metrics, refreshed by a
+// background job on a configurable interval. The dashboard UI reads from
+// this table instead of querying the database directly.
+type DashboardCache struct {
+	ID         uint   `gorm:"primaryKey"` // always 1
+	Events     int64  `json:"events"`
+	Sessions   int64  `json:"sessions"`
+	Tenants    int64  `json:"tenants"`
+	EventsByHour string `json:"events_by_hour"` // JSON: [{"label":"00:00","value":10},...]
+	EventsByTenant string `json:"events_by_tenant"` // JSON: [{"label":"acme","value":100},...]
+	UpdatedAt  int64  `json:"updated_at"`
+}

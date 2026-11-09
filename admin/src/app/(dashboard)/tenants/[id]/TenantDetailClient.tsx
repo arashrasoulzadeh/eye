@@ -9,6 +9,7 @@ import { EntityLink } from "@/components/EntityLink";
 import { DataTable, Column } from "@/components/DataTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LineTrend, ChartPoint } from "@/components/Chart";
+import { LiveCounter } from "@/components/LiveCounter";
 import { useToast } from "@/components/Toast";
 
 function eventsPerHour(events: Event[]): ChartPoint[] {
@@ -120,10 +121,11 @@ export default function TenantDetailClient() {
         </Button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
         <StatCard label="Sessions" value={sessions.length} />
         <StatCard label="Events (loaded)" value={eventCount} hint="Capped by /query's page size" />
         <StatCard label="Created" value={tenant.CreatedAt ? new Date(tenant.CreatedAt).toLocaleDateString() : "—"} />
+        <LiveCounter tenantId={tenant.ID} />
       </div>
 
       <Card className="mt-6">

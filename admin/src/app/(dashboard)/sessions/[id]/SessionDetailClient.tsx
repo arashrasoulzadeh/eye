@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, Session, Event, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { JsonView } from "@/components/JsonView";
 import { useToast } from "@/components/Toast";
+import { LiveSession } from "@/components/LiveSession";
 
 export default function SessionDetailClient() {
   const params = useParams<{ id: string }>();
@@ -19,6 +20,11 @@ export default function SessionDetailClient() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const eventsRef = useRef(events);
+
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +56,28 @@ export default function SessionDetailClient() {
       cancelled = true;
     };
   }, [sessionId, push]);
+
+  // Live events SSE
+  useEffect(() => {
+    if (!sessionId) return;
+    const es = new EventSource(`/api/proxy-stream/live-events?session_id=${encodeURIComponent(sessionId)}`);
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data) as { events: Event[] };
+        if (data.events?.length) {
+          // Merge new events, avoiding duplicates by EventID
+          const newEvents = data.events.filter((e) => !eventsRef.current.some((ex) => ex.EventID === e.EventID));
+          if (newEvents.length) {
+            setEvents((prev) => [...newEvents, ...prev].slice(0, 500));
+          }
+        }
+      } catch {
+        // malformed SSE payload — ignore
+      }
+    };
+    es.onerror = () => {};
+    return () => es.close();
+  }, [sessionId]);
 
   const deviceEntries = useMemo(() => {
     if (!session?.DeviceInfo) return [];
@@ -105,11 +133,7 @@ export default function SessionDetailClient() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Events" value={session.EventCount} hint="Live count on the session record" />
-        <StatCard label="Started" value={session.StartedAt ? new Date(session.StartedAt).toLocaleString() : "—"} />
-        <StatCard label="Last seen" value={session.LastSeen ? new Date(session.LastSeen).toLocaleString() : "—"} />
-      </div>
+      <LiveSession session={session} className="mt-6" />
 
       <Card className="mt-6">
         <CardHeader title="Device" />

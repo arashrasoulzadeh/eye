@@ -35,6 +35,10 @@ type IngestService struct {
 	// live_counters.go). Nil means no live-counter tracking, so existing
 	// callers/tests that don't set it are unaffected.
 	Counters *LiveCounterHub
+	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
+	// to subscribers via the LiveSessionHub. Nil means no live-session
+	// tracking, so existing callers/tests that don't set it are unaffected.
+	Sessions *LiveSessionHub
 }
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
@@ -86,10 +90,15 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		}
 		if err := s.Repo.InsertEvent(ev); err != nil { rejected++; continue }
 		sess.EventCount++
+		sess.LastSeen = time.Now()
 		s.Repo.UpdateSession(sess)
 		accepted++
 		if s.Counters != nil {
 			s.Counters.Increment(ev.TenantID)
+		}
+		if s.Sessions != nil {
+			s.Sessions.Update(sess)
+			s.Sessions.AddEvent(sid, ev)
 		}
 	}
 	return accepted, rejected
