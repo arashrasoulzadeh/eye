@@ -74,7 +74,10 @@ func main() {
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	mux.Handle("/schemas/", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
-	mux.Handle("/sessions", adminAuth(&handler.SessionsHandler{DB: db}))
+	// /sessions accepts the admin key OR a tenant's own API key for POST
+	// (session creation) — a public CDN SDK running in the browser must be
+	// able to call this with only its tenant key, never the admin key.
+	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db})))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))

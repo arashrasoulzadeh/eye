@@ -1,6 +1,9 @@
 {
   "name": "eye-web-sdk",
   "version": "0.1.0",
-  "scripts": { "test": "vitest run" },
-  "devDependencies": { "vitest": "^2.0.0", "typescript": "^5.0.0" }
+  "scripts": {
+    "test": "vitest run",
+    "build:cdn": "esbuild src/cdn.ts --bundle --format=iife --outfile=dist/eye.min.js --minify --sourcemap"
+  },
+  "devDependencies": { "vitest": "^2.0.0", "typescript": "^5.0.0", "esbuild": "^0.21.5" }
 }

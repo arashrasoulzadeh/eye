@@ -1,6 +1,11 @@
 package handler
 
-import "net/http"
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+)
 
 // AdminAuth wraps next with a check that the request carries the configured
 // admin API key in the x-admin-key header, rejecting anything else with 401.
@@ -12,5 +17,43 @@ func AdminAuth(adminKey string, next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// TenantOrAdminAuth allows a request through if it carries the admin key
+// (x-admin-key), OR — for a POST whose JSON body has a "tenant_id" field —
+// a tenant API key (x-api-key) that verify() confirms belongs to that
+// tenant. This exists so a public, untrusted client (e.g. the CDN SDK
+// running in a browser) can create a session for itself using only its own
+// tenant API key, without ever holding the shared admin key: embedding that
+// in client-side JS would defeat the whole point of an "admin" key. Routes
+// that should stay admin-only (listing/deleting across tenants) are not
+// wrapped with this — only session creation needs it.
+func TenantOrAdminAuth(adminKey string, verify func(tenantID, apiKey string) bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if k := r.Header.Get("x-admin-key"); k != "" && k == adminKey {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if r.Method == http.MethodPost {
+			apiKey := r.Header.Get("x-api-key")
+			body, err := io.ReadAll(r.Body)
+			if err == nil {
+				var b struct {
+					TenantID string `json:"tenant_id"`
+				}
+				if json.Unmarshal(body, &b) == nil && b.TenantID != "" && apiKey != "" && verify(b.TenantID, apiKey) {
+					r.Body = io.NopCloser(bytes.NewReader(body))
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			// Restore the body even on the failure path, in case a future
+			// caller wants to log/inspect it before the 401 response.
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	})
 }

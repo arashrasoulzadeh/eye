@@ -37,6 +37,15 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 	for _, e := range events {
 		sid, _ := e["session_id"].(string)
 		eid, _ := e["event_id"].(string)
+		eventName, nameOK := e["event_name"].(string)
+		clientTS, tsOK := e["client_ts"].(float64)
+		// Malformed input (missing/wrong-typed required fields) is rejected,
+		// not a panic: a buggy or malicious client should never be able to
+		// crash the whole server process over one bad event in a batch.
+		if sid == "" || eid == "" || !nameOK || !tsOK {
+			rejected++
+			continue
+		}
 		if s.Repo.EventExists(sid, eid) { rejected++; continue }
 		payload, _ := json.Marshal(e["payload"])
 		dims, _ := json.Marshal(e["dims"])
@@ -45,8 +54,8 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			source = "client"
 		}
 		ev := &model.Event{
-			EventID: eid, SessionID: sid, EventName: e["event_name"].(string),
-			ClientTS: int64(e["client_ts"].(float64)), IngestTS: time.Now(),
+			EventID: eid, SessionID: sid, EventName: eventName,
+			ClientTS: int64(clientTS), IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims),
 			Source: source, IsAggregated: false,
 		}

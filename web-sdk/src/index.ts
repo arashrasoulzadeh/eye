@@ -81,7 +81,11 @@ export class EyeClient {
       body: JSON.stringify({ tenant_id: this.tenantId }),
     });
     const data = await res.json();
-    this.sessionId = data.session_id;
+    // The real backend's SessionsHandler returns the raw model.Session
+    // (capitalized `ID`, no json tags, since the admin UI also depends on
+    // that exact shape). Accept both so this also keeps working against
+    // any future/mocked `{ session_id }` response shape.
+    this.sessionId = data.session_id ?? data.ID ?? data.id;
     if (typeof localStorage !== "undefined") localStorage.setItem(this.storageKey, this.sessionId!);
     if (this.debug) console.info("[eye] session established", this.sessionId);
     return this.sessionId!;
@@ -141,7 +145,21 @@ export class EyeClient {
       return;
     }
     const events = this.buffer.splice(0);
-    const body = { events };
+    // The wire format the real /ingest endpoint expects is snake_case
+    // (session_id, event_id, event_name, client_ts, payload, dims) — a
+    // real, previously-unexercised mismatch with this class's internal
+    // camelCase Event shape, caught by actually running the CDN build
+    // against the live backend rather than against mocked fetch() tests.
+    const body = {
+      events: events.map((e) => ({
+        session_id: e.sessionId,
+        event_id: e.eventId,
+        event_name: e.eventName,
+        client_ts: e.clientTs,
+        payload: e.payload,
+        dims: e.dims,
+      })),
+    };
     if (this.debug) console.info("[eye] flushing", events.length, "events");
     await fetch(endpoint + "/ingest", {
       method: "POST",

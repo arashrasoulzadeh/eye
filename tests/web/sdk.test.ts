@@ -71,6 +71,23 @@ describe("EyeClient", () => {
     expect((globalThis as any).localStorage.getItem("eye_session_id")).toBe("new-session");
   });
 
+  it("accepts the real backend's response shape ({ ID }, not { session_id })", async () => {
+    // SessionsHandler returns the raw model.Session (capitalized ID, no
+    // json tags) — this was a real contract mismatch the CDN build
+    // surfaced: ensureSession() must handle this shape, not just a
+    // hypothetical { session_id } one.
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ ID: "real-backend-session", TenantID: "t1" }),
+    });
+    (globalThis as any).fetch = fetchMock;
+
+    const c = new EyeClient({ tenantId: "t1", flushIntervalMs: 0 });
+    const id = await c.ensureSession("http://api", "key");
+
+    expect(id).toBe("real-backend-session");
+    expect((globalThis as any).localStorage.getItem("eye_session_id")).toBe("real-backend-session");
+  });
+
   it("flush sends buffered events and empties the buffer", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) });
     (globalThis as any).fetch = fetchMock;
