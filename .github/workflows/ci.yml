@@ -61,7 +61,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: tests/web/package-lock.json
 
       - name: Install
         run: npm ci
@@ -104,6 +103,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
 
       - name: Install
         run: npm ci
