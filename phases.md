@@ -3,47 +3,11 @@
 - API: grpc-gateway (google.golang.org/grpc + grpc-ecosystem/grpc-gateway) auto-generates REST from proto.
 - ORM: GORM for all DB access.
 
-## Phase 1 — Foundation & Contracts
-- [x] Define proto: `CreateSession`, `Ingest`, `IngestStream` in `proto/events.proto`
-- [x] Generate Go + TS stubs
-- [x] `go.mod`, module path `github.com/eye/eye`
-- [x] Types: `Event`, `IngestRequest`, `IngestResponse`, `Session`, `CreateSessionRequest/Response`
-- [x] Config loader (env + file): port, db url, api key salt
-- [x] Logging (structured, slog) + Prometheus metrics scaffold
-
 ## Phase 2 — Storage (TimescaleDB)
-- [x] Migration: `storage.TimescaleRepo.Migrate` auto-migrates the `events` table (tenant_id, session_id, event_id, event_name, client_ts, ingest_ts, payload, dims) via GORM against dev SQLite
 - [ ] RLS policies per tenant — n/a for the dev SQLite path (Postgres/Timescale-only feature); not implemented or faked
-- [x] `storage.Repository` interface: `InsertEvents`, `GetEvents`, `CreateSession`, `GetSession`
-- [x] `storage.TimescaleRepo` impl + unit tests (mock DB)
-- [x] TTL policy + retention job
-
-## Phase 3 — Ingestion (Go collector)
-- [x] `ingest.Service` with `Ingest(ctx, req)` returning counts
-- [x] Idempotency: in-memory + DB dedup on (session_id, event_id)
-- [x] Session validation: `GetSession` → tenant match
-- [x] Rate limiter: per-IP + per-tenant token bucket middleware
-- [x] gRPC server wiring + health check
-- [x] TDD: table tests for dedup, validation, rate limit
-
-## Phase 4 — Admin API
-- [x] `admin.Service`: CRUD tenants, keys, schemas
-- [x] REST/gRPC endpoints: `CreateTenant`, `RotateKey`, `RegisterSchema`
-- [x] Auth: admin API key scope
-- [x] TDD: handler tests
-
-## Phase 5 — Web SDK
-- [x] `EyeClient` class: constructor, `ensureSession`, `track`, `flush`
-- [x] `Session` persistence via localStorage
-- [x] Bounded ring buffer (max 1000)
-- [x] Flush batching (size/time threshold)
-- [x] Unit tests (Jest/Vitest): buffer overflow, session reuse, flush
 
 ## Phase 6 — Segmentation & Query API
-- [x] Query service: filter by tenant/session/event/dims/time range
-- [x] Cohort definitions + materialized membership — rule-based (event_name + min_count), `CohortService.Materialize` + `RunCohortMaterializationJob` ticker; this is a full on-demand recompute on each run, not a real incremental stream job (Phase 7/Kafka isn't built yet) — honest substitute, not faked
 - [ ] gRPC streaming: `QueryStream` — not implemented; `/query` is a plain REST (paginated) endpoint, no gRPC streaming RPC added yet
-- [x] TDD: filter correctness, pagination
 
 ## Phase 7 — Stream Processing & Aggregates
 - [ ] Redpanda/Kafka producer in collector
@@ -61,7 +25,6 @@
 - [ ] Prometheus metrics: ingest rate, latency, errors, queue depth
 - [ ] Grafana dashboards
 - [ ] Docker Compose (dev) + K8s manifests (optional)
-- [x] CI: GitHub Actions (lint, test, build)
 
 ## Phase 10 — Mobile & Server SDKs
 - [ ] iOS (Swift) SDK port
@@ -75,31 +38,11 @@
 - [ ] Restore drill
 
 ## Phase 12 — Admin Panel (Next.js)
-- [x] Next.js app in `admin/` with App Router
-- [x] Auth: single long API key (env `ADMIN_API_KEY`), stored in httpOnly cookie/session
 - [ ] Pages:
-  - [x] `/login` — API key entry
-  - [x] `/` dashboard — ingest rate, events count, active sessions, tenants, plus events-by-hour and events-by-tenant charts
-  - [x] `/tenants` — list/create/delete tenants, rotate keys
-  - [x] `/tenants/[id]` — tenant detail page: sessions/events counts and an events-by-hour chart scoped to the tenant (derived client-side from `/query` + `/sessions`, since there's no `GET /tenants/{id}` endpoint); retention section is explicitly read-only, same honest pattern as `/settings` (no per-tenant retention API exists)
-  - [x] `/sessions` — list sessions per tenant, event counts
-  - [x] `/events` — paginated event browser with filters (event_name, tenant_id, session_id) plus a from/to time-range filter, now querying `/query` (which already supported `from_ts`/`to_ts`) instead of `/events`
-  - [x] `/schemas` — register/list schemas (JSON definitions, not strictly Protobuf) with version history
   - [ ] `/cohorts` — define segment rules — no backend (Phase 6); explicit "not implemented" placeholder, no fake data
   - [ ] `/alerts` — threshold rules + webhook config — no backend (Phase 8); explicit "not implemented" placeholder
   - [ ] `/settings` — retention, sampling, rate limits — read-only honest display only; no update API exists yet, so no editable controls were added
-- [x] API routes (Next.js) proxy to Go backend (`/api/proxy/[...path]`, attaches the admin key from the httpOnly cookie)
-- [x] Components: DataTable, FilterBar, Chart (recharts — `LineTrend`/`BarBreakdown` in `Chart.tsx`, used on the dashboard and tenant detail pages), AuthGuard — auth protection done via `src/proxy.ts` (Next's middleware-successor) rather than a dedicated AuthGuard component, which is an equivalent mechanism, not a gap
 - [ ] TDD: Playwright e2e for login + CRUD flows — verified manually end-to-end in the browser instead; no Playwright suite added
-
-## Phase 13 — Aggregators & System Events
-- [x] Event fields: `source` (client|system), `is_aggregated` (bool), `aggregation_id` (nullable)
-- [x] `aggregations` table: id, tenant_id, name, rule (event_name filter, threshold count, window), output_event_name, enabled, created_at, updated_at
-- [x] Admin API: CRUD aggregations (`/aggregations`, `AggregationsHandler`) + `/aggregations/{id}/backfill` to reprocess older events
-- [x] Time-window aggregations: `Window` field (1m/1h/1d) on the rule, bucketed in `AggregatorService.Backfill`, rolled up on a ticker via `RunAggregationJob` (5m interval) — this is a full on-demand recompute over matching rows each tick, not a real streaming aggregator (Phase 7/Kafka isn't built), same honest simplification as the Phase 6 cohort job
-- [x] System events stored like client events for unified querying
-- [x] Editable rules: `Update` changes the rule in place; `Backfill` only processes events not yet stamped with this aggregation's ID, so edited/older events are picked up on the next run without double-counting
-- [x] TDD: aggregator counting, threshold emission, and backfill idempotency covered in `tests/server/aggregator_backfill_test.go`, `aggregator_crud_test.go`, `aggregator_job_test.go`
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] Funnel analysis API (ordered event steps, conversion rates)
@@ -148,9 +91,6 @@
 - [ ] Retention matrix aggregation
 
 ## Phase 17 — A/B Testing
-- [x] Experiment definitions (variants, traffic split)
-- [x] Variant assignment (sticky per session/user) — `ExperimentService.AssignVariant` hash-buckets (experiment_id, session_id) deterministically against the traffic split, persists the result in `experiment_assignments`, and returns the stored variant on every later call for that session
-- [x] Event tagging with experiment_id + variant — `IngestService` looks up a session's active sticky assignment (if any) and stamps the ingested `Event.ExperimentID`/`Event.Variant` automatically; no explicit client opt-in required
 - [ ] Statistical significance reporting
 - [ ] Auto-stop on winner
 
