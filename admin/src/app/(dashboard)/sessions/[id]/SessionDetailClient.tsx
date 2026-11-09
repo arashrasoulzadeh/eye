@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, Session, Event, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
@@ -51,6 +51,16 @@ export default function SessionDetailClient() {
     };
   }, [sessionId, push]);
 
+  const deviceEntries = useMemo(() => {
+    if (!session?.DeviceInfo) return [];
+    try {
+      const parsed = JSON.parse(session.DeviceInfo) as Record<string, unknown>;
+      return Object.entries(parsed).filter(([, v]) => v !== undefined && v !== null && v !== "");
+    } catch {
+      return [];
+    }
+  }, [session]);
+
   const columns: Column<Event>[] = [
     { key: "name", header: "Event", render: (e) => <span className="font-medium text-fg">{e.EventName}</span>, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
@@ -100,6 +110,30 @@ export default function SessionDetailClient() {
         <StatCard label="Started" value={session.StartedAt ? new Date(session.StartedAt).toLocaleString() : "—"} />
         <StatCard label="Last seen" value={session.LastSeen ? new Date(session.LastSeen).toLocaleString() : "—"} />
       </div>
+
+      <Card className="mt-6">
+        <CardHeader title="Device" />
+        <div className="grid grid-cols-1 gap-x-6 gap-y-2 p-5 text-sm sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-medium text-fg-muted">IP</div>
+            <div className="font-mono text-fg">{session.IP || "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-fg-muted">User agent</div>
+            <div className="break-all font-mono text-xs text-fg">{session.UserAgent || "—"}</div>
+          </div>
+          {deviceEntries.length > 0 ? (
+            deviceEntries.map(([k, v]) => (
+              <div key={k}>
+                <div className="text-xs font-medium text-fg-muted">{k}</div>
+                <div className="font-mono text-fg">{String(v)}</div>
+              </div>
+            ))
+          ) : (
+            <div className="text-fg-muted sm:col-span-2">No client-supplied device info for this session.</div>
+          )}
+        </div>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader title={`Events in this session (${events.length})`} />

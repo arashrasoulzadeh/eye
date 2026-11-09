@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -134,7 +136,12 @@ func (c *Client) EnsureSession(ctx context.Context) (string, error) {
 		return sid, nil
 	}
 
-	body, _ := json.Marshal(map[string]string{"tenant_id": c.opts.TenantID})
+	// User-Agent and client IP are captured server-side from the request
+	// itself (see SessionsHandler) — nothing to send for those here. The
+	// "device" field carries what a Go process can report about itself
+	// that the server genuinely can't derive, the Go-appropriate analog of
+	// web-sdk's browser device info (screen size, platform, etc.).
+	body, _ := json.Marshal(map[string]any{"tenant_id": c.opts.TenantID, "device": serverDeviceInfo()})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.opts.Endpoint+"/sessions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
@@ -196,6 +203,18 @@ func (c *Client) withIdentity(dims map[string]any) map[string]any {
 	}
 	out["user_id"] = c.userID
 	return out
+}
+
+// serverDeviceInfo reports what this Go process can say about itself — os,
+// arch, hostname — the server-context equivalent of web-sdk's browser
+// device info (which reports screen size, platform, timezone, etc.: things
+// the server can't derive from the request, same reasoning here).
+func serverDeviceInfo() map[string]any {
+	info := map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH}
+	if host, err := os.Hostname(); err == nil {
+		info["hostname"] = host
+	}
+	return info
 }
 
 func randomEventID() string {

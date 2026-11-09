@@ -83,6 +83,8 @@ export type EyeInitOptions = Omit<EyeClientOptions, "tenantId"> & {
   autoTrack?: boolean | AutoTrackOptions;
   /** Inactivity threshold for the "idle" auto-event, in ms. Default: 30000. */
   idleTimeoutMs?: number;
+  /** Discard any cached/persisted session id and always start a fresh session. Default: false. */
+  forceNewSession?: boolean;
 };
 
 function resolveAutoTrack(opt: boolean | AutoTrackOptions | undefined): Required<AutoTrackOptions> {
@@ -114,11 +116,14 @@ class EyeGlobal {
    * it again replaces the previous client (its auto-flush timer and any
    * auto-track listeners are torn down first).
    */
+  private lastInitOpts: EyeInitOptions | null = null;
+
   init(opts: EyeInitOptions): EyeClient {
     const tenantId = opts.tenant ?? opts.tenantId;
     if (!tenantId) throw new Error("[eye] init() requires `tenant` (or `tenantId`)");
     if (!opts.apiKey) throw new Error("[eye] init() requires `apiKey`");
     this.destroy();
+    this.lastInitOpts = opts;
 
     const endpoint = opts.endpoint ?? EyeGlobal.defaultEndpoint();
     const debug = opts.debug ?? false;
@@ -126,13 +131,24 @@ class EyeGlobal {
     this.client = client;
 
     const auto = resolveAutoTrack(opts.autoTrack);
-    client.ensureSession(endpoint!, opts.apiKey)
+    client.ensureSession(endpoint!, opts.apiKey, { forceNew: opts.forceNewSession })
       .then(() => this.setupAutoTrack(auto, debug, opts.idleTimeoutMs ?? 30000))
       .catch((err) => {
         if (debug) console.error("[eye] ensureSession failed", err);
       });
 
     return client;
+  }
+
+  /**
+   * Convenience for "start a fresh session without reloading the page": tears
+   * down the current client and re-inits with the same options plus
+   * forceNewSession, discarding any cached/persisted session id. Throws if
+   * init() hasn't been called yet.
+   */
+  newSession(): EyeClient {
+    if (!this.lastInitOpts) throw new Error("[eye] call Eye.init(...) before Eye.newSession()");
+    return this.init({ ...this.lastInitOpts, forceNewSession: true });
   }
 
   /**

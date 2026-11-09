@@ -115,11 +115,15 @@ func TestEnsureSessionCreatesAndCaches(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		var body struct {
-			TenantID string `json:"tenant_id"`
+			TenantID string         `json:"tenant_id"`
+			Device   map[string]any `json:"device"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body.TenantID != "t1" {
 			t.Errorf("tenant_id = %q, want t1", body.TenantID)
+		}
+		if body.Device["os"] == nil || body.Device["arch"] == nil {
+			t.Errorf("expected device.os and device.arch, got %+v", body.Device)
 		}
 		w.WriteHeader(200)
 		_ = json.NewEncoder(w).Encode(map[string]string{"ID": "sess-abc"})

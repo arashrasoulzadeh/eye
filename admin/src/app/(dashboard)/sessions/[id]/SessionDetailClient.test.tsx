@@ -25,8 +25,17 @@ describe("SessionDetailClient", () => {
   beforeEach(() => {
     vi.mocked(api.tenants.list).mockResolvedValue([{ ID: "t1", Name: "acme", APIKey: "", CreatedAt: "" }]);
     vi.mocked(api.sessions.list).mockResolvedValue([
-      { ID: "s1", TenantID: "t1", StartedAt: "2024-01-01T00:00:00Z", LastSeen: "2024-01-01T01:00:00Z", EventCount: 2 },
-      { ID: "s2", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 0 },
+      {
+        ID: "s1",
+        TenantID: "t1",
+        StartedAt: "2024-01-01T00:00:00Z",
+        LastSeen: "2024-01-01T01:00:00Z",
+        EventCount: 2,
+        UserAgent: "Mozilla/5.0 (test-agent)",
+        IP: "203.0.113.7",
+        DeviceInfo: '{"platform":"MacIntel","timezone":"Asia/Tehran"}',
+      },
+      { ID: "s2", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 0, UserAgent: "", IP: "", DeviceInfo: "" },
     ]);
     vi.mocked(api.events.list).mockResolvedValue([
       { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
@@ -47,6 +56,12 @@ describe("SessionDetailClient", () => {
     expect(api.events.list).toHaveBeenCalledWith({ session_id: "s1" });
     expect(screen.getByText("Events in this session (1)")).toBeInTheDocument();
     expect(screen.getByText("click")).toBeInTheDocument();
+
+    // Device info: server-captured UA/IP plus the client-supplied fields.
+    expect(screen.getByText("203.0.113.7")).toBeInTheDocument();
+    expect(screen.getByText("Mozilla/5.0 (test-agent)")).toBeInTheDocument();
+    expect(screen.getByText("MacIntel")).toBeInTheDocument();
+    expect(screen.getByText("Asia/Tehran")).toBeInTheDocument();
   });
 
   it("shows a not-found state for an unknown session id", async () => {

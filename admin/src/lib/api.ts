@@ -1,5 +1,14 @@
 export type Tenant = { ID: string; Name: string; APIKey: string; CreatedAt: string };
-export type Session = { ID: string; TenantID: string; StartedAt: string; LastSeen: string; EventCount: number };
+export type Session = {
+  ID: string;
+  TenantID: string;
+  StartedAt: string;
+  LastSeen: string;
+  EventCount: number;
+  UserAgent: string;
+  IP: string;
+  DeviceInfo: string;
+};
 export type Event = {
   EventID: string;
   SessionID: string;

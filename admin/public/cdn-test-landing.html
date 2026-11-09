@@ -62,7 +62,13 @@
     <button id="btn-manual-track">Eye.track("manual_test_event")</button>
     <button id="btn-identify">Eye.identify("test-user-1", &#123;plan:"pro"&#125;)</button>
     <button id="btn-flush">Eye.flush()</button>
+    <button id="btn-new-session">New session (re-init)</button>
   </div>
+  <p class="muted">
+    "New session" discards the current session id (including the one cached in this browser's localStorage) and
+    re-initializes, so you can create a fresh session without closing the tab — useful for checking that each one
+    captures its own device info correctly.
+  </p>
 </section>
 
 <section>
@@ -95,28 +101,24 @@
   console.warn = (...a) => { log("[warn]", ...a); origWarn(...a); };
   console.error = (...a) => { log("[error]", ...a); origErr(...a); };
 
+  function doInit(extra) {
+    try {
+      window.Eye.init(Object.assign({ tenant, apiKey, endpoint, debug: true, idleTimeoutMs: 10000 }, extra));
+      statusEl.textContent = "Eye.init() called — watch the log below";
+      statusEl.className = "status ok";
+    } catch (e) {
+      statusEl.textContent = "Eye.init() threw: " + e.message;
+      statusEl.className = "status err";
+    }
+  }
+
   if (!tenant || !apiKey) {
     statusEl.textContent = "missing tenant/apiKey in URL — open this from the admin CDN Test page";
     statusEl.className = "status err";
   } else {
     const script = document.createElement("script");
     script.src = scriptUrl;
-    script.onload = () => {
-      try {
-        window.Eye.init({
-          tenant,
-          apiKey,
-          endpoint,
-          debug: true,
-          idleTimeoutMs: 10000,
-        });
-        statusEl.textContent = "Eye.init() called — watch the log below";
-        statusEl.className = "status ok";
-      } catch (e) {
-        statusEl.textContent = "Eye.init() threw: " + e.message;
-        statusEl.className = "status err";
-      }
-    };
+    script.onload = () => doInit();
     script.onerror = () => {
       statusEl.textContent = "failed to load script from " + scriptUrl;
       statusEl.className = "status err";
@@ -133,6 +135,10 @@
   });
   document.getElementById("btn-flush").addEventListener("click", () => {
     window.Eye?.flush();
+  });
+  document.getElementById("btn-new-session").addEventListener("click", () => {
+    log("[info] starting a new session (discarding the current one)…");
+    doInit({ forceNewSession: true });
   });
 </script>
 </body>

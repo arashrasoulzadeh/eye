@@ -34,6 +34,42 @@ const DEFAULTS = {
   flushIntervalMs: 5000,
 };
 
+/**
+ * Gathers whatever client-side device/environment info the server genuinely
+ * can't derive from the request itself (User-Agent and IP are captured
+ * server-side instead — see SessionsHandler). Every field is read behind a
+ * typeof guard since this also runs under Vitest/Node, where `navigator`/
+ * `screen`/`Intl` may be absent or incomplete; a field that can't be read is
+ * simply omitted rather than throwing.
+ */
+function collectDeviceInfo(): Record<string, any> {
+  const info: Record<string, any> = {};
+  try {
+    if (typeof navigator !== "undefined") {
+      if (navigator.platform) info.platform = navigator.platform;
+      if (navigator.language) info.language = navigator.language;
+      if ((navigator as any).languages) info.languages = (navigator as any).languages;
+      if ((navigator as any).userAgentData?.platform) info.platform = (navigator as any).userAgentData.platform;
+    }
+    if (typeof screen !== "undefined") {
+      if (screen.width) info.screenWidth = screen.width;
+      if (screen.height) info.screenHeight = screen.height;
+    }
+    if (typeof window !== "undefined") {
+      if (window.innerWidth) info.viewportWidth = window.innerWidth;
+      if (window.innerHeight) info.viewportHeight = window.innerHeight;
+      if ((window as any).devicePixelRatio) info.devicePixelRatio = (window as any).devicePixelRatio;
+    }
+    if (typeof Intl !== "undefined") {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) info.timezone = tz;
+    }
+  } catch {
+    // best-effort only; a partial or empty object is fine
+  }
+  return info;
+}
+
 export class EyeClient {
   private buffer: Event[] = [];
   private readonly maxBufferSize: number;
@@ -73,12 +109,21 @@ export class EyeClient {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async ensureSession(endpoint: string, apiKey: string) {
+  /**
+   * Creates (or reuses) a session. Pass `{ forceNew: true }` to discard any
+   * cached session id — including the one persisted in localStorage — and
+   * always create a fresh one (e.g. a "start a new session" test control).
+   */
+  async ensureSession(endpoint: string, apiKey: string, opts?: { forceNew?: boolean }) {
+    if (opts?.forceNew) {
+      this.sessionId = null;
+      if (typeof localStorage !== "undefined") localStorage.removeItem(this.storageKey);
+    }
     if (this.sessionId) return this.sessionId;
     const res = await fetch(endpoint + "/sessions", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify({ tenant_id: this.tenantId }),
+      body: JSON.stringify({ tenant_id: this.tenantId, device: collectDeviceInfo() }),
     });
     const data = await res.json();
     // The real backend's SessionsHandler returns the raw model.Session

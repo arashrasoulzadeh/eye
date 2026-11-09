@@ -32,6 +32,17 @@ type Session struct {
 	StartedAt  time.Time
 	LastSeen   time.Time
 	EventCount int64
+	// UserAgent and IP are captured server-side from the request itself
+	// (not trusted from the client body), so every SDK gets this for free
+	// without needing to compute or send it.
+	UserAgent string
+	IP        string
+	// DeviceInfo is a JSON blob of whatever structured client-side fields
+	// the caller supplied (screen/viewport size, language, timezone, OS,
+	// etc.) — only things the server genuinely can't derive from the
+	// request itself. Opaque to the schema since its shape legitimately
+	// differs per platform (browser vs. a Go server process).
+	DeviceInfo string
 }
 
 type Event struct {
