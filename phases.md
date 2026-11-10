@@ -27,7 +27,7 @@
 - [ ] Snapshot tests for admin UI
 - [ ] Mutation testing (go-mutesting)
 - [ ] Performance regression benchmarks
-- [ ] Security tests (auth bypass, tenant isolation)
+- [x] Security tests (auth bypass, tenant isolation) — auth middleware rejection/allowance and cross-tenant isolation cases pass in `tests/server/handler_test.go`, `tenant_or_admin_auth_test.go`, and tenant-scoped service tests
 - [x] Schema validation tests — required fields, primitive types, invalid definitions, and clean payloads are covered in `tests/server/schema_validate_test.go`
 - [x] Backfill correctness tests — threshold behavior, idempotency, and reruns after new events are covered in `tests/server/aggregator_backfill_test.go`
 
