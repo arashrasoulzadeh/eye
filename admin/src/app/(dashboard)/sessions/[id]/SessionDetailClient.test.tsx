@@ -64,6 +64,15 @@ describe("SessionDetailClient", () => {
     expect(screen.getByText("Asia/Tehran")).toBeInTheDocument();
   });
 
+  it("deduplicates repeated event ids before rendering keyed lists", async () => {
+    vi.mocked(api.events.list).mockResolvedValue([
+      { EventID: "duplicate", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 2, IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
+      { EventID: "duplicate", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: 1, IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
+    ]);
+    render(<ToastProvider><SessionDetailClient /></ToastProvider>);
+    await waitFor(() => expect(screen.getByText("Events in this session (1)")).toBeInTheDocument());
+  });
+
   it("shows a not-found state for an unknown session id", async () => {
     vi.mocked(api.sessions.list).mockResolvedValue([]);
     render(

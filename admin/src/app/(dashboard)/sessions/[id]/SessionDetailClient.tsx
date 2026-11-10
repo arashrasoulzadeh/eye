@@ -10,6 +10,15 @@ import { JsonView } from "@/components/JsonView";
 import { useToast } from "@/components/Toast";
 import { LiveSession } from "@/components/LiveSession";
 
+function uniqueEvents(events: Event[]): Event[] {
+  const seen = new Set<string>();
+  return events.filter((event) => {
+    if (!event.EventID || seen.has(event.EventID)) return false;
+    seen.add(event.EventID);
+    return true;
+  });
+}
+
 export default function SessionDetailClient() {
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
@@ -45,7 +54,7 @@ export default function SessionDetailClient() {
         setSession(s);
         setNotFound(!s);
         setTenant(s ? tenants.find((t) => t.ID === s.TenantID) || null : null);
-        setEvents(sessionEvents);
+        setEvents(uniqueEvents(sessionEvents));
       } catch (e) {
         if (!cancelled) push("error", e instanceof ApiError ? e.message : "Failed to load session");
       } finally {
@@ -67,7 +76,7 @@ export default function SessionDetailClient() {
         const data = JSON.parse(ev.data) as { events: Event[] };
         if (data.events?.length) {
           // Merge new events, avoiding duplicates by EventID
-          const newEvents = data.events.filter((e) => !eventsRef.current.some((ex) => ex.EventID === e.EventID));
+          const newEvents = uniqueEvents(data.events).filter((e) => !eventsRef.current.some((ex) => ex.EventID === e.EventID));
           if (newEvents.length) {
             setEvents((prev) => [...newEvents, ...prev].slice(0, 500));
           }
