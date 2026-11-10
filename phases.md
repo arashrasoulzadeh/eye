@@ -38,7 +38,7 @@
 - [ ] Distinct count aggregation (HyperLogLog)
 - [ ] Percentile aggregations (p50/p95/p99)
 - [ ] Sliding window aggregations
-- [ ] Session-based aggregations (events per session)
+- [x] Session-based aggregations (events per session) — added tenant-scoped `GET /analytics/session-events` with ordered per-session event counts and tests
 - [ ] Geolocation-based aggregation
 - [ ] Device/platform breakdowns
 - [x] Anomaly detection on aggregated series — implemented in `internal/service/anomaly.go` with handler and service coverage

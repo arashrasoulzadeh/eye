@@ -169,6 +169,22 @@ func TestRetentionDailyCohorts(t *testing.T) {
 	}
 }
 
+func TestEventsPerSessionIsTenantScopedAndOrdered(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	mustInsertEvent(t, db, "e1", "s1", "t1", "click", 1)
+	mustInsertEvent(t, db, "e2", "s1", "t1", "purchase", 2)
+	mustInsertEvent(t, db, "e3", "s2", "t1", "click", 3)
+	mustInsertEvent(t, db, "e4", "other", "t2", "click", 4)
+
+	rows, err := (&service.AnalyticsService{DB: db}).EventsPerSession("t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].SessionID != "s1" || rows[0].Count != 2 || rows[1].Count != 1 {
+		t.Fatalf("unexpected session aggregation: %+v", rows)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

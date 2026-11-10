@@ -16,6 +16,36 @@ import (
 // for the requested tenant/time range on each call.
 type AnalyticsService struct{ DB *gorm.DB }
 
+type SessionEventCount struct {
+	SessionID string `json:"session_id"`
+	Count     int    `json:"count"`
+}
+
+// EventsPerSession returns event counts scoped to one tenant, ordered from
+// busiest session to least busy. It intentionally counts raw events so the
+// result reflects the same data visible to query consumers.
+func (a *AnalyticsService) EventsPerSession(tenantID string) ([]SessionEventCount, error) {
+	var events []model.Event
+	if err := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID).Find(&events).Error; err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int)
+	for _, event := range events {
+		counts[event.SessionID]++
+	}
+	result := make([]SessionEventCount, 0, len(counts))
+	for sessionID, count := range counts {
+		result = append(result, SessionEventCount{SessionID: sessionID, Count: count})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Count == result[j].Count {
+			return result[i].SessionID < result[j].SessionID
+		}
+		return result[i].Count > result[j].Count
+	})
+	return result, nil
+}
+
 // FunnelStepResult is one step of a funnel: how many distinct sessions
 // reached it (in order, i.e. only counting sessions that already reached
 // every prior step), and the conversion rate from the previous step.
@@ -49,8 +79,8 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 	}
 
 	// sessionID -> timestamp at which it last advanced to this step index.
-	progress := map[string]int{}   // sessionID -> index of furthest step reached + 1 (0 = none yet)
-	lastTS := map[string]int64{}   // sessionID -> ClientTS of the event that satisfied `progress`
+	progress := map[string]int{} // sessionID -> index of furthest step reached + 1 (0 = none yet)
+	lastTS := map[string]int64{} // sessionID -> ClientTS of the event that satisfied `progress`
 	stepIndex := map[string]int{}
 	for i, s := range steps {
 		stepIndex[s] = i
@@ -87,9 +117,9 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 // first appeared, how many sessions started that day, and how many of
 // those same sessions were still active N periods later.
 type RetentionRow struct {
-	CohortPeriod string  `json:"cohort_period"` // e.g. "2026-11-03" or "2026-W45"
-	CohortSize   int     `json:"cohort_size"`
-	ActiveByN    []int   `json:"active_by_n"`    // index N = sessions from this cohort active N periods later (N=0 is the cohort period itself)
+	CohortPeriod string    `json:"cohort_period"` // e.g. "2026-11-03" or "2026-W45"
+	CohortSize   int       `json:"cohort_size"`
+	ActiveByN    []int     `json:"active_by_n"`  // index N = sessions from this cohort active N periods later (N=0 is the cohort period itself)
 	RetainedPct  []float64 `json:"retained_pct"` // ActiveByN[n] / CohortSize
 }
 
@@ -113,7 +143,7 @@ func (a *AnalyticsService) Retention(tenantID, granularity string) ([]RetentionR
 		periodIndex = weekIndex
 	}
 
-	firstSeen := map[string]int64{}  // sessionID -> first ClientTS
+	firstSeen := map[string]int64{}              // sessionID -> first ClientTS
 	activePeriods := map[string]map[int64]bool{} // sessionID -> set of period-index they were active in
 	for _, e := range events {
 		if _, ok := firstSeen[e.SessionID]; !ok {

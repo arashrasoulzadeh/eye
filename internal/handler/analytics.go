@@ -42,6 +42,27 @@ func (h *FunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // RetentionHandler serves GET /analytics/retention?tenant_id=...&granularity=daily|weekly.
 type RetentionHandler struct{ Svc *service.AnalyticsService }
 
+// SessionEventsHandler serves GET /analytics/session-events?tenant_id=...
+type SessionEventsHandler struct{ Svc *service.AnalyticsService }
+
+func (h *SessionEventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	tenantID := r.URL.Query().Get("tenant_id")
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required", http.StatusBadRequest)
+		return
+	}
+	rows, err := h.Svc.EventsPerSession(tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(rows)
+}
+
 func (h *RetentionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
