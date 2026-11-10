@@ -24,7 +24,7 @@
 - [x] Fuzz testing for proto parsing — native Go fuzz target in `tests/server/proto_fuzz_test.go`; seed corpus and a 3-second fuzz run passed
 - [x] Chaos/fault injection (kill DB mid-ingest) — `TestIngestRejectsCleanlyWhenDatabaseFails` closes the SQLite handle during ingestion and verifies a safe rejection
 - [ ] Contract tests (Pact) SDK ↔ backend
-- [ ] Snapshot tests for admin UI
+- [x] Snapshot tests for admin UI — `admin/src/components/Button.test.tsx` now locks the primary button markup with a Vitest snapshot
 - [ ] Mutation testing (go-mutesting)
 - [ ] Performance regression benchmarks
 - [x] Security tests (auth bypass, tenant isolation) — auth middleware rejection/allowance and cross-tenant isolation cases pass in `tests/server/handler_test.go`, `tenant_or_admin_auth_test.go`, and tenant-scoped service tests

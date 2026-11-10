@@ -28,4 +28,9 @@ describe("Button", () => {
     render(<Button disabled>Send</Button>);
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
+
+  it("keeps the primary button markup stable", () => {
+    const { container } = render(<Button>Save</Button>);
+    expect(container.firstChild).toMatchSnapshot();
+  });
 });

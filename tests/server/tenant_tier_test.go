@@ -79,6 +79,15 @@ func TestTenantRateLimiterTracksTenantsIndependently(t *testing.T) {
 	}
 }
 
+func BenchmarkTenantRateLimiterAllow(b *testing.B) {
+	limiter := service.NewTenantRateLimiter()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		limiter.Allow("tenant-benchmark", "enterprise")
+	}
+}
+
 func TestIngestServiceRejectsOverTenantTierLimit(t *testing.T) {
 	repo := newTierTestRepo(t)
 	tenant := &model.Tenant{ID: "t1", Name: "t1", Tier: "free"}
