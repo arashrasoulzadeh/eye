@@ -1,0 +1,28 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { api, Event, Tenant } from "@/lib/api";
+import { Card, CardHeader } from "@/components/Card";
+import { Combobox } from "@/components/Combobox";
+import { Badge } from "@/components/Badge";
+import { JsonView } from "@/components/JsonView";
+
+export default function StreamPage() {
+  const [events, setEvents] = useState<Event[]>([]), [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantSearch, setTenantSearch] = useState(""), [eventSearch, setEventSearch] = useState("");
+  const [tenantIds, setTenantIds] = useState<string[]>([]), [eventNames, setEventNames] = useState<string[]>([]);
+  const [from, setFrom] = useState(""), [to, setTo] = useState(""), [style, setStyle] = useState("cards"), [running, setRunning] = useState(true);
+
+  useEffect(() => { api.tenants.list().then(setTenants); }, []);
+  useEffect(() => {
+    if (!running) return;
+    const load = () => api.events.list({ sort: "desc", from_ts: from ? new Date(from).getTime() : undefined, to_ts: to ? new Date(to).getTime() : undefined }).then(setEvents).catch(() => {});
+    load(); const timer = window.setInterval(load, 2000); return () => window.clearInterval(timer);
+  }, [running, from, to]);
+  const visible = useMemo(() => events.filter(e => (!tenantIds.length || tenantIds.includes(e.TenantID)) && (!eventNames.length || eventNames.includes(e.EventName))), [events, tenantIds, eventNames]);
+  const tenantOptions = tenants.map(t => ({ value: t.ID, label: t.Name }));
+  const eventOptions = [...new Set(events.map(e => e.EventName))].sort().map(value => ({ value }));
+  function add(list: string[], value: string, set: (v: string[]) => void) { if (value && !list.includes(value)) set([...list, value]); }
+  return <div><div className="flex items-center justify-between"><div><h1 className="text-xl font-semibold text-fg">Live Stream</h1><p className="mt-1 text-sm text-fg-muted">Starts unfiltered. Add multiple tenants or events whenever needed.</p></div><button className="rounded bg-accent px-3 py-2 text-sm text-accent-fg" onClick={() => setRunning(!running)}>{running ? "Pause" : "Resume"}</button></div>
+    <Card className="mt-6"><CardHeader title="Stream filters"/><div className="grid gap-3 p-5 md:grid-cols-2 lg:grid-cols-4"><Combobox value={tenantSearch} onChange={v => { add(tenantIds, v, setTenantIds); setTenantSearch(""); }} options={tenantOptions} placeholder="Add tenant"/><Combobox value={eventSearch} onChange={v => { add(eventNames, v, setEventNames); setEventSearch(""); }} options={eventOptions} placeholder="Add event"/><input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"/><input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"/><Combobox value={style} onChange={setStyle} options={[{value:"cards",label:"Cards"},{value:"table",label:"Table"},{value:"json",label:"JSON"}]} placeholder="Display style"/></div><div className="flex flex-wrap gap-2 px-5 pb-5">{tenantIds.map(id=><button key={id} onClick={()=>setTenantIds(tenantIds.filter(x=>x!==id))} className="rounded-full bg-accent/10 px-3 py-1 text-xs text-accent">Tenant: {tenants.find(t=>t.ID===id)?.Name||id} ×</button>)}{eventNames.map(n=><button key={n} onClick={()=>setEventNames(eventNames.filter(x=>x!==n))} className="rounded-full bg-accent/10 px-3 py-1 text-xs text-accent">Event: {n} ×</button>)}</div></Card>
+    <Card className="mt-6"><CardHeader title={`Events (${visible.length})`}/><div className="max-h-[65vh] overflow-auto">{style==="table"?<table className="w-full text-left text-sm"><thead><tr className="border-b border-border text-fg-muted"><th className="px-5 py-3">Event</th><th className="px-5 py-3">Tenant</th><th className="px-5 py-3">Time</th></tr></thead><tbody>{visible.map(e=><tr key={e.EventID} className="border-b border-border"><td className="px-5 py-3 font-medium">{e.EventName}</td><td className="px-5 py-3">{e.TenantID}</td><td className="px-5 py-3">{new Date(e.ClientTS).toLocaleString()}</td></tr>)}</tbody></table>:<div className="space-y-3 p-5">{visible.map(e=>style==="json"?<pre key={e.EventID} className="overflow-auto rounded-lg bg-surface-2 p-4 text-xs">{JSON.stringify(e,null,2)}</pre>:<div key={e.EventID} className="rounded-lg border border-border p-4"><div className="flex items-center justify-between"><span className="font-medium text-fg">{e.EventName}</span><Badge tone="accent">{new Date(e.ClientTS).toLocaleString()}</Badge></div><p className="mt-2 text-xs text-fg-muted">Tenant {e.TenantID} · Session {e.SessionID}</p><div className="mt-2"><JsonView value={e.Payload}/></div></div>)}</div>}</div></Card></div>
+}
