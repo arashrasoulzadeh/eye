@@ -215,3 +215,18 @@ type DashboardCache struct {
 	EventsByTenant string `json:"events_by_tenant"` // JSON: [{"label":"acme","value":100},...]
 	UpdatedAt      int64  `json:"updated_at"`
 }
+
+// Question is a saved, tenant-scoped event-count graph definition.
+type Question struct {
+	ID           string `gorm:"primaryKey"`
+	TenantID     string `gorm:"index"`
+	Name         string
+	EventName    string
+	ChartType    string
+	RangeMode    string // relative or absolute
+	RelativeDays int
+	FromTS       int64
+	ToTS         int64
+	CreatedAt    int64
+	UpdatedAt    int64
+}

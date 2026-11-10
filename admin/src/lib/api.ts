@@ -48,6 +48,8 @@ export type AlertRule = {
   CreatedAt: number;
   UpdatedAt: number;
 };
+export type Question = { ID: string; TenantID: string; Name: string; EventName: string; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
+export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
 
 class ApiError extends Error {
   status: number;
@@ -158,6 +160,13 @@ export const api = {
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
     remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),
     setEnabled: (id: string, enabled: boolean) => req<AlertRule>(`alerts/${id}/${enabled ? "enable" : "disable"}`, { method: "POST" }),
+  },
+
+  questions: {
+    list: (tenantId: string) => req<Question[]>(`questions?tenant_id=${encodeURIComponent(tenantId)}`),
+    save: (question: Partial<Question> & { tenant_id?: string }) => req<Question>("questions", { method: question.ID ? "PUT" : "POST", body: JSON.stringify({ ...question, tenant_id: question.tenant_id || question.TenantID }) }),
+    remove: (tenantId: string, id: string) => req<void>(`questions/${encodeURIComponent(id)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: "DELETE" }),
+    results: (tenantId: string, id: string) => req<GraphResult>(`questions/${encodeURIComponent(id)}/results?tenant_id=${encodeURIComponent(tenantId)}`),
   },
 
   settings: {

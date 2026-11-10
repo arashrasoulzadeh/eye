@@ -153,6 +153,8 @@ func main() {
 	// Dashboard cache: serves pre-computed metrics updated by a background job.
 	dashboardCacheSvc := &service.DashboardCacheService{DB: db}
 	mux.Handle("/dashboard-cache", adminAuth(&handler.DashboardCacheHandler{Svc: dashboardCacheSvc}))
+	questionSvc := &service.QuestionService{DB: db}
+	mux.Handle("/questions", adminAuth(&handler.QuestionsHandler{Svc: questionSvc}))
 	// Phase 14: SSE bridge for the admin panel, since a browser can't speak
 	// gRPC directly — wraps the same liveCounters hub the LiveCounters gRPC
 	// stream above serves.
