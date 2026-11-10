@@ -10,7 +10,7 @@ export function JsonView({ value }: { value: string }) {
     // not JSON, show raw
   }
   const isEmpty = !value || value === "null" || value === "{}";
-  if (isEmpty) return <span className="text-fg-muted">—</span>;
+  if (isEmpty) return <span className="font-mono text-xs text-fg-muted">{value || "{}"}</span>;
 
   return (
     <div>

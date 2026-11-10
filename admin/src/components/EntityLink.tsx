@@ -10,17 +10,19 @@ export function EntityLink({
   kind,
   id,
   truncate = 10,
+  label,
 }: {
   kind: "tenant" | "session";
   id: string;
   truncate?: number;
+  label?: string;
 }) {
   const href = kind === "tenant" ? `/tenants/${id}` : `/sessions/${id}`;
   const short = id.length > truncate ? id.slice(0, truncate) + "…" : id;
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-xs">
       <a href={href} className="text-fg-muted hover:text-accent hover:underline">
-        {short}
+        <span title={id}>{label || short}</span>
       </a>
       <CopyButton value={id} label="⧉" />
     </span>
