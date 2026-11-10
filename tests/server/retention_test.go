@@ -23,6 +23,9 @@ func TestRunRetentionJobDeletesOnTick(t *testing.T) {
 	// name per run instead.
 	dsn := fmt.Sprintf("file:retention_test_%d?mode=memory&cache=shared", time.Now().UnixNano())
 	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
 	repo := storage.NewTimescaleRepo(db)
 	if err := repo.Migrate(); err != nil {
 		t.Fatal(err)
@@ -60,6 +63,9 @@ func TestRunRetentionJobDeletesOnTick(t *testing.T) {
 func TestRunRetentionJobObservesLiveRetentionChange(t *testing.T) {
 	dsn := fmt.Sprintf("file:retention_live_test_%d?mode=memory&cache=shared", time.Now().UnixNano())
 	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
 	repo := storage.NewTimescaleRepo(db)
 	if err := repo.Migrate(); err != nil {
 		t.Fatal(err)

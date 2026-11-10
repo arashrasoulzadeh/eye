@@ -18,11 +18,14 @@ type Config struct {
 	SnapshotDir    string `mapstructure:"snapshot_dir"`
 }
 
+var envFiles []string
+
 func Load() (*Config, error) {
-	files := []string{}
-	pflag.StringSliceVar(&files, "env", []string{}, "env files to load")
+	if pflag.Lookup("env") == nil {
+		pflag.StringSliceVar(&envFiles, "env", []string{}, "env files to load")
+	}
 	pflag.Parse()
-	for _, f := range files {
+	for _, f := range envFiles {
 		viper.SetConfigFile(f)
 		viper.SetConfigType("yaml")
 		_ = viper.MergeInConfig()
