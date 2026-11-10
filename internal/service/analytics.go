@@ -33,6 +33,39 @@ type TopNRow struct {
 	Count     int64  `json:"count"`
 }
 
+type WindowCount struct {
+	WindowStart int64 `json:"window_start"`
+	Count       int   `json:"count"`
+}
+
+func (a *AnalyticsService) SlidingWindowCounts(tenantID, eventName string, windowSeconds int64, fromTS, toTS *int64) ([]WindowCount, error) {
+	if windowSeconds <= 0 {
+		return nil, fmt.Errorf("window_seconds must be positive")
+	}
+	query := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND event_name = ?", tenantID, eventName)
+	if fromTS != nil {
+		query = query.Where("client_ts >= ?", *fromTS)
+	}
+	if toTS != nil {
+		query = query.Where("client_ts <= ?", *toTS)
+	}
+	var events []model.Event
+	if err := query.Find(&events).Error; err != nil {
+		return nil, err
+	}
+	counts := map[int64]int{}
+	for _, event := range events {
+		start := event.ClientTS / (windowSeconds * 1000) * (windowSeconds * 1000)
+		counts[start]++
+	}
+	rows := make([]WindowCount, 0, len(counts))
+	for start, count := range counts {
+		rows = append(rows, WindowCount{WindowStart: start, Count: count})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].WindowStart < rows[j].WindowStart })
+	return rows, nil
+}
+
 func (a *AnalyticsService) TopN(tenantID, eventName string, limit int) ([]TopNRow, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 10

@@ -50,6 +50,34 @@ type DeviceBreakdownHandler struct{ Svc *service.AnalyticsService }
 
 type TopNHandler struct{ Svc *service.AnalyticsService }
 
+type SlidingWindowHandler struct{ Svc *service.AnalyticsService }
+
+func (h *SlidingWindowHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	query := r.URL.Query()
+	tenantID, eventName := query.Get("tenant_id"), query.Get("event_name")
+	if tenantID == "" || eventName == "" {
+		http.Error(w, "tenant_id and event_name are required", http.StatusBadRequest)
+		return
+	}
+	windowSeconds := 60
+	if raw := query.Get("window_seconds"); raw != "" {
+		if _, err := fmt.Sscanf(raw, "%d", &windowSeconds); err != nil {
+			http.Error(w, "window_seconds must be an integer", http.StatusBadRequest)
+			return
+		}
+	}
+	rows, err := h.Svc.SlidingWindowCounts(tenantID, eventName, int64(windowSeconds), nil, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(rows)
+}
+
 func (h *TopNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

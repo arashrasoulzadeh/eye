@@ -217,6 +217,22 @@ func TestTopNUsesMaterializedCountsAndTenantScope(t *testing.T) {
 	}
 }
 
+func TestSlidingWindowCountsGroupsEventsByWindow(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	mustInsertEvent(t, db, "w1", "s1", "t1", "click", 1000)
+	mustInsertEvent(t, db, "w2", "s1", "t1", "click", 59000)
+	mustInsertEvent(t, db, "w3", "s1", "t1", "click", 61000)
+	mustInsertEvent(t, db, "w4", "s1", "t2", "click", 1000)
+
+	rows, err := (&service.AnalyticsService{DB: db}).SlidingWindowCounts("t1", "click", 60, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].Count != 2 || rows[1].Count != 1 {
+		t.Fatalf("unexpected sliding-window rows: %+v", rows)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

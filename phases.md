@@ -37,7 +37,7 @@
 - [x] Event versioning — events persist `EventVersion`, default to version 1 for backwards compatibility, reject invalid versions, and preserve versions through replay
 - [ ] Distinct count aggregation (HyperLogLog)
 - [ ] Percentile aggregations (p50/p95/p99)
-- [ ] Sliding window aggregations
+- [x] Sliding window aggregations — added tenant/event-scoped fixed-window counts at `GET /analytics/sliding-window` with deterministic ordering and tests
 - [x] Session-based aggregations (events per session) — added tenant-scoped `GET /analytics/session-events` with ordered per-session event counts and tests
 - [ ] Geolocation-based aggregation
 - [x] Device/platform breakdowns — added tenant-scoped `GET /analytics/devices`, grouping captured session device metadata by platform with tests
