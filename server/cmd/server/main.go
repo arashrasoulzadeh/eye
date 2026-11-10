@@ -103,6 +103,7 @@ func main() {
 	mux.Handle("/analytics/top-n", adminAuth(&handler.TopNHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/sliding-window", adminAuth(&handler.SlidingWindowHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/distinct-sessions", adminAuth(&handler.DistinctSessionsHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/percentiles", adminAuth(&handler.PercentilesHandler{Svc: analyticsSvc}))
 	mux.Handle("/export/events", adminAuth(&handler.ExportHandler{Svc: qs}))
 	cohortSvc := &service.CohortService{DB: db}
 	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))

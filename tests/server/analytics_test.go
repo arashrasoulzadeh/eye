@@ -249,6 +249,23 @@ func TestDistinctSessionsIsTenantScoped(t *testing.T) {
 	}
 }
 
+func TestSessionEventPercentiles(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	for i := 0; i < 4; i++ {
+		mustInsertEvent(t, db, "p1-"+string(rune('a'+i)), "s1", "t1", "click", int64(i))
+	}
+	for i := 0; i < 2; i++ {
+		mustInsertEvent(t, db, "p2-"+string(rune('a'+i)), "s2", "t1", "click", int64(i))
+	}
+	result, err := (&service.AnalyticsService{DB: db}).SessionEventPercentiles("t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.P50 != 3 || result.P95 < 3 || result.P99 < 3 {
+		t.Fatalf("unexpected percentile summary: %+v", result)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

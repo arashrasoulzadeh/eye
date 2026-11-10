@@ -40,6 +40,38 @@ type WindowCount struct {
 	Count       int   `json:"count"`
 }
 
+type PercentileSummary struct {
+	P50 float64 `json:"p50"`
+	P95 float64 `json:"p95"`
+	P99 float64 `json:"p99"`
+}
+
+func (a *AnalyticsService) SessionEventPercentiles(tenantID string) (PercentileSummary, error) {
+	rows, err := a.EventsPerSession(tenantID)
+	if err != nil {
+		return PercentileSummary{}, err
+	}
+	if len(rows) == 0 {
+		return PercentileSummary{}, nil
+	}
+	counts := make([]int, len(rows))
+	for i, row := range rows {
+		counts[i] = row.Count
+	}
+	sort.Ints(counts)
+	percentile := func(p float64) float64 {
+		position := p * float64(len(counts)-1)
+		low := int(position)
+		high := low
+		if high+1 < len(counts) {
+			high++
+		}
+		fraction := position - float64(low)
+		return float64(counts[low]) + fraction*float64(counts[high]-counts[low])
+	}
+	return PercentileSummary{P50: percentile(0.50), P95: percentile(0.95), P99: percentile(0.99)}, nil
+}
+
 // DistinctSessions estimates unique sessions with a compact 64-register
 // HyperLogLog sketch. It is intentionally rebuilt for the requested tenant
 // and event name so the result cannot cross tenant boundaries.
