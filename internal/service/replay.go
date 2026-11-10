@@ -57,14 +57,19 @@ func (rs *ReplayService) Replay(tenantID string, fromTS, toTS int64) (int, error
 		var payload, dims any
 		_ = json.Unmarshal([]byte(e.Payload), &payload)
 		_ = json.Unmarshal([]byte(e.Dims), &dims)
+		version := e.EventVersion
+		if version < 1 {
+			version = 1
+		}
 		batch = append(batch, map[string]any{
-			"event_id":   e.EventID + "-replay-" + randomReplaySuffix(),
-			"session_id": e.SessionID,
-			"event_name": e.EventName,
-			"client_ts":  float64(e.ClientTS),
-			"payload":    payload,
-			"dims":       dims,
-			"source":     "replay",
+			"event_id":      e.EventID + "-replay-" + randomReplaySuffix(),
+			"session_id":    e.SessionID,
+			"event_name":    e.EventName,
+			"event_version": float64(version),
+			"client_ts":     float64(e.ClientTS),
+			"payload":       payload,
+			"dims":          dims,
+			"source":        "replay",
 		})
 	}
 	if len(batch) == 0 {

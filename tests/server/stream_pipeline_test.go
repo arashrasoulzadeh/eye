@@ -169,6 +169,25 @@ func TestStreamPipelineDeduplicatesIdenticalEventContent(t *testing.T) {
 	}
 }
 
+func TestStreamPipelinePersistsEventVersion(t *testing.T) {
+	p, stream, db, cancel := newPipeline(t)
+	defer cancel()
+
+	event := map[string]any{"event_id": "versioned", "event_name": "click", "event_version": float64(2), "client_ts": float64(1), "session_id": "s1"}
+	accepted, rejected := p.Ingest([]map[string]any{event})
+	if accepted != 1 || rejected != 0 {
+		t.Fatalf("expected versioned event to be accepted, got %d/%d", accepted, rejected)
+	}
+	stream.Wait()
+	var stored model.Event
+	if err := db.First(&stored, "event_id = ?", "versioned").Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.EventVersion != 2 {
+		t.Fatalf("expected event version 2, got %d", stored.EventVersion)
+	}
+}
+
 // TestStreamPipelineEndToEndIngestToQuery exercises the full Phase 7 path:
 // an event goes in through the async pipeline (producer), is picked up by
 // the consumer, inserted into storage, and folded into the materialized

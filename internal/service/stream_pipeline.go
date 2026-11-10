@@ -40,7 +40,11 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 		eid, _ := e["event_id"].(string)
 		name, nameOK := e["event_name"].(string)
 		ts, tsOK := e["client_ts"].(float64)
-		if sid == "" || eid == "" || !nameOK || name == "" || !tsOK {
+		eventVersion := 1
+		if rawVersion, ok := e["event_version"].(float64); ok {
+			eventVersion = int(rawVersion)
+		}
+		if sid == "" || eid == "" || !nameOK || name == "" || !tsOK || eventVersion < 1 {
 			rejected++
 			continue
 		}
@@ -71,7 +75,7 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 		}
 		ev := &model.Event{
 			EventID: eid, SessionID: sid, TenantID: sess.TenantID,
-			EventName: name, ClientTS: int64(ts), IngestTS: time.Now(),
+			EventName: name, ClientTS: int64(ts), EventVersion: eventVersion, IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims), Source: source,
 		}
 		ev.ContentHash = eventContentHash(ev.TenantID, ev.SessionID, ev.EventName, ev.ClientTS, payload, dims)

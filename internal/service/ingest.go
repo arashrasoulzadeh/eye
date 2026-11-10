@@ -60,10 +60,14 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		eid, _ := e["event_id"].(string)
 		eventName, nameOK := e["event_name"].(string)
 		clientTS, tsOK := e["client_ts"].(float64)
+		eventVersion := 1
+		if rawVersion, ok := e["event_version"].(float64); ok {
+			eventVersion = int(rawVersion)
+		}
 		// Malformed input (missing/wrong-typed required fields) is rejected,
 		// not a panic: a buggy or malicious client should never be able to
 		// crash the whole server process over one bad event in a batch.
-		if sid == "" || eid == "" || !nameOK || !tsOK {
+		if sid == "" || eid == "" || !nameOK || !tsOK || eventVersion < 1 {
 			rejected++
 			continue
 		}
@@ -79,7 +83,7 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		}
 		ev := &model.Event{
 			EventID: eid, SessionID: sid, EventName: eventName,
-			ClientTS: int64(clientTS), IngestTS: time.Now(),
+			ClientTS: int64(clientTS), EventVersion: eventVersion, IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims),
 			Source: source, IsAggregated: false,
 		}

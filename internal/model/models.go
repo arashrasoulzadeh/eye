@@ -48,6 +48,7 @@ type Session struct {
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`
+	EventVersion  int
 	SessionID     string `gorm:"index"`
 	TenantID      string `gorm:"index"`
 	EventName     string

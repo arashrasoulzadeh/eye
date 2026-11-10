@@ -34,7 +34,7 @@
 ## Phase 16 — Advanced Events & Aggregations
 - [x] Event dedup by content hash — tenant/session-aware SHA-256 content hashes are stored and enforced on both sync and async client ingestion; replay events remain intentionally additive
 - [ ] Event TTL per type
-- [ ] Event versioning
+- [x] Event versioning — events persist `EventVersion`, default to version 1 for backwards compatibility, reject invalid versions, and preserve versions through replay
 - [ ] Distinct count aggregation (HyperLogLog)
 - [ ] Percentile aggregations (p50/p95/p99)
 - [ ] Sliding window aggregations
