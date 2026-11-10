@@ -1,0 +1,27 @@
+services:
+  server:
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["/app/eye-server"]
+    environment:
+      EYE_ENV: production
+      PORT: 8080
+      DB_PATH: /data/eye.db
+      SNAPSHOT_DIR: /data/snapshots
+      ADMIN_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
+      API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}
+    ports: ["8080:8080", "50052:50052"]
+    volumes: ["eye-data:/data"]
+    restart: unless-stopped
+  collector:
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["/app/eye-collector"]
+    ports: ["50051:50051"]
+    restart: unless-stopped
+  admin:
+    build: { context: ./admin, dockerfile: Dockerfile }
+    environment: { API_BASE_URL: http://server:8080 }
+    ports: ["3000:3000"]
+    depends_on: [server]
+    restart: unless-stopped
+volumes:
+  eye-data:
