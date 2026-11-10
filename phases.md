@@ -41,12 +41,12 @@
 - [ ] Session-based aggregations (events per session)
 - [ ] Geolocation-based aggregation
 - [ ] Device/platform breakdowns
-- [ ] Anomaly detection on aggregated series
+- [x] Anomaly detection on aggregated series — implemented in `internal/service/anomaly.go` with handler and service coverage
 - [ ] Aggregation export to webhooks
 - [ ] Materialized views
 - [ ] Real-time top-N
-- [ ] Funnel drop-off aggregation
-- [ ] Retention matrix aggregation
+- [x] Funnel drop-off aggregation — implemented by `AnalyticsService.Funnel` with ordered-step conversion results and tests
+- [x] Retention matrix aggregation — implemented by `AnalyticsService.Retention` with daily/weekly cohort rows and tests
 
 ## Phase 17 — A/B Testing
 - [ ] Statistical significance reporting
