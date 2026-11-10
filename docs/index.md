@@ -7,6 +7,8 @@ title: Eye Analytics Platform
 
 A multi-tenant analytics ingestion and query system with real-time dashboards, session tracking, and SDKs for web and server.
 
+Documentation is deployed automatically through GitHub Pages.
+
 ## Quick Links
 
 - [Getting Started](getting-started/README.md)
