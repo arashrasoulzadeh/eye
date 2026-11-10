@@ -58,6 +58,31 @@ func (h *ExperimentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/auto-stop") {
+		experimentID := strings.TrimSuffix(strings.TrimSuffix(path, "/auto-stop"), "/")
+		var counts struct {
+			ControlSuccesses int64 `json:"control_successes"`
+			ControlSamples   int64 `json:"control_samples"`
+			VariantSuccesses int64 `json:"variant_successes"`
+			VariantSamples   int64 `json:"variant_samples"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&counts); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		result, err := service.Significance(counts.ControlSuccesses, counts.ControlSamples, counts.VariantSuccesses, counts.VariantSamples)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		stopped, err := h.Svc.AutoStopIfWinner(experimentID, result)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"stopped": stopped, "significance": result})
+		return
+	}
 
 	switch r.Method {
 	case http.MethodPost:

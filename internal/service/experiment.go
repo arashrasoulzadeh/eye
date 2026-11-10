@@ -45,6 +45,20 @@ func Significance(controlSuccesses, controlSamples, variantSuccesses, variantSam
 	return SignificanceResult{ControlRate: controlRate, VariantRate: variantRate, AbsoluteLift: variantRate - controlRate, ZScore: z, PValue: p, Significant95: p < 0.05}, nil
 }
 
+// AutoStopIfWinner disables an experiment only when the variant is a
+// statistically significant improvement over control. A non-significant or
+// losing variant leaves the experiment unchanged.
+func (e *ExperimentService) AutoStopIfWinner(experimentID string, result SignificanceResult) (bool, error) {
+	if !result.Significant95 || result.VariantRate <= result.ControlRate {
+		return false, nil
+	}
+	res := e.DB.Model(&model.Experiment{}).Where("id = ? AND enabled = ?", experimentID, true).Update("enabled", false)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
 func randomExperimentID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)

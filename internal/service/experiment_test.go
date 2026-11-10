@@ -26,6 +26,25 @@ func TestSignificanceRejectsInvalidCounts(t *testing.T) {
 	}
 }
 
+func TestAutoStopIfWinnerDisablesSignificantWinner(t *testing.T) {
+	db := newTestDB_experiment_test(t)
+	db.Create(&model.Experiment{ID: "exp-stop", Enabled: true})
+	svc := &ExperimentService{DB: db}
+	result, err := Significance(100, 1000, 180, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped, err := svc.AutoStopIfWinner("exp-stop", result)
+	if err != nil || !stopped {
+		t.Fatalf("expected experiment to stop, stopped=%v err=%v", stopped, err)
+	}
+	var exp model.Experiment
+	db.First(&exp, "id = ?", "exp-stop")
+	if exp.Enabled {
+		t.Fatal("expected winning experiment to be disabled")
+	}
+}
+
 func newTestDB_experiment_test(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

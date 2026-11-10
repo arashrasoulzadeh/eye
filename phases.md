@@ -28,7 +28,6 @@
 - [ ] Materialized views
 
 ## Phase 17 — A/B Testing
-- [ ] Auto-stop on winner
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.
