@@ -4,22 +4,22 @@ import { useEffect, useRef, useState } from "react";
 export type ComboOption = { value: string; label?: string };
 
 /**
- * Searchable, freeform combobox: typing filters the option list, the top
- * (preloaded) options show first when the field is empty/focused, and any
- * typed value is still usable even if it doesn't match an option.
+ * Searchable combobox with optional API-backed searching.
  */
 export function Combobox({
   value,
   onChange,
   options,
   placeholder,
-  maxVisible = 8,
+  maxVisible = 5,
+  onSearch,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: ComboOption[];
   placeholder?: string;
   maxVisible?: number;
+  onSearch?: (query: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -54,10 +54,11 @@ export function Combobox({
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          onSearch?.(e.target.value);
           setOpen(true);
           setHighlight(0);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => { setOpen(true); onSearch?.(value); }}
         onKeyDown={(e) => {
           if (!open) return;
           if (e.key === "ArrowDown") {
