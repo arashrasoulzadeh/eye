@@ -28,8 +28,8 @@
 - [ ] Mutation testing (go-mutesting)
 - [ ] Performance regression benchmarks
 - [ ] Security tests (auth bypass, tenant isolation)
-- [ ] Schema validation tests
-- [ ] Backfill correctness tests
+- [x] Schema validation tests — required fields, primitive types, invalid definitions, and clean payloads are covered in `tests/server/schema_validate_test.go`
+- [x] Backfill correctness tests — threshold behavior, idempotency, and reruns after new events are covered in `tests/server/aggregator_backfill_test.go`
 
 ## Phase 16 — Advanced Events & Aggregations
 - [ ] Event dedup by content hash
