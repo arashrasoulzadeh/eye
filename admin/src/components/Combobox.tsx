@@ -23,6 +23,7 @@ export function Combobox({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [search, setSearch] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,31 +35,35 @@ export function Combobox({
   }, []);
 
   const filtered = (
-    value.trim()
+    search.trim()
       ? options.filter(
           (o) =>
-            o.value.toLowerCase().includes(value.toLowerCase()) ||
-            (o.label || "").toLowerCase().includes(value.toLowerCase())
+            o.value.toLowerCase().includes(search.toLowerCase()) ||
+            (o.label || "").toLowerCase().includes(search.toLowerCase())
         )
       : options
   ).slice(0, maxVisible);
 
   function select(v: string) {
     onChange(v);
+    setSearch("");
     setOpen(false);
   }
+
+  const selectedLabel = options.find((o) => o.value === value)?.label || value;
 
   return (
     <div ref={rootRef} className="relative">
       <input
-        value={value}
+        value={open ? search : selectedLabel}
         onChange={(e) => {
+          setSearch(e.target.value);
           onChange(e.target.value);
           onSearch?.(e.target.value);
           setOpen(true);
           setHighlight(0);
         }}
-        onFocus={() => { setOpen(true); onSearch?.(value); }}
+        onFocus={() => { setSearch(options.some((o) => o.value === value) ? "" : value); setOpen(true); onSearch?.(value); }}
         onKeyDown={(e) => {
           if (!open) return;
           if (e.key === "ArrowDown") {
