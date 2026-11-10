@@ -157,6 +157,7 @@ func main() {
 	questionsHandler := adminAuth(&handler.QuestionsHandler{Svc: questionSvc})
 	mux.Handle("/questions", questionsHandler)
 	mux.Handle("/questions/", questionsHandler)
+	mux.Handle("/event-options", adminAuth(&handler.EventOptionsHandler{DB: db}))
 	// Phase 14: SSE bridge for the admin panel, since a browser can't speak
 	// gRPC directly — wraps the same liveCounters hub the LiveCounters gRPC
 	// stream above serves.

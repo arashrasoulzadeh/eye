@@ -1,0 +1,37 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"gorm.io/gorm"
+)
+
+type EventOption struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
+	Last  int64  `json:"last_ts"`
+}
+
+// EventOptionsHandler returns searchable event-name cardinalities. Defaults
+// are the most frequent names, with latest activity breaking ties.
+type EventOptionsHandler struct{ DB *gorm.DB }
+
+func (h *EventOptionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tenant, query := r.URL.Query().Get("tenant_id"), r.URL.Query().Get("q")
+	var rows []EventOption
+	db := h.DB.Table("events").Select("event_name as value, COUNT(*) as count, MAX(client_ts) as last").Where("event_name <> ''")
+	if tenant != "" {
+		db = db.Where("tenant_id = ?", tenant)
+	}
+	if query != "" {
+		db = db.Where("event_name LIKE ?", "%"+strings.ReplaceAll(query, "%", "\\%")+"%")
+	}
+	if err := db.Group("event_name").Order("count DESC, last DESC").Limit(5).Scan(&rows).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	json.NewEncoder(w).Encode(rows)
+}

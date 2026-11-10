@@ -50,6 +50,7 @@ export type AlertRule = {
 };
 export type Question = { ID: string; TenantID: string; Name: string; EventName: string; EventNames: string; MatchMode: "any" | "all"; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
 export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
+export type EventOption = { value: string; count: number; last_ts: number };
 
 class ApiError extends Error {
   status: number;
@@ -133,6 +134,7 @@ export const api = {
       return req<Event[]>(`query${suffix}`);
     },
   },
+  eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
 
   schemas: {
     list: (tenantId: string) => req<Schema[]>(`schemas?tenant_id=${encodeURIComponent(tenantId)}`),
