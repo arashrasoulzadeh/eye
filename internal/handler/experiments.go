@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -28,6 +29,33 @@ func (h *ExperimentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]string{"experiment_id": experimentID, "variant": variant})
+		return
+	}
+	if r.Method == http.MethodGet && strings.HasSuffix(path, "/significance") {
+		q := r.URL.Query()
+		var controlSuccesses, controlSamples, variantSuccesses, variantSamples int64
+		if _, err := fmt.Sscan(q.Get("control_successes"), &controlSuccesses); err != nil {
+			http.Error(w, "invalid control_successes", http.StatusBadRequest)
+			return
+		}
+		if _, err := fmt.Sscan(q.Get("control_samples"), &controlSamples); err != nil {
+			http.Error(w, "invalid control_samples", http.StatusBadRequest)
+			return
+		}
+		if _, err := fmt.Sscan(q.Get("variant_successes"), &variantSuccesses); err != nil {
+			http.Error(w, "invalid variant_successes", http.StatusBadRequest)
+			return
+		}
+		if _, err := fmt.Sscan(q.Get("variant_samples"), &variantSamples); err != nil {
+			http.Error(w, "invalid variant_samples", http.StatusBadRequest)
+			return
+		}
+		result, err := service.Significance(controlSuccesses, controlSamples, variantSuccesses, variantSamples)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,6 +17,34 @@ import (
 
 type ExperimentService struct{ DB *gorm.DB }
 
+type SignificanceResult struct {
+	ControlRate   float64 `json:"control_rate"`
+	VariantRate   float64 `json:"variant_rate"`
+	AbsoluteLift  float64 `json:"absolute_lift"`
+	ZScore        float64 `json:"z_score"`
+	PValue        float64 `json:"p_value"`
+	Significant95 bool    `json:"significant_95"`
+}
+
+// Significance compares two conversion proportions with a pooled two-sided
+// two-proportion z-test. Counts are supplied by the caller so the same
+// calculation can be used with experiment metrics or exported aggregates.
+func Significance(controlSuccesses, controlSamples, variantSuccesses, variantSamples int64) (SignificanceResult, error) {
+	if controlSamples <= 0 || variantSamples <= 0 || controlSuccesses < 0 || variantSuccesses < 0 || controlSuccesses > controlSamples || variantSuccesses > variantSamples {
+		return SignificanceResult{}, errors.New("invalid experiment counts")
+	}
+	controlRate := float64(controlSuccesses) / float64(controlSamples)
+	variantRate := float64(variantSuccesses) / float64(variantSamples)
+	pooled := float64(controlSuccesses+variantSuccesses) / float64(controlSamples+variantSamples)
+	se := math.Sqrt(pooled * (1 - pooled) * (1/float64(controlSamples) + 1/float64(variantSamples)))
+	z := 0.0
+	if se > 0 {
+		z = (variantRate - controlRate) / se
+	}
+	p := 1 - math.Erf(math.Abs(z)/math.Sqrt2)
+	return SignificanceResult{ControlRate: controlRate, VariantRate: variantRate, AbsoluteLift: variantRate - controlRate, ZScore: z, PValue: p, Significant95: p < 0.05}, nil
+}
+
 func randomExperimentID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
@@ -24,7 +53,9 @@ func randomExperimentID() string {
 
 func (e *ExperimentService) Create(name, tenantID, variants string, traffic int) (*model.Experiment, error) {
 	exp := &model.Experiment{ID: randomExperimentID(), Name: name, TenantID: tenantID, Variants: variants, Traffic: traffic, Enabled: true, CreatedAt: time.Now().Unix()}
-	if err := e.DB.Create(exp).Error; err != nil { return nil, err }
+	if err := e.DB.Create(exp).Error; err != nil {
+		return nil, err
+	}
 	return exp, nil
 }
 
@@ -63,7 +94,7 @@ func (e *ExperimentService) AssignVariant(experimentID, sessionID string) (strin
 		if err := json.Unmarshal([]byte(exp.Variants), &names); err != nil || len(names) == 0 {
 			return "", errors.New("experiment has no valid variants")
 		}
-		idx := bucket(experimentID + ":" + sessionID + ":variant") % len(names)
+		idx := bucket(experimentID+":"+sessionID+":variant") % len(names)
 		variant = names[idx]
 	}
 

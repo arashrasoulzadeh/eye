@@ -10,6 +10,22 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
+func TestSignificanceReportsStrongVariantLift(t *testing.T) {
+	result, err := Significance(100, 1000, 180, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Significant95 || result.VariantRate <= result.ControlRate || result.PValue >= 0.05 {
+		t.Fatalf("unexpected significance result: %+v", result)
+	}
+}
+
+func TestSignificanceRejectsInvalidCounts(t *testing.T) {
+	if _, err := Significance(2, 1, 0, 10); err == nil {
+		t.Fatal("expected invalid counts to be rejected")
+	}
+}
+
 func newTestDB_experiment_test(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

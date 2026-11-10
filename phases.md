@@ -28,7 +28,6 @@
 - [ ] Materialized views
 
 ## Phase 17 — A/B Testing
-- [ ] Statistical significance reporting
 - [ ] Auto-stop on winner
 
 ## TDD Rule (MANDATORY)
