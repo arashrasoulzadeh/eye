@@ -34,6 +34,18 @@ const DEFAULTS = {
   flushIntervalMs: 5000,
 };
 
+function browserStorage(): Storage | undefined {
+  if (
+    typeof localStorage === "undefined" ||
+    typeof localStorage.getItem !== "function" ||
+    typeof localStorage.setItem !== "function" ||
+    typeof localStorage.removeItem !== "function"
+  ) {
+    return undefined;
+  }
+  return localStorage;
+}
+
 /**
  * Gathers whatever client-side device/environment info the server genuinely
  * can't derive from the request itself (User-Agent and IP are captured
@@ -92,7 +104,7 @@ export class EyeClient {
     this.endpoint = opts.endpoint;
     this.apiKey = opts.apiKey;
     this.debug = opts.debug ?? false;
-    this.sessionId = typeof localStorage !== "undefined" ? localStorage.getItem(this.storageKey) : null;
+    this.sessionId = browserStorage()?.getItem(this.storageKey) ?? null;
     if (this.debug) console.info("[eye] client created", { tenantId: this.tenantId, sessionId: this.sessionId });
 
     if (this.flushIntervalMs > 0 && typeof setInterval !== "undefined") {
@@ -122,7 +134,7 @@ export class EyeClient {
   async ensureSession(endpoint: string, apiKey: string, opts?: { forceNew?: boolean }) {
     if (opts?.forceNew) {
       this.sessionId = null;
-      if (typeof localStorage !== "undefined") localStorage.removeItem(this.storageKey);
+      browserStorage()?.removeItem(this.storageKey);
     }
     if (this.sessionId) return this.sessionId;
     const res = await fetch(endpoint + "/sessions", {
@@ -136,7 +148,7 @@ export class EyeClient {
     // that exact shape). Accept both so this also keeps working against
     // any future/mocked `{ session_id }` response shape.
     this.sessionId = data.session_id ?? data.ID ?? data.id;
-    if (typeof localStorage !== "undefined") localStorage.setItem(this.storageKey, this.sessionId!);
+    browserStorage()?.setItem(this.storageKey, this.sessionId!);
     if (this.debug) console.info("[eye] session established", this.sessionId);
     return this.sessionId!;
   }
