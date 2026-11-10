@@ -120,6 +120,24 @@ func TestStreamPipelineAppliesTenantRateLimit(t *testing.T) {
 	}
 }
 
+func TestStreamPipelineRejectsMalformedEvents(t *testing.T) {
+	p, stream, db, cancel := newPipeline(t)
+	defer cancel()
+
+	event := map[string]any{"event_id": "", "event_name": "click", "client_ts": float64(1), "session_id": "s1"}
+	accepted, rejected := p.Ingest([]map[string]any{event})
+	if accepted != 0 || rejected != 1 {
+		t.Fatalf("expected malformed event to be rejected, got %d/%d", accepted, rejected)
+	}
+	stream.Wait()
+
+	var count int64
+	db.Model(&model.Event{}).Count(&count)
+	if count != 0 {
+		t.Fatalf("malformed event was published to the stream")
+	}
+}
+
 // TestStreamPipelineEndToEndIngestToQuery exercises the full Phase 7 path:
 // an event goes in through the async pipeline (producer), is picked up by
 // the consumer, inserted into storage, and folded into the materialized

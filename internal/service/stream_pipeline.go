@@ -38,6 +38,12 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 	for _, e := range events {
 		sid, _ := e["session_id"].(string)
 		eid, _ := e["event_id"].(string)
+		name, nameOK := e["event_name"].(string)
+		ts, tsOK := e["client_ts"].(float64)
+		if sid == "" || eid == "" || !nameOK || name == "" || !tsOK {
+			rejected++
+			continue
+		}
 		if p.Repo.EventExists(sid, eid) {
 			rejected++
 			continue
@@ -57,8 +63,6 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 				continue
 			}
 		}
-		name, _ := e["event_name"].(string)
-		ts, _ := e["client_ts"].(float64)
 		payload, _ := json.Marshal(e["payload"])
 		dims, _ := json.Marshal(e["dims"])
 		ev := &model.Event{
