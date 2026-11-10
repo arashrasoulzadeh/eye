@@ -111,6 +111,7 @@ func main() {
 	aggSvc := &service.AggregatorService{DB: db}
 	mux.Handle("/aggregations", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
 	mux.Handle("/aggregations/", adminAuth(&handler.AggregationsHandler{Svc: aggSvc}))
+	mux.Handle("/aggregations/export", adminAuth(&handler.AggregationExportHandler{Svc: aggSvc, Client: &service.HTTPWebhookClient{Client: http.DefaultClient}}))
 	mux.Handle("/experiments", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 	mux.Handle("/experiments/", adminAuth(&handler.ExperimentsHandler{Svc: expSvc}))
 

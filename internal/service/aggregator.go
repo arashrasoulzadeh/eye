@@ -16,6 +16,25 @@ import (
 
 type AggregatorService struct{ DB *gorm.DB }
 
+// ExportAggregateCounts sends the current materialized counts for a tenant to
+// an injected webhook client. The client seam keeps delivery testable and
+// lets callers reuse the retry/dead-letter layer used by alerts.
+func (a *AggregatorService) ExportAggregateCounts(tenantID, eventName, url string, client WebhookClient) error {
+	if tenantID == "" || url == "" || client == nil {
+		return errors.New("tenant_id, url, and webhook client are required")
+	}
+	var rows []model.AggregateCount
+	query := a.DB.Where("tenant_id = ?", tenantID)
+	if eventName != "" {
+		query = query.Where("event_name = ?", eventName)
+	}
+	if err := query.Order("event_name asc, dims_key asc").Find(&rows).Error; err != nil {
+		return err
+	}
+	payload := map[string]any{"tenant_id": tenantID, "event_name": eventName, "aggregates": rows}
+	return client.PostJSON(url, payload)
+}
+
 func randomAggregationID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)

@@ -10,6 +10,32 @@ import (
 
 type AggregationsHandler struct{ Svc *service.AggregatorService }
 
+type AggregationExportHandler struct {
+	Svc    *service.AggregatorService
+	Client service.WebhookClient
+}
+
+func (h *AggregationExportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		TenantID  string `json:"tenant_id"`
+		EventName string `json:"event_name"`
+		URL       string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.Svc.ExportAggregateCounts(body.TenantID, body.EventName, body.URL, h.Client); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]bool{"exported": true})
+}
+
 type aggregationBody struct {
 	TenantID    string `json:"tenant_id"`
 	Name        string `json:"name"`

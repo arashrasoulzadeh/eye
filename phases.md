@@ -23,7 +23,6 @@
 
 ## Phase 16 — Advanced Events & Aggregations
 - [ ] Geolocation-based aggregation
-- [ ] Aggregation export to webhooks
 - [ ] Materialized views
 
 ## Phase 17 — A/B Testing
