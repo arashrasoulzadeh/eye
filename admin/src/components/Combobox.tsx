@@ -64,6 +64,7 @@ export function Combobox({
           setHighlight(0);
         }}
         onFocus={() => { setSearch(options.some((o) => o.value === value) ? "" : value); setOpen(true); onSearch?.(value); }}
+        onClick={() => { setSearch(options.some((o) => o.value === value) ? "" : search); setOpen(true); onSearch?.(""); }}
         onKeyDown={(e) => {
           if (!open) return;
           if (e.key === "ArrowDown") {
