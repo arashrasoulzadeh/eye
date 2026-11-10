@@ -99,6 +99,7 @@ func main() {
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/session-events", adminAuth(&handler.SessionEventsHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/devices", adminAuth(&handler.DeviceBreakdownHandler{Svc: analyticsSvc}))
 	mux.Handle("/export/events", adminAuth(&handler.ExportHandler{Svc: qs}))
 	cohortSvc := &service.CohortService{DB: db}
 	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))

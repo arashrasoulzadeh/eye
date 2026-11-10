@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -19,6 +20,34 @@ type AnalyticsService struct{ DB *gorm.DB }
 type SessionEventCount struct {
 	SessionID string `json:"session_id"`
 	Count     int    `json:"count"`
+}
+
+type DeviceBreakdownRow struct {
+	Platform string `json:"platform"`
+	Sessions int    `json:"sessions"`
+}
+
+func (a *AnalyticsService) DeviceBreakdown(tenantID string) ([]DeviceBreakdownRow, error) {
+	var sessions []model.Session
+	if err := a.DB.Where("tenant_id = ?", tenantID).Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	counts := map[string]int{}
+	for _, session := range sessions {
+		var device map[string]any
+		_ = json.Unmarshal([]byte(session.DeviceInfo), &device)
+		platform, _ := device["platform"].(string)
+		if platform == "" {
+			platform = "unknown"
+		}
+		counts[platform]++
+	}
+	rows := make([]DeviceBreakdownRow, 0, len(counts))
+	for platform, count := range counts {
+		rows = append(rows, DeviceBreakdownRow{Platform: platform, Sessions: count})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Platform < rows[j].Platform })
+	return rows, nil
 }
 
 // EventsPerSession returns event counts scoped to one tenant, ordered from

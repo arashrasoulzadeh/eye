@@ -185,6 +185,22 @@ func TestEventsPerSessionIsTenantScopedAndOrdered(t *testing.T) {
 	}
 }
 
+func TestDeviceBreakdownIsTenantScoped(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	db.AutoMigrate(&model.Session{})
+	db.Create(&model.Session{ID: "s1", TenantID: "t1", DeviceInfo: `{"platform":"web"}`})
+	db.Create(&model.Session{ID: "s2", TenantID: "t1", DeviceInfo: `{"platform":"ios"}`})
+	db.Create(&model.Session{ID: "s3", TenantID: "t2", DeviceInfo: `{"platform":"web"}`})
+
+	rows, err := (&service.AnalyticsService{DB: db}).DeviceBreakdown("t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].Platform != "ios" || rows[0].Sessions != 1 || rows[1].Platform != "web" {
+		t.Fatalf("unexpected device breakdown: %+v", rows)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

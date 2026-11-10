@@ -40,7 +40,7 @@
 - [ ] Sliding window aggregations
 - [x] Session-based aggregations (events per session) — added tenant-scoped `GET /analytics/session-events` with ordered per-session event counts and tests
 - [ ] Geolocation-based aggregation
-- [ ] Device/platform breakdowns
+- [x] Device/platform breakdowns — added tenant-scoped `GET /analytics/devices`, grouping captured session device metadata by platform with tests
 - [x] Anomaly detection on aggregated series — implemented in `internal/service/anomaly.go` with handler and service coverage
 - [ ] Aggregation export to webhooks
 - [ ] Materialized views
