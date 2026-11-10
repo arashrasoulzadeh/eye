@@ -26,7 +26,7 @@
 - [x] Contract tests SDK ↔ backend — `web-sdk/src/contract.test.ts` asserts the session/ingest paths, headers, and wire payload against the backend REST contract
 - [x] Snapshot tests for admin UI — `admin/src/components/Button.test.tsx` now locks the primary button markup with a Vitest snapshot
 - [ ] Mutation testing (go-mutesting)
-- [ ] Performance regression benchmarks
+- [x] Performance regression benchmarks — `BenchmarkTenantRateLimiterAllow` records the rate-limiter baseline (`93.33 ns/op`, `0 allocs/op` on Apple M1 Pro); rerun with `go test ./tests/server -run '^$' -bench BenchmarkTenantRateLimiterAllow -benchmem`
 - [x] Security tests (auth bypass, tenant isolation) — auth middleware rejection/allowance and cross-tenant isolation cases pass in `tests/server/handler_test.go`, `tenant_or_admin_auth_test.go`, and tenant-scoped service tests
 - [x] Schema validation tests — required fields, primitive types, invalid definitions, and clean payloads are covered in `tests/server/schema_validate_test.go`
 - [x] Backfill correctness tests — threshold behavior, idempotency, and reruns after new events are covered in `tests/server/aggregator_backfill_test.go`
