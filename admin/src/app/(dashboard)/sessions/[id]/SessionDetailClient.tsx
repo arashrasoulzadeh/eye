@@ -175,13 +175,14 @@ export default function SessionDetailClient() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title="Session overview" action={<span className="text-xs text-fg-muted">unique events</span>} />
+        <CardHeader title="Session journey" action={<span className="text-xs text-fg-muted">aggregated timeline</span>} />
         <div className="p-5">
-          {journey.length === 0 ? <p className="text-sm text-fg-muted">No events yet.</p> : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {journey.length === 0 ? <p className="text-sm text-fg-muted">No events yet.</p> : <div className="relative ml-3 border-l-2 border-accent/30 pl-7">
             {journey.map((event) => {
-              return <div key={event.EventID} className="rounded-lg border border-border bg-surface-2 px-3 py-2">
-                <div className="flex items-center justify-between gap-2"><span title={event.EventName}><EntityLink kind="event" id={event.EventID} label={`Event ${event.repeatCount > 1 ? `×${event.repeatCount}` : ""}`} /></span><span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">×{event.repeatCount}</span></div>
-                <div className="mt-1 text-[11px] text-fg-muted">{new Date(event.ClientTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{event.repeatCount > 1 && ` – ${new Date(event.lastTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+              return <div key={event.EventID} className="relative mb-4 last:mb-0 rounded-lg border border-border bg-surface-2 px-4 py-3">
+                <span className="absolute -left-[36px] top-4 h-4 w-4 rounded-full border-4 border-surface bg-accent" />
+                <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-fg">Event: {event.EventName}</span><span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">×{event.repeatCount}</span></div>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-fg-muted"><span>{new Date(event.ClientTS).toLocaleString()}</span>{event.repeatCount > 1 && <span>through {new Date(event.lastTS).toLocaleString()}</span>}<EntityLink kind="event" id={event.EventID} label="Open event" /></div>
               </div>;
             })}
           </div>}
