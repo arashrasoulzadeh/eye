@@ -46,6 +46,10 @@ func main() {
 		logger.Error("config load failed", "err", err)
 		os.Exit(1)
 	}
+	if err := cfg.ValidateForProduction(); err != nil {
+		logger.Error("invalid production configuration", "err", err)
+		os.Exit(1)
+	}
 	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {
 		logger.Error("db open failed", "err", err)

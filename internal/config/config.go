@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -44,3 +46,18 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) Addr() string { return fmt.Sprintf(":%d", c.Port) }
+
+// ValidateForProduction rejects credentials that are safe only for local
+// development. Callers can keep the convenient development defaults while
+// making production startup fail closed when EYE_ENV=production.
+func (c *Config) ValidateForProduction() error {
+	if strings.EqualFold(os.Getenv("EYE_ENV"), "production") {
+		if c.AdminKey == "" || c.AdminKey == "dev-insecure-admin-key" {
+			return fmt.Errorf("admin_key must be explicitly configured in production")
+		}
+		if c.APIKeySalt == "" || c.APIKeySalt == "dev-insecure-salt" {
+			return fmt.Errorf("api_key_salt must be explicitly configured in production")
+		}
+	}
+	return nil
+}
