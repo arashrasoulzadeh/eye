@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/arashrasoulzadeh/eye/internal/service"
@@ -46,6 +47,33 @@ type RetentionHandler struct{ Svc *service.AnalyticsService }
 type SessionEventsHandler struct{ Svc *service.AnalyticsService }
 
 type DeviceBreakdownHandler struct{ Svc *service.AnalyticsService }
+
+type TopNHandler struct{ Svc *service.AnalyticsService }
+
+func (h *TopNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	tenantID := r.URL.Query().Get("tenant_id")
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required", http.StatusBadRequest)
+		return
+	}
+	limit := 10
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if _, err := fmt.Sscanf(raw, "%d", &limit); err != nil {
+			http.Error(w, "limit must be an integer", http.StatusBadRequest)
+			return
+		}
+	}
+	rows, err := h.Svc.TopN(tenantID, r.URL.Query().Get("event_name"), limit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(rows)
+}
 
 func (h *DeviceBreakdownHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

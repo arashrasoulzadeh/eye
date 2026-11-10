@@ -201,6 +201,22 @@ func TestDeviceBreakdownIsTenantScoped(t *testing.T) {
 	}
 }
 
+func TestTopNUsesMaterializedCountsAndTenantScope(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	db.AutoMigrate(&model.AggregateCount{})
+	db.Create(&model.AggregateCount{TenantID: "t1", EventName: "click", DimsKey: "web", Count: 9})
+	db.Create(&model.AggregateCount{TenantID: "t1", EventName: "click", DimsKey: "ios", Count: 4})
+	db.Create(&model.AggregateCount{TenantID: "t2", EventName: "click", DimsKey: "secret", Count: 100})
+
+	rows, err := (&service.AnalyticsService{DB: db}).TopN("t1", "click", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || rows[0].DimsKey != "web" || rows[0].Count != 9 {
+		t.Fatalf("unexpected top-n rows: %+v", rows)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

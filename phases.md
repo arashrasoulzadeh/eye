@@ -44,7 +44,7 @@
 - [x] Anomaly detection on aggregated series — implemented in `internal/service/anomaly.go` with handler and service coverage
 - [ ] Aggregation export to webhooks
 - [ ] Materialized views
-- [ ] Real-time top-N
+- [x] Real-time top-N — added tenant-scoped `GET /analytics/top-n` backed by materialized `AggregateCount` rows, with deterministic ordering and tests
 - [x] Funnel drop-off aggregation — implemented by `AnalyticsService.Funnel` with ordered-step conversion results and tests
 - [x] Retention matrix aggregation — implemented by `AnalyticsService.Retention` with daily/weekly cohort rows and tests
 

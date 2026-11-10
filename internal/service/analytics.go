@@ -27,6 +27,27 @@ type DeviceBreakdownRow struct {
 	Sessions int    `json:"sessions"`
 }
 
+type TopNRow struct {
+	EventName string `json:"event_name"`
+	DimsKey   string `json:"dims_key"`
+	Count     int64  `json:"count"`
+}
+
+func (a *AnalyticsService) TopN(tenantID, eventName string, limit int) ([]TopNRow, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	var rows []TopNRow
+	query := a.DB.Model(&model.AggregateCount{}).Select("event_name, dims_key, count").Where("tenant_id = ?", tenantID)
+	if eventName != "" {
+		query = query.Where("event_name = ?", eventName)
+	}
+	if err := query.Order("count desc").Order("event_name asc").Order("dims_key asc").Limit(limit).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (a *AnalyticsService) DeviceBreakdown(tenantID string) ([]DeviceBreakdownRow, error) {
 	var sessions []model.Session
 	if err := a.DB.Where("tenant_id = ?", tenantID).Find(&sessions).Error; err != nil {
