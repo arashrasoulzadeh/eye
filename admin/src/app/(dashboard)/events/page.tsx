@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Input, Label } from "@/components/Input";
 import { Combobox, ComboOption } from "@/components/Combobox";
 import { Button } from "@/components/Button";
@@ -37,6 +37,24 @@ export default function EventsPage() {
           to_ts: toTime ? new Date(toTime).getTime() : undefined,
         })
       );
+    } catch (e) {
+      push("error", e instanceof ApiError ? e.message : "Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadTable(query: TableQuery) {
+    setLoading(true);
+    try {
+      setEvents(await api.events.list({
+        event_name: query.filter || eventName,
+        tenant_id: tenantId,
+        session_id: sessionId,
+        from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
+        to_ts: toTime ? new Date(toTime).getTime() : undefined,
+        sort: query.sortDir,
+      }));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load events");
     } finally {
@@ -112,7 +130,7 @@ export default function EventsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Events (${events.length})`} />
-        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." />
+        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide onQueryChange={loadTable} />
       </Card>
     </div>
   );

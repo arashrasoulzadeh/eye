@@ -9,6 +9,8 @@ export type Column<T> = {
   filterValue?: (row: T) => string | number;
 };
 
+export type TableQuery = { filter: string; sortKey: string | null; sortDir: "asc" | "desc"; page: number };
+
 export function DataTable<T>({
   columns,
   rows,
@@ -16,6 +18,9 @@ export function DataTable<T>({
   emptyMessage = "No data yet.",
   pageSize = 10,
   defaultSortKey,
+  serverSide = false,
+  onQueryChange,
+  totalRows,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -23,6 +28,9 @@ export function DataTable<T>({
   emptyMessage?: string;
   pageSize?: number;
   defaultSortKey?: string;
+  serverSide?: boolean;
+  onQueryChange?: (query: TableQuery) => void;
+  totalRows?: number;
 }) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(() =>
@@ -33,9 +41,13 @@ export function DataTable<T>({
   );
   const [page, setPage] = useState(0);
 
+  function notify(next: Partial<TableQuery>) {
+    onQueryChange?.({ filter, sortKey, sortDir, page, ...next });
+  }
+
   const filtered = useMemo(() => {
     const query = filter.trim().toLowerCase();
-    if (!query) return rows;
+    if (serverSide || !query) return rows;
     return rows.filter((row) => {
       const values = columns.map((column) => column.filterValue?.(row) ?? column.sortValue?.(row));
       return values.some((value) => value !== undefined && String(value).toLowerCase().includes(query)) ||
@@ -44,7 +56,7 @@ export function DataTable<T>({
   }, [rows, columns, filter]);
 
   const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
+    if (serverSide || !sortKey) return filtered;
     const col = columns.find((c) => c.key === sortKey);
     const copy = [...filtered];
     if (!col) return copy;
@@ -55,7 +67,7 @@ export function DataTable<T>({
       return sortDir === "asc" ? cmp : -cmp;
     });
     return copy;
-  }, [filtered, sortKey, sortDir, columns]);
+  }, [filtered, sortKey, sortDir, columns, serverSide]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const clampedPage = Math.min(page, pageCount - 1);
@@ -63,10 +75,13 @@ export function DataTable<T>({
 
   function toggleSort(col: Column<T>) {
     if (sortKey === col.key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      const nextDir = sortDir === "asc" ? "desc" : "asc";
+      setSortDir(nextDir);
+      notify({ sortKey: col.key, sortDir: nextDir, page: 0 });
     } else {
       setSortKey(col.key);
       setSortDir("asc");
+      notify({ sortKey: col.key, sortDir: "asc", page: 0 });
     }
   }
 
@@ -82,12 +97,13 @@ export function DataTable<T>({
           onChange={(event) => {
             setFilter(event.target.value);
             setPage(0);
+            notify({ filter: event.target.value, page: 0 });
           }}
           placeholder="Filter all fields…"
           aria-label="Filter table"
           className="w-full max-w-xs rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-accent"
         />
-        <span className="text-xs text-fg-muted">{filtered.length} rows</span>
+        <span className="text-xs text-fg-muted">{serverSide ? totalRows ?? rows.length : filtered.length} rows</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -121,7 +137,7 @@ export function DataTable<T>({
       {pageCount > 1 && (
         <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-fg-muted">
           <span>
-            Page {clampedPage + 1} of {pageCount} · {rows.length} rows
+            Page {clampedPage + 1} of {pageCount} · {serverSide ? totalRows ?? rows.length : rows.length} rows
           </span>
           <div className="flex gap-1">
             <button
