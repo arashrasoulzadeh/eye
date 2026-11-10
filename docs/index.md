@@ -9,13 +9,13 @@ A multi-tenant analytics ingestion and query system with real-time dashboards, s
 
 ## Quick Links
 
-- [Getting Started](/getting-started/README.html)
-- [API Reference](/api/README.html)
-- [Web SDK](/sdk/web-sdk.html)
-- [Go SDK](/sdk/go-sdk.html)
-- [Admin Components](/components/README.html)
-- [Architecture](/architecture/README.html)
-- [Testing & Benchmarks](/testing/README.html)
+- [Getting Started](getting-started/README.md)
+- [API Reference](api/README.md)
+- [Web SDK](sdk/web-sdk.md)
+- [Go SDK](sdk/go-sdk.md)
+- [Admin Components](components/README.md)
+- [Architecture](architecture/README.md)
+- [Testing & Benchmarks](testing/README.md)
 
 ## Features
 
@@ -53,13 +53,13 @@ make admin
 
 | Section | Description |
 |---------|-------------|
-| [Getting Started](/getting-started/README.html) | Installation, running locally, environment setup |
-| [API Reference](/api/README.html) | Complete REST/gRPC endpoint documentation |
-| [Web SDK](/sdk/web-sdk.html) | TypeScript client, CDN build, auto-tracking |
-| [Go SDK](/sdk/go-sdk.html) | Server-side Go client |
-| [Components](/components/README.html) | Admin panel React component library |
-| [Architecture](/architecture/README.html) | System design, services, data models |
-| [Testing](/testing/README.html) | Test structure, coverage, benchmarks |
+| [Getting Started](getting-started/README.md) | Installation, running locally, environment setup |
+| [API Reference](api/README.md) | Complete REST/gRPC endpoint documentation |
+| [Web SDK](sdk/web-sdk.md) | TypeScript client, CDN build, auto-tracking |
+| [Go SDK](sdk/go-sdk.md) | Server-side Go client |
+| [Components](components/README.md) | Admin panel React component library |
+| [Architecture](architecture/README.md) | System design, services, data models |
+| [Testing](testing/README.md) | Test structure, coverage, benchmarks |
 
 ## License
 
