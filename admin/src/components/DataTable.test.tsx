@@ -52,4 +52,17 @@ describe("DataTable", () => {
     expect(screen.getByText(/Page 3 of 3/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
+
+  it("filters across all row fields", async () => {
+    render(<DataTable columns={columns} rows={rows(3)} rowKey={(r) => r.id} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter table" }), "r1");
+    expect(screen.getByText("name-1")).toBeInTheDocument();
+    expect(screen.queryByText("name-0")).not.toBeInTheDocument();
+  });
+
+  it("starts with the configured latest-first sort", () => {
+    render(<DataTable columns={columns} rows={rows(3)} rowKey={(r) => r.id} defaultSortKey="count" />);
+    const dataRows = screen.getAllByRole("row").slice(1);
+    expect(within(dataRows[0]).getByText("name-0")).toBeInTheDocument();
+  });
 });

@@ -6,6 +6,7 @@ export type Column<T> = {
   header: string;
   render: (row: T) => ReactNode;
   sortValue?: (row: T) => string | number;
+  filterValue?: (row: T) => string | number;
 };
 
 export function DataTable<T>({
@@ -14,37 +15,53 @@ export function DataTable<T>({
   rowKey,
   emptyMessage = "No data yet.",
   pageSize = 10,
+  defaultSortKey,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
   emptyMessage?: string;
   pageSize?: number;
+  defaultSortKey?: string;
 }) {
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [filter, setFilter] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(() =>
+    defaultSortKey ?? columns.find((column) => ["last_seen", "last_fired", "fired", "time", "created", "started", "version"].includes(column.key))?.key ?? null,
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() =>
+    defaultSortKey || columns.some((column) => ["last_seen", "last_fired", "fired", "time", "created", "started", "version"].includes(column.key)) ? "desc" : "asc",
+  );
   const [page, setPage] = useState(0);
 
+  const filtered = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    if (!query) return rows;
+    return rows.filter((row) => {
+      const values = columns.map((column) => column.filterValue?.(row) ?? column.sortValue?.(row));
+      return values.some((value) => value !== undefined && String(value).toLowerCase().includes(query)) ||
+        JSON.stringify(row).toLowerCase().includes(query);
+    });
+  }, [rows, columns, filter]);
+
   const sorted = useMemo(() => {
-    if (!sortKey) return rows;
+    if (!sortKey) return filtered;
     const col = columns.find((c) => c.key === sortKey);
-    if (!col?.sortValue) return rows;
-    const copy = [...rows];
+    const copy = [...filtered];
+    if (!col) return copy;
     copy.sort((a, b) => {
-      const av = col.sortValue!(a);
-      const bv = col.sortValue!(b);
+      const av = col.sortValue?.(a) ?? JSON.stringify(a);
+      const bv = col.sortValue?.(b) ?? JSON.stringify(b);
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
     return copy;
-  }, [rows, sortKey, sortDir, columns]);
+  }, [filtered, sortKey, sortDir, columns]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const clampedPage = Math.min(page, pageCount - 1);
   const pageRows = sorted.slice(clampedPage * pageSize, clampedPage * pageSize + pageSize);
 
   function toggleSort(col: Column<T>) {
-    if (!col.sortValue) return;
     if (sortKey === col.key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -59,6 +76,19 @@ export function DataTable<T>({
 
   return (
     <div>
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <input
+          value={filter}
+          onChange={(event) => {
+            setFilter(event.target.value);
+            setPage(0);
+          }}
+          placeholder="Filter all fields…"
+          aria-label="Filter table"
+          className="w-full max-w-xs rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-accent"
+        />
+        <span className="text-xs text-fg-muted">{filtered.length} rows</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -67,7 +97,7 @@ export function DataTable<T>({
                 <th
                   key={col.key}
                   onClick={() => toggleSort(col)}
-                  className={`px-5 py-2.5 ${col.sortValue ? "cursor-pointer select-none hover:text-fg" : ""}`}
+                  className="cursor-pointer select-none px-5 py-2.5 hover:text-fg"
                 >
                   {col.header}
                   {sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
