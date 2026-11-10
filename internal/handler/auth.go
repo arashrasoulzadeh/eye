@@ -2,17 +2,28 @@ package handler
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
 )
+
+func secureKeyEqual(expected, actual string) bool {
+	if expected == "" || actual == "" {
+		return false
+	}
+	if len(expected) != len(actual) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1
+}
 
 // AdminAuth wraps next with a check that the request carries the configured
 // admin API key in the x-admin-key header, rejecting anything else with 401.
 func AdminAuth(adminKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("x-admin-key")
-		if key == "" || key != adminKey {
+		if !secureKeyEqual(adminKey, key) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -31,7 +42,7 @@ func AdminAuth(adminKey string, next http.Handler) http.Handler {
 // wrapped with this — only session creation needs it.
 func TenantOrAdminAuth(adminKey string, verify func(tenantID, apiKey string) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if k := r.Header.Get("x-admin-key"); k != "" && k == adminKey {
+		if k := r.Header.Get("x-admin-key"); secureKeyEqual(adminKey, k) {
 			next.ServeHTTP(w, r)
 			return
 		}
