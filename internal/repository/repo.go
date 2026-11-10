@@ -77,6 +77,9 @@ func (r *Repo) InsertEvent(e *model.Event) error {
 }
 func (r *Repo) EventExists(sessionID, eventID string) bool {
 	var c int64
-	r.DB.Model(&model.Event{}).Where("session_id = ? AND event_id = ?", sessionID, eventID).Count(&c)
+	// EventID is the model's primary key, so deduplication must use the same
+	// global identity. Checking session_id as well would let a duplicate ID
+	// from another session reach the async queue and fail only at consumption.
+	r.DB.Model(&model.Event{}).Where("event_id = ?", eventID).Count(&c)
 	return c > 0
 }

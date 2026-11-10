@@ -138,6 +138,22 @@ func TestStreamPipelineRejectsMalformedEvents(t *testing.T) {
 	}
 }
 
+func TestStreamPipelineDeduplicatesEventIDsAcrossSessions(t *testing.T) {
+	p, stream, db, cancel := newPipeline(t)
+	defer cancel()
+	db.Create(&model.Session{ID: "s2", TenantID: "t1"})
+
+	first := map[string]any{"event_id": "global-id", "event_name": "click", "client_ts": float64(1), "session_id": "s1"}
+	second := map[string]any{"event_id": "global-id", "event_name": "click", "client_ts": float64(2), "session_id": "s2"}
+	if accepted, rejected := p.Ingest([]map[string]any{first}); accepted != 1 || rejected != 0 {
+		t.Fatalf("first event: got %d/%d", accepted, rejected)
+	}
+	stream.Wait()
+	if accepted, rejected := p.Ingest([]map[string]any{second}); accepted != 0 || rejected != 1 {
+		t.Fatalf("cross-session duplicate: got %d/%d", accepted, rejected)
+	}
+}
+
 // TestStreamPipelineEndToEndIngestToQuery exercises the full Phase 7 path:
 // an event goes in through the async pipeline (producer), is picked up by
 // the consumer, inserted into storage, and folded into the materialized
