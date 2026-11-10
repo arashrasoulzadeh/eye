@@ -32,7 +32,7 @@
 - [x] Backfill correctness tests — threshold behavior, idempotency, and reruns after new events are covered in `tests/server/aggregator_backfill_test.go`
 
 ## Phase 16 — Advanced Events & Aggregations
-- [ ] Event dedup by content hash
+- [x] Event dedup by content hash — tenant/session-aware SHA-256 content hashes are stored and enforced on both sync and async client ingestion; replay events remain intentionally additive
 - [ ] Event TTL per type
 - [ ] Event versioning
 - [ ] Distinct count aggregation (HyperLogLog)

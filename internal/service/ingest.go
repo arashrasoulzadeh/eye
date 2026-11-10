@@ -1,12 +1,24 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/repository"
 )
+
+func eventContentHash(tenantID, sessionID, name string, clientTS int64, payload, dims []byte) string {
+	h := sha256.New()
+	for _, part := range []string{tenantID, sessionID, name, fmt.Sprint(clientTS), string(payload), string(dims)} {
+		h.Write([]byte{0})
+		h.Write([]byte(part))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // ExperimentAssigner resolves a session's sticky variant for any experiments
 // it is tagged into. It's an interface (not *ExperimentService directly) so
@@ -55,7 +67,10 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			rejected++
 			continue
 		}
-		if s.Repo.EventExists(sid, eid) { rejected++; continue }
+		if s.Repo.EventExists(sid, eid) {
+			rejected++
+			continue
+		}
 		payload, _ := json.Marshal(e["payload"])
 		dims, _ := json.Marshal(e["dims"])
 		source, _ := e["source"].(string)
@@ -76,8 +91,16 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		}
 		// resolve tenant from session
 		sess, err := s.Repo.GetSession(sid)
-		if err != nil { rejected++; continue }
+		if err != nil {
+			rejected++
+			continue
+		}
 		ev.TenantID = sess.TenantID
+		ev.ContentHash = eventContentHash(ev.TenantID, ev.SessionID, ev.EventName, ev.ClientTS, payload, dims)
+		if source != "replay" && s.Repo.EventContentExists(ev.ContentHash) {
+			rejected++
+			continue
+		}
 		if s.TierLimiter != nil {
 			tier := ""
 			if tenant, terr := s.Repo.GetTenant(sess.TenantID); terr == nil {
@@ -88,7 +111,10 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 				continue
 			}
 		}
-		if err := s.Repo.InsertEvent(ev); err != nil { rejected++; continue }
+		if err := s.Repo.InsertEvent(ev); err != nil {
+			rejected++
+			continue
+		}
 		sess.EventCount++
 		sess.LastSeen = time.Now()
 		s.Repo.UpdateSession(sess)

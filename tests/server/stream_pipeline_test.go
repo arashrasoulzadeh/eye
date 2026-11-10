@@ -154,6 +154,21 @@ func TestStreamPipelineDeduplicatesEventIDsAcrossSessions(t *testing.T) {
 	}
 }
 
+func TestStreamPipelineDeduplicatesIdenticalEventContent(t *testing.T) {
+	p, stream, _, cancel := newPipeline(t)
+	defer cancel()
+
+	first := map[string]any{"event_id": "content-1", "event_name": "click", "client_ts": float64(1), "payload": map[string]any{"button": "buy"}, "dims": map[string]any{"page": "home"}, "session_id": "s1"}
+	second := map[string]any{"event_id": "content-2", "event_name": "click", "client_ts": float64(1), "payload": map[string]any{"button": "buy"}, "dims": map[string]any{"page": "home"}, "session_id": "s1"}
+	if accepted, rejected := p.Ingest([]map[string]any{first}); accepted != 1 || rejected != 0 {
+		t.Fatalf("first event: got %d/%d", accepted, rejected)
+	}
+	stream.Wait()
+	if accepted, rejected := p.Ingest([]map[string]any{second}); accepted != 0 || rejected != 1 {
+		t.Fatalf("content duplicate: got %d/%d", accepted, rejected)
+	}
+}
+
 // TestStreamPipelineEndToEndIngestToQuery exercises the full Phase 7 path:
 // an event goes in through the async pipeline (producer), is picked up by
 // the consumer, inserted into storage, and folded into the materialized

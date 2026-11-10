@@ -83,3 +83,12 @@ func (r *Repo) EventExists(sessionID, eventID string) bool {
 	r.DB.Model(&model.Event{}).Where("event_id = ?", eventID).Count(&c)
 	return c > 0
 }
+
+func (r *Repo) EventContentExists(contentHash string) bool {
+	if contentHash == "" {
+		return false
+	}
+	var c int64
+	r.DB.Model(&model.Event{}).Where("content_hash = ?", contentHash).Count(&c)
+	return c > 0
+}

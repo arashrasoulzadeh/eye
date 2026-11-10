@@ -65,10 +65,19 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 		}
 		payload, _ := json.Marshal(e["payload"])
 		dims, _ := json.Marshal(e["dims"])
+		source, _ := e["source"].(string)
+		if source == "" {
+			source = "client"
+		}
 		ev := &model.Event{
 			EventID: eid, SessionID: sid, TenantID: sess.TenantID,
 			EventName: name, ClientTS: int64(ts), IngestTS: time.Now(),
-			Payload: string(payload), Dims: string(dims), Source: "client",
+			Payload: string(payload), Dims: string(dims), Source: source,
+		}
+		ev.ContentHash = eventContentHash(ev.TenantID, ev.SessionID, ev.EventName, ev.ClientTS, payload, dims)
+		if source != "replay" && p.Repo.EventContentExists(ev.ContentHash) {
+			rejected++
+			continue
 		}
 		if err := p.Producer.Publish(StreamMessage{Event: ev}); err != nil {
 			rejected++

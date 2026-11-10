@@ -3,9 +3,9 @@ package model
 import "time"
 
 type Tenant struct {
-	ID        string `gorm:"primaryKey"`
-	Name      string
-	APIKey    string
+	ID     string `gorm:"primaryKey"`
+	Name   string
+	APIKey string
 	// Tier picks the tenant's ingest rate limit (see service.TierRates /
 	// service.TenantRateLimiter). Empty means "free", the lowest tier, so
 	// existing rows created before this field existed behave unchanged.
@@ -47,6 +47,7 @@ type Session struct {
 
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
+	ContentHash   string `gorm:"index"`
 	SessionID     string `gorm:"index"`
 	TenantID      string `gorm:"index"`
 	EventName     string
@@ -146,14 +147,14 @@ type ExperimentAssignment struct {
 // time-windowing here: AggregateCount is a running lifetime total, not a
 // per-window one, so "Window" is deliberately not a field on this rule.
 type AlertRule struct {
-	ID          string `gorm:"primaryKey"`
-	TenantID    string `gorm:"index"`
-	EventName   string
-	DimsKey     string
-	Metric      string // currently only "count" is supported
-	Threshold   int64
-	WebhookURL  string
-	Enabled     bool
+	ID             string `gorm:"primaryKey"`
+	TenantID       string `gorm:"index"`
+	EventName      string
+	DimsKey        string
+	Metric         string // currently only "count" is supported
+	Threshold      int64
+	WebhookURL     string
+	Enabled        bool
 	LastFiredAt    int64 // 0 if never fired; used to avoid re-firing every tick while still above threshold
 	LastFiredCount int64 // the count value at the time of the last fire, so a rule only re-fires once the count has grown
 	CreatedAt      int64
@@ -167,10 +168,10 @@ type AlertRule struct {
 // the retention job (next tick) and the ingest rate limiter (next
 // request) — see service.SettingsService.
 type RuntimeSettings struct {
-	ID                  uint `gorm:"primaryKey"`
-	RetentionHours      int
-	RateLimitPerSecond  int
-	UpdatedAt           int64
+	ID                 uint `gorm:"primaryKey"`
+	RetentionHours     int
+	RateLimitPerSecond int
+	UpdatedAt          int64
 }
 
 // WebhookDeadLetter is a webhook delivery that exhausted its retries without
@@ -192,24 +193,24 @@ type WebhookDeadLetter struct {
 // ActorKey is always the fixed label "admin" — there is no way to
 // distinguish which human used the key.
 type AuditLog struct {
-	ID         string `gorm:"primaryKey"`
-	Action     string // HTTP method, e.g. "POST"
-	Resource   string // request path, e.g. "/tenants/abc123"
-	ActorKey   string // always "admin" — see doc comment above
-	StatusCode int
+	ID          string `gorm:"primaryKey"`
+	Action      string // HTTP method, e.g. "POST"
+	Resource    string // request path, e.g. "/tenants/abc123"
+	ActorKey    string // always "admin" — see doc comment above
+	StatusCode  int
 	BodySnippet string // first ~256 bytes of the request body, best-effort
-	CreatedAt  int64
+	CreatedAt   int64
 }
 
 // DashboardCache holds pre-computed dashboard metrics, refreshed by a
 // background job on a configurable interval. The dashboard UI reads from
 // this table instead of querying the database directly.
 type DashboardCache struct {
-	ID         uint   `gorm:"primaryKey"` // always 1
-	Events     int64  `json:"events"`
-	Sessions   int64  `json:"sessions"`
-	Tenants    int64  `json:"tenants"`
-	EventsByHour string `json:"events_by_hour"` // JSON: [{"label":"00:00","value":10},...]
+	ID             uint   `gorm:"primaryKey"` // always 1
+	Events         int64  `json:"events"`
+	Sessions       int64  `json:"sessions"`
+	Tenants        int64  `json:"tenants"`
+	EventsByHour   string `json:"events_by_hour"`   // JSON: [{"label":"00:00","value":10},...]
 	EventsByTenant string `json:"events_by_tenant"` // JSON: [{"label":"acme","value":100},...]
-	UpdatedAt  int64  `json:"updated_at"`
+	UpdatedAt      int64  `json:"updated_at"`
 }
