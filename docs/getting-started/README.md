@@ -121,7 +121,7 @@ npm run build:cdn  # outputs dist/eye.min.js
 ```
 
 ```html
-<script src="https://cdn.example.com/eye.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/arashrasoulzadeh/eye@cdn/eye.min.js"></script>
 <script>
   Eye.init({
     apiKey: "<tenant-api-key>",

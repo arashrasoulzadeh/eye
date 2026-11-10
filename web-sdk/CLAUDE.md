@@ -3,7 +3,7 @@ TS client SDK (`src/index.ts`): `EyeClient` — session persistence (localStorag
 `src/cdn.ts`: CDN `<script>` build on top of `EyeClient` — exposes `window.Eye`, auto-tracks ~19 events by default (page view, clicks, forms, scroll depth, errors, etc. — see `AutoTrackOptions`), toggleable per-event in `init()`. Build with `npm run build:cdn` → `dist/eye.min.js` (gitignored, rebuild before shipping). Embed:
 
 ```html
-<script src="https://cdn.example.com/eye.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/arashrasoulzadeh/eye@cdn/eye.min.js"></script>
 <script>
   Eye.init({ apiKey: "<tenant api key>", tenant: "<tenant id>", endpoint: "https://api.example.com" });
 </script>
