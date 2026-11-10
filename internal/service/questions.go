@@ -38,6 +38,17 @@ func (s *QuestionService) Save(q *model.Question) (*model.Question, error) {
 	if q.MatchMode != "any" && q.MatchMode != "all" {
 		return nil, errors.New("match_mode must be any or all")
 	}
+	// Chart and time are selected by the Graphs view. Keep legacy columns
+	// populated for old clients and database rows, but do not require them.
+	if q.ChartType == "" {
+		q.ChartType = "line"
+	}
+	if q.RangeMode == "" {
+		q.RangeMode = "relative"
+	}
+	if q.RelativeDays < 1 {
+		q.RelativeDays = 1
+	}
 	if q.RangeMode != "relative" && q.RangeMode != "absolute" {
 		return nil, errors.New("range_mode must be relative or absolute")
 	}
