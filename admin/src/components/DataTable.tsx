@@ -21,6 +21,7 @@ export function DataTable<T>({
   serverSide = false,
   onQueryChange,
   totalRows,
+  showActions = true,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -31,6 +32,7 @@ export function DataTable<T>({
   serverSide?: boolean;
   onQueryChange?: (query: TableQuery) => void;
   totalRows?: number;
+  showActions?: boolean;
 }) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(() =>
@@ -40,6 +42,8 @@ export function DataTable<T>({
     defaultSortKey || columns.some((column) => ["last_seen", "last_fired", "fired", "time", "created", "started", "version"].includes(column.key)) ? "desc" : "asc",
   );
   const [page, setPage] = useState(0);
+  const [inspectRow, setInspectRow] = useState<T | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function notify(next: Partial<TableQuery>) {
     onQueryChange?.({ filter, sortKey, sortDir, page, ...next });
@@ -119,6 +123,7 @@ export function DataTable<T>({
                   {sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
                 </th>
               ))}
+              {showActions && <th className="px-5 py-2.5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -129,6 +134,19 @@ export function DataTable<T>({
                     {col.render(row)}
                   </td>
                 ))}
+                {showActions && (
+                  <td className="px-5 py-3 text-right">
+                    <button
+                      type="button"
+                      aria-label={`Inspect row ${rowKey(row)}`}
+                      title="Inspect row"
+                      onClick={() => { setInspectRow(row); setCopied(false); }}
+                      className="rounded-md p-1.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+                    >
+                      ◉
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -154,6 +172,29 @@ export function DataTable<T>({
             >
               Next
             </button>
+          </div>
+        </div>
+      )}
+      {inspectRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Row details">
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h2 className="font-semibold text-fg">Row details</h2>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(JSON.stringify(inspectRow, null, 2));
+                    setCopied(true);
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs text-fg-muted hover:bg-surface-2"
+                >
+                  {copied ? "Copied" : "Copy values"}
+                </button>
+                <button type="button" aria-label="Close row details" onClick={() => setInspectRow(null)} className="rounded-md px-2 py-1 text-fg-muted hover:bg-surface-2">×</button>
+              </div>
+            </div>
+            <pre className="max-h-[65vh] overflow-auto p-5 text-xs text-fg-muted">{JSON.stringify(inspectRow, null, 2)}</pre>
           </div>
         </div>
       )}

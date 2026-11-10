@@ -65,4 +65,11 @@ describe("DataTable", () => {
     const dataRows = screen.getAllByRole("row").slice(1);
     expect(within(dataRows[0]).getByText("name-0")).toBeInTheDocument();
   });
+
+  it("opens row details from the actions column", async () => {
+    render(<DataTable columns={columns} rows={rows(1)} rowKey={(r) => r.id} />);
+    await userEvent.click(screen.getByRole("button", { name: "Inspect row r0" }));
+    expect(screen.getByRole("dialog", { name: "Row details" })).toBeInTheDocument();
+    expect(screen.getByText(/"name": "name-0"/)).toBeInTheDocument();
+  });
 });
