@@ -22,7 +22,6 @@
 - [ ] Mutation testing (go-mutesting)
 
 ## Phase 16 — Advanced Events & Aggregations
-- [ ] Event TTL per type
 - [ ] Geolocation-based aggregation
 - [ ] Aggregation export to webhooks
 - [ ] Materialized views

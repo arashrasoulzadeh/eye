@@ -61,3 +61,21 @@ func (r *TimescaleRepo) DeleteExpiredEvents(retention time.Duration) (int64, err
 	res := r.DB.Where("ingest_ts < ?", cutoff).Delete(&model.Event{})
 	return res.RowsAffected, res.Error
 }
+
+// DeleteExpiredEventsByType applies a specific TTL to each named event type.
+// Event types absent from the policy are left untouched so callers can layer
+// type-specific retention over a separate global retention pass.
+func (r *TimescaleRepo) DeleteExpiredEventsByType(policy map[string]time.Duration) (int64, error) {
+	var deleted int64
+	for eventName, retention := range policy {
+		if eventName == "" || retention <= 0 {
+			continue
+		}
+		result := r.DB.Where("event_name = ? AND ingest_ts < ?", eventName, time.Now().Add(-retention)).Delete(&model.Event{})
+		if result.Error != nil {
+			return deleted, result.Error
+		}
+		deleted += result.RowsAffected
+	}
+	return deleted, nil
+}

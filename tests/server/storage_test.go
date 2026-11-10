@@ -83,3 +83,22 @@ func TestStorageRetentionJobDeletesExpiredEvents(t *testing.T) {
 		t.Fatalf("expected only the fresh event to remain, got %+v", got)
 	}
 }
+
+func TestDeleteExpiredEventsByTypeUsesIndividualTTLs(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := storage.NewTimescaleRepo(db)
+	if err := repo.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	db.Create(&model.Event{EventID: "old-click", EventName: "click", IngestTS: time.Now().Add(-48 * time.Hour)})
+	db.Create(&model.Event{EventID: "fresh-click", EventName: "click", IngestTS: time.Now().Add(-2 * time.Hour)})
+	db.Create(&model.Event{EventID: "old-view", EventName: "page_view", IngestTS: time.Now().Add(-48 * time.Hour)})
+
+	deleted, err := repo.DeleteExpiredEventsByType(map[string]time.Duration{"click": 24 * time.Hour, "page_view": 72 * time.Hour})
+	if err != nil || deleted != 1 {
+		t.Fatalf("expected one type-specific deletion, deleted=%d err=%v", deleted, err)
+	}
+}
