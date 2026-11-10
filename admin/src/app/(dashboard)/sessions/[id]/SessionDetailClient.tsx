@@ -175,25 +175,13 @@ export default function SessionDetailClient() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title="Session journey" action={<span className="text-xs text-fg-muted">chronological event flow</span>} />
+        <CardHeader title="Session overview" action={<span className="text-xs text-fg-muted">unique events</span>} />
         <div className="p-5">
-          {journey.length === 0 ? <p className="text-sm text-fg-muted">No journey events yet.</p> : <div className="relative ml-3 border-l border-border pl-7">
+          {journey.length === 0 ? <p className="text-sm text-fg-muted">No events yet.</p> : <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {journey.map((event) => {
-              return <div key={event.EventID} className="relative pb-6 last:pb-0">
-                <span className="absolute -left-[35px] top-1 h-3 w-3 rounded-full border-2 border-surface bg-accent" />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span title={event.EventName}><EntityLink kind="event" id={event.EventID} label={`${event.EventName} ×${event.repeatCount}`} /></span>
-                  <time className="text-xs text-fg-muted">{new Date(event.ClientTS).toLocaleString()}{event.repeatCount > 1 && ` → ${new Date(event.lastTS).toLocaleString()}`}</time>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-3 text-xs text-fg-muted">
-                  <span>{event.Source || "client"}</span>
-                  <span>{event.repeatCount} total occurrences</span>
-                  <span>{event.IsAggregated ? "aggregated" : "raw event"}</span>
-                </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded bg-surface-2 p-2"><div className="mb-1 text-[11px] font-medium uppercase text-fg-muted">Payload</div><JsonView value={event.Payload} /></div>
-                  <div className="rounded bg-surface-2 p-2"><div className="mb-1 text-[11px] font-medium uppercase text-fg-muted">Dimensions</div><JsonView value={event.Dims} /></div>
-                </div>
+              return <div key={event.EventID} className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                <div className="flex items-center justify-between gap-2"><span title={event.EventName}><EntityLink kind="event" id={event.EventID} label={`Event ${event.repeatCount > 1 ? `×${event.repeatCount}` : ""}`} /></span><span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">×{event.repeatCount}</span></div>
+                <div className="mt-1 text-[11px] text-fg-muted">{new Date(event.ClientTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{event.repeatCount > 1 && ` – ${new Date(event.lastTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
               </div>;
             })}
           </div>}
