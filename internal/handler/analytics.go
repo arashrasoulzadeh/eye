@@ -56,6 +56,30 @@ type DistinctSessionsHandler struct{ Svc *service.AnalyticsService }
 
 type PercentilesHandler struct{ Svc *service.AnalyticsService }
 
+type GeoBreakdownHandler struct{ Svc *service.AnalyticsService }
+
+func (h *GeoBreakdownHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	query := r.URL.Query()
+	tenantID, dimension := query.Get("tenant_id"), query.Get("dimension")
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required", http.StatusBadRequest)
+		return
+	}
+	if dimension == "" {
+		dimension = "country"
+	}
+	rows, err := h.Svc.GeoBreakdown(tenantID, dimension)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(rows)
+}
+
 func (h *PercentilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

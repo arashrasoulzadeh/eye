@@ -29,6 +29,37 @@ type DeviceBreakdownRow struct {
 	Sessions int    `json:"sessions"`
 }
 
+type GeoBreakdownRow struct {
+	Location string `json:"location"`
+	Sessions int    `json:"sessions"`
+}
+
+func (a *AnalyticsService) GeoBreakdown(tenantID, dimension string) ([]GeoBreakdownRow, error) {
+	if dimension != "country" && dimension != "region" && dimension != "city" {
+		return nil, fmt.Errorf("dimension must be country, region, or city")
+	}
+	var sessions []model.Session
+	if err := a.DB.Where("tenant_id = ?", tenantID).Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	counts := map[string]int{}
+	for _, session := range sessions {
+		var device map[string]any
+		_ = json.Unmarshal([]byte(session.DeviceInfo), &device)
+		location, _ := device[dimension].(string)
+		if location == "" {
+			location = "unknown"
+		}
+		counts[location]++
+	}
+	rows := make([]GeoBreakdownRow, 0, len(counts))
+	for location, count := range counts {
+		rows = append(rows, GeoBreakdownRow{Location: location, Sessions: count})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Location < rows[j].Location })
+	return rows, nil
+}
+
 type TopNRow struct {
 	EventName string `json:"event_name"`
 	DimsKey   string `json:"dims_key"`

@@ -266,6 +266,22 @@ func TestSessionEventPercentiles(t *testing.T) {
 	}
 }
 
+func TestGeoBreakdownIsTenantScoped(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	db.AutoMigrate(&model.Session{})
+	db.Create(&model.Session{ID: "g1", TenantID: "t1", DeviceInfo: `{"country":"IR"}`})
+	db.Create(&model.Session{ID: "g2", TenantID: "t1", DeviceInfo: `{"country":"IR"}`})
+	db.Create(&model.Session{ID: "g3", TenantID: "t2", DeviceInfo: `{"country":"US"}`})
+
+	rows, err := (&service.AnalyticsService{DB: db}).GeoBreakdown("t1", "country")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Location != "IR" || rows[0].Sessions != 2 {
+		t.Fatalf("unexpected geo breakdown: %+v", rows)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.
