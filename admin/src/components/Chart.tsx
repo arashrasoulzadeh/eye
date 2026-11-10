@@ -1,5 +1,5 @@
 "use client";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export type ChartPoint = { label: string; value: number };
 
@@ -40,4 +40,13 @@ export function BarBreakdown({ data, height = 220 }: { data: ChartPoint[]; heigh
       </BarChart>
     </ResponsiveContainer>
   );
+}
+
+export function AreaTrend({ data, height = 320 }: { data: ChartPoint[]; height?: number }) {
+  return <div className="h-full w-full"><ResponsiveContainer width="100%" height={height}><AreaChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)"/><XAxis dataKey="label"/><YAxis allowDecimals={false}/><Tooltip/><Area type="monotone" dataKey="value" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.2}/></AreaChart></ResponsiveContainer></div>;
+}
+
+export function PieBreakdown({ data, height = 320 }: { data: ChartPoint[]; height?: number }) {
+  const colors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7"];
+  return <div className="h-full w-full"><ResponsiveContainer width="100%" height={height}><PieChart><Tooltip/><Pie data={data} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius="70%" label>{data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]}/>)}</Pie></PieChart></ResponsiveContainer></div>;
 }

@@ -1,21 +1,22 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api, Event, GraphResult, Question, Tenant } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown, AreaTrend, PieBreakdown } from "@/components/Chart";
 import { JsonView } from "@/components/JsonView";
 
+
 type Panel = { id: string; title: string; eventNames: string[]; chart: "line" | "area" | "bar" | "pie" | "table"; result?: GraphResult; events?: Event[] };
 const ranges = [{ value: "1", label: "Last 1 day" }, { value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }];
 export default function AnalyticsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
-  const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => searchParams.get("events")?.split(",").filter(Boolean) || []), [range, setRange] = useState(() => searchParams.get("range") || "7"), [chart, setChart] = useState(() => searchParams.get("chart") || "line");
+  const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [range, setRange] = useState(() => urlParams?.get("range") || "7"), [chart, setChart] = useState(() => urlParams?.get("chart") || "line");
   const [panels, setPanels] = useState<Panel[]>([{ id: "main", title: "Event volume", eventNames: [], chart: "line" }]), [refresh, setRefresh] = useState(true), [error, setError] = useState("");
-  useEffect(() => { api.tenants.list().then(x => { setTenants(x); const fromURL = searchParams.get("tenant"); setTenant(fromURL || x[0]?.ID || ""); }).catch(e => setError(e.message)); }, [searchParams]);
+  useEffect(() => { api.tenants.list().then(x => { setTenants(x); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || x[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
   useEffect(() => { const params = new URLSearchParams(); if (tenant) params.set("tenant", tenant); if (selected.length) params.set("events", selected.join(",")); params.set("range", range); params.set("chart", chart); router.replace(`/analytics?${params.toString()}`, { scroll: false }); }, [tenant, selected, range, chart, router]);
   useEffect(() => { if (!tenant) return; loadEventOptions(""); }, [tenant]);
   useEffect(() => { if (!refresh || !panels.length) return; const t = window.setInterval(() => panels.forEach(loadPanel), 15000); return () => window.clearInterval(t); }, [refresh, panels, tenant]);
@@ -32,6 +33,12 @@ export default function AnalyticsPage() {
     } catch (e) { setError((e as Error).message); }
   }
   function addEvent(v: string) { if (v && !selected.includes(v)) { setSelected([...selected, v]); setQuery(""); } }
+  useEffect(() => {
+    if (!tenant || !selected.length || panels[0]?.eventNames.length) return;
+    const panel: Panel = { id: "main", title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] };
+    setPanels([panel]);
+    loadPanel(panel);
+  }, [tenant, selected]);
   function runQuery() { if (!selected.length) return; const panel = { id: "main", title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] }; setPanels([panel]); setSelected([]); setQuery(""); setTimeout(() => loadPanel(panel), 0); }
     const totals = useMemo(() => panels.reduce((sum, p) => sum + (p.result?.points.reduce((a, x) => a + x.value, 0) || 0), 0), [panels]);
   return <div><div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Analytics</h1><p className="mt-1 text-sm text-fg-muted">Build, save, monitor, and explore event queries in one workspace.</p></div><div className="flex gap-2"><button onClick={() => setRefresh(!refresh)} className="rounded border border-border px-3 py-2 text-sm">{refresh ? "Auto-refresh on" : "Auto-refresh off"}</button><button onClick={() => panels.forEach(loadPanel)} className="rounded bg-accent px-3 py-2 text-sm text-accent-fg">Refresh now</button></div></div>
