@@ -48,7 +48,7 @@ export type AlertRule = {
   CreatedAt: number;
   UpdatedAt: number;
 };
-export type Question = { ID: string; TenantID: string; Name: string; EventName: string; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
+export type Question = { ID: string; TenantID: string; Name: string; EventName: string; EventNames: string; MatchMode: "any" | "all"; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
 export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
 
 class ApiError extends Error {
@@ -166,7 +166,7 @@ export const api = {
     list: (tenantId: string) => req<Question[]>(`questions?tenant_id=${encodeURIComponent(tenantId)}`),
     save: (question: Partial<Question> & { tenant_id?: string }) => req<Question>("questions", { method: question.ID ? "PUT" : "POST", body: JSON.stringify({ ...question, tenant_id: question.tenant_id || question.TenantID }) }),
     remove: (tenantId: string, id: string) => req<void>(`questions/${encodeURIComponent(id)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: "DELETE" }),
-    results: (tenantId: string, id: string) => req<GraphResult>(`questions/${encodeURIComponent(id)}/results?tenant_id=${encodeURIComponent(tenantId)}`),
+    results: (tenantId: string, id: string, range?: { from_ts?: number; to_ts?: number }) => req<GraphResult>(`questions/${encodeURIComponent(id)}/results?tenant_id=${encodeURIComponent(tenantId)}${range?.from_ts ? `&from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`),
   },
 
   settings: {

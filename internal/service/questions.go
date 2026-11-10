@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
@@ -22,8 +23,20 @@ func (s *QuestionService) List(tenantID string) ([]model.Question, error) {
 }
 
 func (s *QuestionService) Save(q *model.Question) (*model.Question, error) {
-	if q.TenantID == "" || q.Name == "" || q.EventName == "" {
+	if q.TenantID == "" || q.Name == "" || (q.EventName == "" && q.EventNames == "") {
 		return nil, errors.New("tenant_id, name and event_name are required")
+	}
+	if q.EventNames == "" {
+		q.EventNames = q.EventName
+	}
+	if q.EventName == "" {
+		q.EventName = strings.Split(q.EventNames, ",")[0]
+	}
+	if q.MatchMode == "" {
+		q.MatchMode = "any"
+	}
+	if q.MatchMode != "any" && q.MatchMode != "all" {
+		return nil, errors.New("match_mode must be any or all")
 	}
 	if q.RangeMode != "relative" && q.RangeMode != "absolute" {
 		return nil, errors.New("range_mode must be relative or absolute")
@@ -66,7 +79,7 @@ type ChartPoint struct {
 	Value int    `json:"value"`
 }
 
-func (s *QuestionService) Results(tenantID, id string, now time.Time) (*GraphResult, error) {
+func (s *QuestionService) Results(tenantID, id string, now time.Time, overrideFrom, overrideTo int64) (*GraphResult, error) {
 	var q model.Question
 	if err := s.DB.Where("id = ? AND tenant_id = ?", id, tenantID).First(&q).Error; err != nil {
 		return nil, err
@@ -77,12 +90,23 @@ func (s *QuestionService) Results(tenantID, id string, now time.Time) (*GraphRes
 		to = now.UnixMilli()
 		from = now.Add(-time.Duration(q.RelativeDays) * 24 * time.Hour).UnixMilli()
 	}
+	if overrideFrom > 0 && overrideTo > overrideFrom {
+		from, to = overrideFrom, overrideTo
+	}
+	names := strings.Split(q.EventNames, ",")
+	allowed := map[string]bool{}
+	for _, name := range names {
+		allowed[strings.TrimSpace(name)] = true
+	}
 	var events []model.Event
-	if err := s.DB.Where("tenant_id = ? AND event_name = ? AND client_ts >= ? AND client_ts <= ?", tenantID, q.EventName, from, to).Find(&events).Error; err != nil {
+	if err := s.DB.Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?", tenantID, from, to).Find(&events).Error; err != nil {
 		return nil, err
 	}
 	buckets := map[string]int{}
 	for _, e := range events {
+		if !allowed[e.EventName] {
+			continue
+		}
 		d := time.UnixMilli(e.ClientTS).UTC()
 		key := d.Format("2006-01-02")
 		buckets[key]++

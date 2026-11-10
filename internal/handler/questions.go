@@ -5,6 +5,7 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/service"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,7 +17,9 @@ func (h *QuestionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenant := r.URL.Query().Get("tenant_id")
 	if r.Method == http.MethodGet && strings.HasSuffix(path, "/results") {
 		id := strings.TrimSuffix(path, "/results")
-		result, err := h.Svc.Results(tenant, id, time.Now())
+		from, _ := strconv.ParseInt(r.URL.Query().Get("from_ts"), 10, 64)
+		to, _ := strconv.ParseInt(r.URL.Query().Get("to_ts"), 10, 64)
+		result, err := h.Svc.Results(tenant, id, time.Now(), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

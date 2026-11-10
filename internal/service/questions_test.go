@@ -27,7 +27,7 @@ func TestQuestionCRUDAndRelativeResults(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	result, err := svc.Results("t1", q.ID, now)
+	result, err := svc.Results("t1", q.ID, now, 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

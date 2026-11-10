@@ -222,6 +222,8 @@ type Question struct {
 	TenantID     string `gorm:"index"`
 	Name         string
 	EventName    string
+	EventNames   string // comma-separated event names
+	MatchMode    string // any or all
 	ChartType    string
 	RangeMode    string // relative or absolute
 	RelativeDays int
