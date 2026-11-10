@@ -47,6 +47,15 @@ type aggregationBody struct {
 
 func (h *AggregationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/aggregations"), "/")
+	if path == "refresh" && r.Method == http.MethodPost {
+		tenantID := r.URL.Query().Get("tenant_id")
+		if err := h.Svc.RefreshMaterializedCounts(tenantID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]bool{"refreshed": true})
+		return
+	}
 
 	if r.Method == http.MethodPost && strings.HasSuffix(path, "/backfill") {
 		id := strings.TrimSuffix(path, "/backfill")

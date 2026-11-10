@@ -55,6 +55,34 @@ func TestAggregatorServiceBackfillEmitsOnThreshold(t *testing.T) {
 	}
 }
 
+func TestRefreshMaterializedCountsRebuildsTenantReadModel(t *testing.T) {
+	db := newAggregatorTestDB(t)
+	if err := db.AutoMigrate(&model.AggregateCount{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &service.AggregatorService{DB: db}
+	db.Create(&model.Event{EventID: "m1", TenantID: "t1", EventName: "click", Dims: "{}"})
+	db.Create(&model.Event{EventID: "m2", TenantID: "t1", EventName: "click", Dims: "{}"})
+	db.Create(&model.Event{EventID: "m3", TenantID: "t2", EventName: "click", Dims: "{}"})
+	db.Create(&model.AggregateCount{TenantID: "t1", EventName: "click", DimsKey: "{}", Count: 99})
+	db.Create(&model.AggregateCount{TenantID: "t2", EventName: "click", DimsKey: "{}", Count: 7})
+
+	if err := svc.RefreshMaterializedCounts("t1"); err != nil {
+		t.Fatal(err)
+	}
+	var count model.AggregateCount
+	if err := db.First(&count, "tenant_id = ? AND event_name = ? AND dims_key = ?", "t1", "click", "{}").Error; err != nil {
+		t.Fatal(err)
+	}
+	if count.Count != 2 {
+		t.Fatalf("expected rebuilt count 2, got %d", count.Count)
+	}
+	var other model.AggregateCount
+	if err := db.First(&other, "tenant_id = ?", "t2").Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAggregatorServiceBackfillSkipsBelowThreshold(t *testing.T) {
 	db := newAggregatorTestDB(t)
 	svc := &service.AggregatorService{DB: db}

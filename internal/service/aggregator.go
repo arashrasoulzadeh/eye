@@ -16,6 +16,29 @@ import (
 
 type AggregatorService struct{ DB *gorm.DB }
 
+// RefreshMaterializedCounts rebuilds the aggregate-count read model from raw
+// events. It is tenant-scoped and safe to run after imports or backfills.
+func (a *AggregatorService) RefreshMaterializedCounts(tenantID string) error {
+	if tenantID == "" {
+		return errors.New("tenant_id is required")
+	}
+	return a.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("tenant_id = ?", tenantID).Delete(&model.AggregateCount{}).Error; err != nil {
+			return err
+		}
+		var events []model.Event
+		if err := tx.Where("tenant_id = ?", tenantID).Find(&events).Error; err != nil {
+			return err
+		}
+		for _, event := range events {
+			if err := UpsertAggregateCount(tx, event.TenantID, event.EventName, event.Dims); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // ExportAggregateCounts sends the current materialized counts for a tenant to
 // an injected webhook client. The client seam keeps delivery testable and
 // lets callers reuse the retry/dead-letter layer used by alerts.

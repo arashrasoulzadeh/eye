@@ -22,7 +22,6 @@
 - [ ] Mutation testing (go-mutesting)
 
 ## Phase 16 — Advanced Events & Aggregations
-- [ ] Materialized views
 
 ## Phase 17 — A/B Testing
 
