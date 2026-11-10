@@ -21,7 +21,7 @@
 
 ## Phase 15 — Extended Testing
 - [ ] Property-based tests (gopter/fast-check) for dedup invariants
-- [ ] Fuzz testing for proto parsing
+- [x] Fuzz testing for proto parsing — native Go fuzz target in `tests/server/proto_fuzz_test.go`; seed corpus and a 3-second fuzz run passed
 - [ ] Chaos/fault injection (kill DB mid-ingest)
 - [ ] Contract tests (Pact) SDK ↔ backend
 - [ ] Snapshot tests for admin UI
