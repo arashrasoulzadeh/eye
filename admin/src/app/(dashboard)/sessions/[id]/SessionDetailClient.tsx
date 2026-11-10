@@ -97,6 +97,21 @@ export default function SessionDetailClient() {
     { key: "time", header: "Ingested", render: (e) => (e.IngestTS ? new Date(e.IngestTS).toLocaleString() : "—"), sortValue: (e) => e.IngestTS },
   ];
 
+  const journey = useMemo(() => {
+    type JourneyItem = Event & { repeatCount: number; lastTS: number };
+    const ordered = [...events].sort((a, b) => a.ClientTS - b.ClientTS);
+    return ordered.reduce<JourneyItem[]>((items, event) => {
+      const previous = items[items.length - 1];
+      if (previous && previous.EventName === event.EventName) {
+        previous.repeatCount += 1;
+        previous.lastTS = event.ClientTS;
+        return items;
+      }
+      items.push({ ...event, repeatCount: 1, lastTS: event.ClientTS });
+      return items;
+    }, []);
+  }, [events]);
+
   if (loading) {
     return <p className="text-sm text-fg-muted">Loading session…</p>;
   }
@@ -156,6 +171,34 @@ export default function SessionDetailClient() {
           ) : (
             <div className="text-fg-muted sm:col-span-2">No client-supplied device info for this session.</div>
           )}
+        </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title="Session journey" action={<span className="text-xs text-fg-muted">chronological event flow</span>} />
+        <div className="p-5">
+          {journey.length === 0 ? <p className="text-sm text-fg-muted">No journey events yet.</p> : <div className="relative ml-3 border-l border-border pl-7">
+            {journey.map((event, index) => {
+              const previous = journey[index - 1];
+              const gap = previous ? Math.max(0, event.ClientTS - previous.ClientTS) : 0;
+              return <div key={event.EventID} className="relative pb-6 last:pb-0">
+                <span className="absolute -left-[35px] top-1 h-3 w-3 rounded-full border-2 border-surface bg-accent" />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span title={event.EventName}><EntityLink kind="event" id={event.EventID} label={`${event.EventName} ×${event.repeatCount}`} /></span>
+                  <time className="text-xs text-fg-muted">{new Date(event.ClientTS).toLocaleString()}{event.repeatCount > 1 && ` – ${new Date(event.lastTS).toLocaleString()}`}</time>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-3 text-xs text-fg-muted">
+                  <span>{event.Source || "client"}</span>
+                  {index > 0 && <span>{gap < 1000 ? `${gap}ms` : `${(gap / 1000).toFixed(1)}s`} since previous</span>}
+                  <span>{event.IsAggregated ? "aggregated" : "raw event"}</span>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded bg-surface-2 p-2"><div className="mb-1 text-[11px] font-medium uppercase text-fg-muted">Payload</div><JsonView value={event.Payload} /></div>
+                  <div className="rounded bg-surface-2 p-2"><div className="mb-1 text-[11px] font-medium uppercase text-fg-muted">Dimensions</div><JsonView value={event.Dims} /></div>
+                </div>
+              </div>;
+            })}
+          </div>}
         </div>
       </Card>
 
