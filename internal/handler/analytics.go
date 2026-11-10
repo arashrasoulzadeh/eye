@@ -52,6 +52,26 @@ type TopNHandler struct{ Svc *service.AnalyticsService }
 
 type SlidingWindowHandler struct{ Svc *service.AnalyticsService }
 
+type DistinctSessionsHandler struct{ Svc *service.AnalyticsService }
+
+func (h *DistinctSessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	tenantID := r.URL.Query().Get("tenant_id")
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required", http.StatusBadRequest)
+		return
+	}
+	count, err := h.Svc.DistinctSessions(tenantID, r.URL.Query().Get("event_name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]float64{"distinct_sessions": count})
+}
+
 func (h *SlidingWindowHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)

@@ -23,7 +23,6 @@
 
 ## Phase 16 — Advanced Events & Aggregations
 - [ ] Event TTL per type
-- [ ] Distinct count aggregation (HyperLogLog)
 - [ ] Percentile aggregations (p50/p95/p99)
 - [ ] Geolocation-based aggregation
 - [ ] Aggregation export to webhooks

@@ -233,6 +233,22 @@ func TestSlidingWindowCountsGroupsEventsByWindow(t *testing.T) {
 	}
 }
 
+func TestDistinctSessionsIsTenantScoped(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	mustInsertEvent(t, db, "d1", "s1", "t1", "click", 1)
+	mustInsertEvent(t, db, "d2", "s1", "t1", "click", 2)
+	mustInsertEvent(t, db, "d3", "s2", "t1", "click", 3)
+	mustInsertEvent(t, db, "d4", "other", "t2", "click", 4)
+
+	count, err := (&service.AnalyticsService{DB: db}).DistinctSessions("t1", "click")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count < 1 || count > 3 {
+		t.Fatalf("expected HLL estimate near two sessions, got %v", count)
+	}
+}
+
 // daySecondsForTest returns the millisecond value of one day, matching the
 // unit AnalyticsService expects ClientTS to be in (milliseconds), since the
 // service's dayIndex divides by 1000 before dividing by day-in-seconds.

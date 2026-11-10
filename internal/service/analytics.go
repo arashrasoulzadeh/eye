@@ -1,8 +1,10 @@
 package service
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -36,6 +38,53 @@ type TopNRow struct {
 type WindowCount struct {
 	WindowStart int64 `json:"window_start"`
 	Count       int   `json:"count"`
+}
+
+// DistinctSessions estimates unique sessions with a compact 64-register
+// HyperLogLog sketch. It is intentionally rebuilt for the requested tenant
+// and event name so the result cannot cross tenant boundaries.
+func (a *AnalyticsService) DistinctSessions(tenantID, eventName string) (float64, error) {
+	var sessions []string
+	query := a.DB.Model(&model.Event{}).Distinct("session_id").Where("tenant_id = ?", tenantID)
+	if eventName != "" {
+		query = query.Where("event_name = ?", eventName)
+	}
+	if err := query.Pluck("session_id", &sessions).Error; err != nil {
+		return 0, err
+	}
+	const registers = 64
+	var values [registers]uint8
+	for _, session := range sessions {
+		hash := sha256.Sum256([]byte(session))
+		index := int(hash[0] & (registers - 1))
+		var rank uint8 = 1
+		for _, b := range hash[1:] {
+			if b == 0 {
+				rank += 8
+				continue
+			}
+			for mask := byte(0x80); mask&b == 0; mask >>= 1 {
+				rank++
+			}
+			break
+		}
+		if rank > values[index] {
+			values[index] = rank
+		}
+	}
+	var sum float64
+	zeroes := 0
+	for _, value := range values {
+		sum += 1 / float64(uint64(1)<<value)
+		if value == 0 {
+			zeroes++
+		}
+	}
+	estimate := 0.7213 * registers * registers / sum
+	if estimate <= 2.5*registers && zeroes > 0 {
+		estimate = registers * math.Log(float64(registers)/float64(zeroes))
+	}
+	return estimate, nil
 }
 
 func (a *AnalyticsService) SlidingWindowCounts(tenantID, eventName string, windowSeconds int64, fromTS, toTS *int64) ([]WindowCount, error) {
