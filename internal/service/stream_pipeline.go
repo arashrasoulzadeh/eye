@@ -21,6 +21,9 @@ type StreamIngestPipeline struct {
 	Repo     *repository.Repo
 	DB       *gorm.DB
 	Producer StreamProducer
+	// TierLimiter, if set, applies the same per-tenant tier limit as the
+	// synchronous ingest path after the session resolves the tenant.
+	TierLimiter TenantLimiter
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
@@ -43,6 +46,16 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 		if err != nil {
 			rejected++
 			continue
+		}
+		if p.TierLimiter != nil {
+			tier := ""
+			if tenant, terr := p.Repo.GetTenant(sess.TenantID); terr == nil {
+				tier = tenant.Tier
+			}
+			if !p.TierLimiter.Allow(sess.TenantID, tier) {
+				rejected++
+				continue
+			}
 		}
 		name, _ := e["event_name"].(string)
 		ts, _ := e["client_ts"].(float64)

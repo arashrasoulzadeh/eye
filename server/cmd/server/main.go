@@ -130,7 +130,7 @@ func main() {
 	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
 	// consumer inserts events and maintains materialized aggregate counts.
 	stream := service.NewChannelStream(256)
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream, Sessions: liveSessions}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)

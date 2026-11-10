@@ -13,6 +13,10 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
+type denyTenantLimiter struct{}
+
+func (denyTenantLimiter) Allow(string, string) bool { return false }
+
 func newPipeline(t *testing.T) (*service.StreamIngestPipeline, *service.ChannelStream, *gorm.DB, func()) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
@@ -94,6 +98,25 @@ func TestStreamPipelineRejectsDuplicateAndUnknownSession(t *testing.T) {
 	a3, rej3 := p.Ingest([]map[string]any{unknown})
 	if a3 != 0 || rej3 != 1 {
 		t.Fatalf("unknown session ingest: expected 0/1, got %d/%d", a3, rej3)
+	}
+}
+
+func TestStreamPipelineAppliesTenantRateLimit(t *testing.T) {
+	p, stream, db, cancel := newPipeline(t)
+	defer cancel()
+	p.TierLimiter = denyTenantLimiter{}
+
+	event := map[string]any{"event_id": "limited", "event_name": "click", "client_ts": float64(1), "payload": map[string]any{}, "dims": map[string]any{}, "session_id": "s1"}
+	accepted, rejected := p.Ingest([]map[string]any{event})
+	if accepted != 0 || rejected != 1 {
+		t.Fatalf("expected rate-limited event to be rejected, got %d/%d", accepted, rejected)
+	}
+	stream.Wait()
+
+	var count int64
+	db.Model(&model.Event{}).Where("event_id = ?", "limited").Count(&count)
+	if count != 0 {
+		t.Fatalf("rate-limited event was published to the stream")
 	}
 }
 
