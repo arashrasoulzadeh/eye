@@ -20,7 +20,7 @@
 - After completing each checkbox: run required tests, commit, push.
 
 ## Phase 15 — Extended Testing
-- [ ] Property-based tests (gopter/fast-check) for dedup invariants
+- [x] Property-based tests for dedup invariants — randomized `testing/quick` coverage verifies content-hash determinism and separation across tenant, session, event, timestamp, payload, and dims identity fields
 - [x] Fuzz testing for proto parsing — native Go fuzz target in `tests/server/proto_fuzz_test.go`; seed corpus and a 3-second fuzz run passed
 - [x] Chaos/fault injection (kill DB mid-ingest) — `TestIngestRejectsCleanlyWhenDatabaseFails` closes the SQLite handle during ingestion and verifies a safe rejection
 - [ ] Contract tests (Pact) SDK ↔ backend
