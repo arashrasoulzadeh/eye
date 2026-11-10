@@ -21,6 +21,7 @@ export default function SessionDetailClient() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const eventsRef = useRef(events);
+  const journeyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -112,6 +113,13 @@ export default function SessionDetailClient() {
     }, []);
   }, [events]);
 
+  useEffect(() => {
+    const container = journeyRef.current;
+    if (container && typeof container.scrollTo === "function") {
+      container.scrollTo({ left: container.scrollWidth, behavior: "smooth" });
+    }
+  }, [journey.length, events.length]);
+
   if (loading) {
     return <p className="text-sm text-fg-muted">Loading session…</p>;
   }
@@ -177,17 +185,20 @@ export default function SessionDetailClient() {
       <Card className="mt-6">
         <CardHeader title="Session journey" action={<span className="text-xs text-fg-muted">aggregated timeline</span>} />
         <div className="p-5">
-          {journey.length === 0 ? <p className="text-sm text-fg-muted">No events yet.</p> : <div className="flex gap-4 overflow-x-auto pb-3">
-            {journey.map((event) => {
-              return <div key={event.EventID} className="relative min-w-[150px] flex-1 rounded-lg border border-border bg-surface-2 px-3 py-3 text-center">
-                <div className="mx-auto mb-2 h-3 w-3 rounded-full bg-accent" />
-                <div className="truncate font-medium text-fg" title={event.EventName}>{event.EventName + "\u200b"}</div>
-                <div className="mt-1 text-xs font-semibold text-accent">×{event.repeatCount}</div>
-                <div className="mt-1 text-[11px] text-fg-muted">{new Date(event.ClientTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{event.repeatCount > 1 && ` → ${new Date(event.lastTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
-                <div className="mt-2"><EntityLink kind="event" id={event.EventID} label="Open" /></div>
+          {journey.length === 0 ? <p className="text-sm text-fg-muted">No events yet.</p> : <div ref={journeyRef} className="overflow-x-auto pb-3"><div className="flex min-w-max items-center px-4">
+            {journey.map((event, index) => {
+              return <div key={event.EventID} className="flex items-center">
+                <div className="relative w-44 rounded-xl border border-accent/30 bg-surface-2 px-3 py-3 text-center shadow-sm">
+                  <div className="mx-auto mb-2 h-3 w-3 rounded-full bg-accent ring-4 ring-accent/10" />
+                  <div className="truncate font-medium text-fg" title={event.EventName}>{event.EventName + "\u200b"}</div>
+                  <div className="mt-1 text-xs font-semibold text-accent">×{event.repeatCount}</div>
+                  <div className="mt-1 text-[11px] text-fg-muted">{new Date(event.ClientTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{event.repeatCount > 1 && ` → ${new Date(event.lastTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+                  <div className="mt-2"><EntityLink kind="event" id={event.EventID} label="Open" /></div>
+                </div>
+                {index < journey.length - 1 && <div className="h-0.5 w-12 bg-gradient-to-r from-accent to-accent/30" />}
               </div>;
             })}
-          </div>}
+          </div></div>}
         </div>
       </Card>
 
