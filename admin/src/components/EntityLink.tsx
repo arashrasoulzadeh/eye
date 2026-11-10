@@ -12,12 +12,12 @@ export function EntityLink({
   truncate = 10,
   label,
 }: {
-  kind: "tenant" | "session";
+  kind: "tenant" | "session" | "event";
   id: string;
   truncate?: number;
   label?: string;
 }) {
-  const href = kind === "tenant" ? `/tenants/${id}` : `/sessions/${id}`;
+  const href = kind === "tenant" ? `/tenants/${id}` : kind === "session" ? `/sessions/${id}` : `/events/${id}`;
   const short = id.length > truncate ? id.slice(0, truncate) + "…" : id;
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-xs">

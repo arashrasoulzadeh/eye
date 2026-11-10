@@ -92,7 +92,9 @@ func main() {
 	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db})))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
-	mux.Handle("/events", adminAuth(&handler.EventsHandler{DB: db}))
+	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})
+	mux.Handle("/events", eventsHandler)
+	mux.Handle("/events/", eventsHandler)
 	qs := &service.QueryService{DB: db}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	analyticsSvc := &service.AnalyticsService{DB: db}

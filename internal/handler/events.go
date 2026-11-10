@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -12,6 +13,16 @@ import (
 type EventsHandler struct{ DB *gorm.DB }
 
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/events"), "/")
+	if r.Method == http.MethodGet && path != "" {
+		var event model.Event
+		if err := h.DB.First(&event, "event_id = ?", path).Error; err != nil {
+			http.Error(w, "event not found", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(event)
+		return
+	}
 	var list []model.Event
 	q := h.DB
 	if n := r.URL.Query().Get("event_name"); n != "" {

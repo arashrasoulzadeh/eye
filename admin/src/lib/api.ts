@@ -109,6 +109,7 @@ export const api = {
   },
 
   events: {
+    get: (id: string) => req<Event>(`events/${encodeURIComponent(id)}`),
     // Hits /query (not /events) because that's the endpoint that actually
     // supports the from_ts/to_ts time-range filter (added for Phase 6);
     // /events only ever supported event_name/tenant_id/session_id.

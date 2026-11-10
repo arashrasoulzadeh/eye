@@ -85,7 +85,7 @@ export default function EventsPage() {
     .map((s) => ({ value: s.ID, label: `${s.EventCount} events` }));
 
   const columns: Column<Event>[] = [
-    { key: "name", header: "Event", render: (e) => <span className="font-medium text-fg">{e.EventName}</span>, sortValue: (e) => e.EventName },
+    { key: "name", header: "Event", render: (e) => <EntityLink kind="event" id={e.EventID} label={e.EventName} />, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
     { key: "session", header: "Session", render: (e) => <EntityLink kind="session" id={e.SessionID} /> },
     { key: "tenant", header: "Tenant", render: (e) => <EntityLink kind="tenant" id={e.TenantID} /> },

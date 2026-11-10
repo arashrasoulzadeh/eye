@@ -90,7 +90,7 @@ export default function SessionDetailClient() {
   }, [session]);
 
   const columns: Column<Event>[] = [
-    { key: "name", header: "Event", render: (e) => <span className="font-medium text-fg">{e.EventName}</span>, sortValue: (e) => e.EventName },
+    { key: "name", header: "Event", render: (e) => <EntityLink kind="event" id={e.EventID} label={e.EventName} />, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
     { key: "payload", header: "Payload", render: (e) => <JsonView value={e.Payload} /> },
     { key: "dims", header: "Dims", render: (e) => <JsonView value={e.Dims} /> },
