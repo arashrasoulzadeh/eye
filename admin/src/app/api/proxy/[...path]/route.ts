@@ -6,6 +6,7 @@ const BACKEND = process.env.BACKEND_URL || "http://localhost:8080";
 async function forward(req: NextRequest, path: string[]) {
   const started = performance.now();
   const key = (await cookies()).get("admin_key")?.value;
+  const email = (await cookies()).get("admin_email")?.value;
   if (!key) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
@@ -14,7 +15,7 @@ async function forward(req: NextRequest, path: string[]) {
   const url = `${BACKEND}/${path.join("/")}${search}`;
   const init: RequestInit = {
     method: req.method,
-    headers: { "x-admin-key": key, "content-type": "application/json" },
+    headers: { "x-admin-key": key, ...(email ? { "x-admin-email": email } : {}), "content-type": "application/json" },
   };
   if (req.method !== "GET" && req.method !== "DELETE" && req.method !== "HEAD") {
     init.body = await req.text();

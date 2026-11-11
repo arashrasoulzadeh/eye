@@ -5,9 +5,11 @@
 export const instant = false;
 
 import { Suspense } from "react";
+import { connection } from "next/server";
 import SessionDetailClient from "./SessionDetailClient";
 
-export default function SessionDetailPage() {
+export default async function SessionDetailPage() {
+  await connection();
   return (
     <Suspense fallback={<p className="text-sm text-fg-muted">Loading session…</p>}>
       <SessionDetailClient />

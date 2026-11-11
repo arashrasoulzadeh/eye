@@ -15,7 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar />
         </Suspense>
         <main className="flex-1 overflow-y-auto">
-          <AdminTopbar />
+          <Suspense fallback={<header className="min-h-14 border-b border-border" />}><AdminTopbar /></Suspense>
           <div className="mx-auto max-w-6xl px-8 py-8"><AdminGuide />{children}</div>
         </main>
       </div>

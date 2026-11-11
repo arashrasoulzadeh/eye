@@ -4,9 +4,11 @@
 export const instant = false;
 
 import { Suspense } from "react";
+import { connection } from "next/server";
 import TenantDetailClient from "./TenantDetailClient";
 
-export default function TenantDetailPage() {
+export default async function TenantDetailPage() {
+  await connection();
   return (
     <Suspense fallback={<p className="text-sm text-fg-muted">Loading tenant…</p>}>
       <TenantDetailClient />

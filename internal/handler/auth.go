@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 )
 
 func secureKeyEqual(expected, actual string) bool {
@@ -16,6 +17,25 @@ func secureKeyEqual(expected, actual string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1
+}
+
+// AdminRoleAuth authorizes OIDC-backed workspace users by durable role while
+// preserving shared-key sessions as owner-level access.
+func AdminRoleAuth(adminKey string, resolveRole func(email string) (string, bool), allowed []string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !secureKeyEqual(adminKey, r.Header.Get("x-admin-key")) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if email := r.Header.Get("x-admin-email"); email != "" {
+			role, ok := resolveRole(email)
+			if !ok || !slices.Contains(allowed, role) {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // AdminAuth wraps next with a check that the request carries the configured

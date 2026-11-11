@@ -28,5 +28,6 @@ export async function GET(req: Request) {
   const res = NextResponse.redirect(new URL("/dashboard", req.url));
   res.cookies.delete("oidc_state"); res.cookies.delete("oidc_nonce");
   res.cookies.set("admin_key", process.env.ADMIN_API_KEY!, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });
+  if (email) res.cookies.set("admin_email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });
   return res;
 }

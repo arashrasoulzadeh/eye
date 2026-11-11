@@ -108,6 +108,16 @@ func main() {
 	// only requests that actually passed admin auth reach it. See
 	// handler.Audit's doc comment for the single-shared-admin-key caveat.
 	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, handler.Audit(db, h)) }
+	adminUserRole := func(email string) (string, bool) {
+		var user model.AdminUser
+		if err := db.Where("email = ? AND status = ?", email, "active").First(&user).Error; err != nil {
+			return "", false
+		}
+		return user.Role, true
+	}
+	adminUserAuth := func(h http.Handler) http.Handler {
+		return handler.AdminRoleAuth(cfg.AdminKey, adminUserRole, []string{"owner", "admin"}, handler.Audit(db, h))
+	}
 	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/tenant-usage/", adminAuth(&handler.UsageHandler{DB: db, Svc: &service.UsageService{DB: db}}))
@@ -286,8 +296,8 @@ func main() {
 	// Phase 14: audit log listing (writes happen via the Audit middleware
 	// wrapping adminAuth above).
 	mux.Handle("/audit-log", adminAuth(&handler.AuditLogHandler{DB: db}))
-	mux.Handle("/admin-users", adminAuth(&handler.AdminUsersHandler{DB: db}))
-	mux.Handle("/admin-users/", adminAuth(&handler.AdminUsersHandler{DB: db}))
+	mux.Handle("/admin-users", adminUserAuth(&handler.AdminUsersHandler{DB: db}))
+	mux.Handle("/admin-users/", adminUserAuth(&handler.AdminUsersHandler{DB: db}))
 
 	// Phase 8: basic statistical (z-score over a rolling window) anomaly
 	// detection, sampled from the same materialized AggregateCount read

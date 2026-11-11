@@ -11,6 +11,7 @@ export async function POST(req: Request) {
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
     });
+    res.cookies.delete("admin_email");
     return res;
   }
   return NextResponse.json({ ok: false }, { status: 401 });

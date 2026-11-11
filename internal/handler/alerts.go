@@ -12,13 +12,13 @@ import (
 type AlertsHandler struct{ Svc *service.AlertService }
 
 type alertRuleBody struct {
-	TenantID   string `json:"tenant_id"`
-	EventName  string `json:"event_name"`
-	DimsKey    string `json:"dims_key"`
-	Metric     string `json:"metric"`
-	Threshold  int64  `json:"threshold"`
-	WindowSeconds int64 `json:"window_seconds"`
-	WebhookURL string `json:"webhook_url"`
+	TenantID      string `json:"tenant_id"`
+	EventName     string `json:"event_name"`
+	DimsKey       string `json:"dims_key"`
+	Metric        string `json:"metric"`
+	Threshold     int64  `json:"threshold"`
+	WindowSeconds int64  `json:"window_seconds"`
+	WebhookURL    string `json:"webhook_url"`
 }
 
 func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
