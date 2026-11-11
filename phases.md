@@ -23,7 +23,7 @@
 - [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
 
 ## Admin product completeness
-- [ ] Replay supports relative and absolute time ranges with validation and progress feedback
+- [x] Replay supports relative and absolute time ranges with validation and progress feedback
 - [ ] Every admin resource page has server-backed list/filter/sort, create/edit/delete actions, detail views, and contextual help
 - [ ] Operations pages expose full CRUD and safe destructive-action confirmation for flags, aggregations, experiments, alerts, and dead letters
 - [ ] Admin UX has consistent empty/loading/error states, action menus, copy controls, and API-backed pagination across all resource tables
