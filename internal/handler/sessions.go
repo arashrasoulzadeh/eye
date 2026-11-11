@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,7 +86,13 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var list []model.Session
-		h.DB.Find(&list)
+		limit := 100
+		if raw := r.URL.Query().Get("limit"); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 1000 {
+				limit = parsed
+			}
+		}
+		h.DB.Order("last_seen desc").Limit(limit).Find(&list)
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPut, http.MethodPatch:
 		sessionID := r.URL.Query().Get("session_id")

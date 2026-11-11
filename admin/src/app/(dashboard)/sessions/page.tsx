@@ -41,7 +41,7 @@ export default function SessionsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Sessions</h1>
-      <p className="mt-1 text-sm text-fg-muted">Sessions created by tenants, including test sessions from the Test Event page.</p>
+      <p className="mt-1 text-sm text-fg-muted">Latest 100 sessions, ordered by last activity. Open a session for its full journey and event details.</p>
 
       <Card className="mt-6">
         <CardHeader title={`All sessions (${sessions.length})`} />
