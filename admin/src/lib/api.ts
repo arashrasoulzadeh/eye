@@ -163,6 +163,7 @@ export const api = {
   eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
   analytics: {
     funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ step: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }),
+    retention: (tenantId: string, granularity: "daily" | "weekly" = "daily") => req<Array<{ cohort_period: string; cohort_size: number; active_by_n: number[]; retained_pct: number[] }>>(`analytics/retention?tenant_id=${encodeURIComponent(tenantId)}&granularity=${granularity}`),
   },
 
   schemas: {
