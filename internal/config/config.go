@@ -50,7 +50,32 @@ func Load() (*Config, error) {
 	if err := viper.Unmarshal(c); err != nil {
 		return nil, err
 	}
+	if value, ok := secretFromFile("ADMIN_KEY", c.AdminKey); ok {
+		c.AdminKey = value
+	}
+	if value, ok := secretFromFile("API_KEY_SALT", c.APIKeySalt); ok {
+		c.APIKeySalt = value
+	}
+	if value, ok := secretFromFile("DATABASE_URL", c.DatabaseURL); ok {
+		c.DatabaseURL = value
+	}
 	return c, nil
+}
+
+func secretFromFile(name, current string) (string, bool) {
+	path := strings.TrimSpace(os.Getenv(name + "_FILE"))
+	if path == "" {
+		return current, false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return current, false
+	}
+	value := strings.TrimSpace(string(data))
+	if value == "" {
+		return current, false
+	}
+	return value, true
 }
 
 func (c *Config) Addr() string { return fmt.Sprintf(":%d", c.Port) }

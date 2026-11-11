@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -73,6 +74,22 @@ func TestValidateForProductionAllowsDevelopmentCredentialsOutsideProduction(t *t
 	cfg := &Config{AdminKey: "dev-insecure-admin-key", APIKeySalt: "dev-insecure-salt"}
 	if err := cfg.ValidateForProduction(); err != nil {
 		t.Fatalf("development credentials should be allowed outside production: %v", err)
+	}
+}
+
+func TestLoadReadsSecretFileOverrides(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "admin-key")
+	if err := os.WriteFile(path, []byte("file-admin-key\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("ADMIN_KEY_FILE", path)
+	defer os.Unsetenv("ADMIN_KEY_FILE")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AdminKey != "file-admin-key" {
+		t.Fatalf("admin key = %q, want file-admin-key", cfg.AdminKey)
 	}
 }
 
