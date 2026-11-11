@@ -69,18 +69,9 @@ export default function EventsPage() {
     void load();
     api.tenants.list().then(setTenants).catch(() => {});
     api.sessions.list().then((page) => setSessions(page.items)).catch(() => {});
-    // Preload the most frequent event names across recent events so the
-    // combobox has sensible top suggestions before the user types anything.
-    api.events
-      .list({})
-      .then((all) => {
-        const counts = new Map<string, number>();
-        for (const e of all) counts.set(e.EventName, (counts.get(e.EventName) || 0) + 1);
-        const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => ({ value: name }));
-        setEventNameOptions(top);
-      })
-      .catch(() => {});
   }, [load]);
+
+  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions(options.map((option) => ({ value: option.value })))).catch(() => {}); }, [tenantId]);
 
   const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
   const sessionOptions: ComboOption[] = sessions
