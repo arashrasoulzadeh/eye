@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { ToastProvider } from "@/components/Toast";
 import { AdminGuide } from "@/components/AdminGuide";
+import { AdminTopbar } from "@/components/AdminTopbar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar />
         </Suspense>
         <main className="flex-1 overflow-y-auto">
+          <AdminTopbar />
           <div className="mx-auto max-w-6xl px-8 py-8"><AdminGuide />{children}</div>
         </main>
       </div>
