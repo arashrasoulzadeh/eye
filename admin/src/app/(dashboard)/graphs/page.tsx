@@ -23,7 +23,7 @@ export default function GraphsPage() {
     const toTs = mode === "relative" ? now : new Date(to).getTime();
     if (!Number.isFinite(fromTs) || !Number.isFinite(toTs) || fromTs >= toTs) { setError("Choose a valid graph time range."); return; }
     setLoadingGraph(question.ID); setError("");
-    try { setResults((current) => ({ ...current, [question.ID]: await api.questions.results(tenant, question.ID, { from_ts: fromTs, to_ts: toTs }) })); }
+    try { const result = await api.questions.results(tenant, question.ID, { from_ts: fromTs, to_ts: toTs }); setResults((current) => ({ ...current, [question.ID]: result })); }
     catch (e) { setError((e as Error).message); } finally { setLoadingGraph(""); }
   }
 

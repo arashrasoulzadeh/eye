@@ -30,14 +30,12 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
-const PRIMARY_HREFS = new Set(["/dashboard", "/stream", "/analytics", "/tenants", "/sessions", "/events", "/test-event", "/schemas", "/alerts", "/settings"]);
-
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
-  const primary = NAV.filter((item) => PRIMARY_HREFS.has(item.href));
-  const secondary = NAV.filter((item) => !PRIMARY_HREFS.has(item.href));
+  const primary = NAV.slice(0, 10);
+  const secondary = NAV.slice(10);
   const secondaryActive = secondary.some((item) => pathname === item.href || pathname?.startsWith(item.href + "/"));
 
   async function logout() {
@@ -59,6 +57,7 @@ export function Sidebar() {
           return (
             <Link
               key={item.href}
+              onClick={() => setMoreOpen(false)}
               href={item.href}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                 active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"
@@ -75,7 +74,7 @@ export function Sidebar() {
         </button>
         {moreOpen && <div className="mt-1 border-l border-border pl-2">{secondary.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/");
-          return <Link key={item.href} href={item.href} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{item.label}</Link>;
+          return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{item.label}</Link>;
         })}</div>}
       </nav>
       <div className="border-t border-border p-3">
