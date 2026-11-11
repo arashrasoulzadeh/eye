@@ -225,6 +225,10 @@ export const api = {
     remove: (id: string) => req<void>(`admin-users/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 
+  tenantData: {
+    delete: (tenantId: string) => req<{ tenant_id: string; deleted: Record<string, number> }>(`tenants/data/${encodeURIComponent(tenantId)}?confirm=true`, { method: "DELETE" }),
+  },
+
   operations: {
     flags: (tenantId: string) => req<unknown[]>(`feature-flags?tenant_id=${encodeURIComponent(tenantId)}`),
     setFlag: (tenantId: string, key: string, enabled: boolean) => req<unknown>("feature-flags", { method: "PUT", body: JSON.stringify({ tenant_id: tenantId, key, enabled }) }),
