@@ -200,6 +200,9 @@ export const api = {
     deadLetters: () => req<unknown[]>("webhooks/dead-letter"),
     replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
     createExperiment: (body: { name: string; tenant_id: string; variants: string; traffic: number }) => req<unknown>("experiments", { method: "POST", body: JSON.stringify(body) }),
+    experiments: (tenantId: string) => req<unknown[]>(`experiments?tenant_id=${encodeURIComponent(tenantId)}`),
+    updateExperiment: (id: string, body: Record<string, unknown>) => req<unknown>(`experiments/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
+    deleteExperiment: (id: string) => req<void>(`experiments/${encodeURIComponent(id)}`, { method: "DELETE" }),
     assignExperiment: (id: string, sessionId: string) => req<unknown>(`experiments/${encodeURIComponent(id)}/assign?session_id=${encodeURIComponent(sessionId)}`),
   },
 

@@ -73,6 +73,31 @@ func (e *ExperimentService) Create(name, tenantID, variants string, traffic int)
 	return exp, nil
 }
 
+func (e *ExperimentService) List(tenantID string) ([]model.Experiment, error) {
+	var list []model.Experiment
+	q := e.DB.Order("created_at desc")
+	if tenantID != "" {
+		q = q.Where("tenant_id = ?", tenantID)
+	}
+	return list, q.Find(&list).Error
+}
+
+func (e *ExperimentService) Update(id, name, variants string, traffic int, enabled bool) (*model.Experiment, error) {
+	var exp model.Experiment
+	if err := e.DB.First(&exp, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	exp.Name, exp.Variants, exp.Traffic, exp.Enabled = name, variants, traffic, enabled
+	if err := e.DB.Save(&exp).Error; err != nil {
+		return nil, err
+	}
+	return &exp, nil
+}
+
+func (e *ExperimentService) Delete(id string) error {
+	return e.DB.Delete(&model.Experiment{}, "id = ?", id).Error
+}
+
 // bucket deterministically maps a key to [0, 100) using a stable hash, so the
 // same (experimentID, sessionID) pair always lands in the same bucket.
 func bucket(key string) int {

@@ -85,6 +85,13 @@ func (h *ExperimentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch r.Method {
+	case http.MethodGet:
+		list, err := h.Svc.List(r.URL.Query().Get("tenant_id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b struct {
 			Name     string
@@ -102,6 +109,30 @@ func (h *ExperimentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		json.NewEncoder(w).Encode(exp)
+	case http.MethodPut:
+		id := strings.Trim(path, "/")
+		var b struct {
+			Name     string `json:"name"`
+			Variants string `json:"variants"`
+			Traffic  int    `json:"traffic"`
+			Enabled  bool   `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		exp, err := h.Svc.Update(id, b.Name, b.Variants, b.Traffic, b.Enabled)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(exp)
+	case http.MethodDelete:
+		if err := h.Svc.Delete(strings.Trim(path, "/")); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
