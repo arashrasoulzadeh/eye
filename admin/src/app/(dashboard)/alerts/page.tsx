@@ -23,6 +23,7 @@ export default function AlertsPage() {
   const [windowSeconds, setWindowSeconds] = useState(300);
   const [threshold, setThreshold] = useState(10);
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [destination, setDestination] = useState("webhook");
   const [editing, setEditing] = useState<AlertRule | null>(null);
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -56,12 +57,13 @@ export default function AlertsPage() {
     if (!eventName.trim() || !webhookUrl.trim() || !tenantId) return;
     setCreating(true);
     try {
-      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), ...(dimsKey.trim() ? { dims_key: dimsKey.trim() } : {}), ...(metric === "absence" ? { metric, window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), ...(dimsKey.trim() ? { dims_key: dimsKey.trim() } : {}), ...(metric === "absence" ? { metric, window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim(), ...(destination !== "webhook" ? { destination } : {}) });
       setEventName("");
       setDimsKey("");
       setMetric("count"); setWindowSeconds(300);
       setThreshold(10);
       setWebhookUrl("");
+      setDestination("webhook");
       push("success", "Alert rule created");
       await refresh();
     } catch (e) {
@@ -72,18 +74,18 @@ export default function AlertsPage() {
   }
 
   function beginEdit(rule: AlertRule) {
-    setEditing(rule); setEventName(rule.EventName); setDimsKey(rule.DimsKey); setMetric(rule.Metric); setWindowSeconds(rule.WindowSeconds || 300); setThreshold(rule.Threshold); setWebhookUrl(rule.WebhookURL);
+    setEditing(rule); setEventName(rule.EventName); setDimsKey(rule.DimsKey); setMetric(rule.Metric); setWindowSeconds(rule.WindowSeconds || 300); setThreshold(rule.Threshold); setWebhookUrl(rule.WebhookURL); setDestination(rule.Destination || "webhook");
   }
 
   function cancelEdit() {
-    setEditing(null); setEventName(""); setDimsKey(""); setMetric("count"); setWindowSeconds(300); setThreshold(10); setWebhookUrl("");
+    setEditing(null); setEventName(""); setDimsKey(""); setMetric("count"); setWindowSeconds(300); setThreshold(10); setWebhookUrl(""); setDestination("webhook");
   }
 
   async function saveEdit() {
     if (!editing || !eventName.trim() || !webhookUrl.trim()) return;
     setCreating(true);
     try {
-      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric, ...(metric === "absence" ? { window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric, ...(metric === "absence" ? { window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim(), ...(destination !== "webhook" ? { destination } : {}) });
       push("success", "Alert rule updated"); cancelEdit(); await refresh();
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to update alert rule"); }
     finally { setCreating(false); }
@@ -116,6 +118,7 @@ export default function AlertsPage() {
     { key: "window", header: "Window", render: (r) => r.Metric === "count" ? <span className="text-xs text-fg-muted">lifetime</span> : <span className="text-xs text-fg-muted">{Math.round((r.WindowSeconds || 300) / 60)} min</span>, sortValue: (r) => r.WindowSeconds || 0 },
     { key: "dimensions", header: "Dimensions", render: (r) => <span className="text-xs text-fg-muted">{r.DimsKey || "all dimensions"}</span>, sortValue: (r) => r.DimsKey },
     { key: "webhook", header: "Webhook", render: (r) => <span className="truncate text-xs text-fg-muted">{r.WebhookURL}</span> },
+    { key: "destination", header: "Destination", render: (r) => <Badge>{r.Destination || "webhook"}</Badge>, sortValue: (r) => r.Destination || "webhook" },
     {
       key: "status",
       header: "Status",
@@ -187,6 +190,10 @@ export default function AlertsPage() {
           <div className="min-w-[180px]">
             <Label>Dimensions key (optional)</Label>
             <Input value={dimsKey} onChange={(e) => setDimsKey(e.target.value)} placeholder="country=ir" />
+          </div>
+          <div className="min-w-[220px] flex-1">
+            <Label>Destination</Label>
+            <Select value={destination} onChange={(e) => setDestination(e.target.value)}><option value="webhook">Generic webhook</option><option value="slack">Slack webhook</option><option value="pagerduty">PagerDuty Events API</option><option value="email">Email HTTP gateway</option></Select>
           </div>
           <div className="min-w-[220px] flex-1">
             <Label>Webhook URL</Label>

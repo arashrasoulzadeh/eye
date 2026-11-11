@@ -36,6 +36,10 @@ func (a *AlertService) Create(tenantID, eventName, dimsKey, metric string, thres
 }
 
 func (a *AlertService) CreateWithWindow(tenantID, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
+	return a.CreateWithWindowAndDestination(tenantID, eventName, dimsKey, metric, threshold, windowSeconds, webhookURL, "webhook")
+}
+
+func (a *AlertService) CreateWithWindowAndDestination(tenantID, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL, destination string) (*model.AlertRule, error) {
 	if metric == "" {
 		metric = "count"
 	}
@@ -45,10 +49,14 @@ func (a *AlertService) CreateWithWindow(tenantID, eventName, dimsKey, metric str
 	if err := validateWebhookURL(webhookURL); err != nil {
 		return nil, err
 	}
+	destination, err := normalizeAlertDestination(destination)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now().Unix()
 	rule := &model.AlertRule{
 		ID: randomAlertID(), TenantID: tenantID, EventName: eventName, DimsKey: dimsKey,
-		Metric: metric, Threshold: threshold, WindowSeconds: windowSeconds, WebhookURL: webhookURL, Enabled: true,
+		Metric: metric, Threshold: threshold, WindowSeconds: windowSeconds, WebhookURL: webhookURL, Destination: destination, Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := a.DB.Create(rule).Error; err != nil {
@@ -78,6 +86,10 @@ func (a *AlertService) Update(id, eventName, dimsKey, metric string, threshold i
 }
 
 func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
+	return a.UpdateWithWindowAndDestination(id, eventName, dimsKey, metric, threshold, windowSeconds, webhookURL, "")
+}
+
+func (a *AlertService) UpdateWithWindowAndDestination(id, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL, destination string) (*model.AlertRule, error) {
 	if metric == "" {
 		metric = "count"
 	}
@@ -85,6 +97,13 @@ func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, t
 		return nil, err
 	}
 	if err := validateWebhookURL(webhookURL); err != nil {
+		return nil, err
+	}
+	if destination == "" {
+		destination = "webhook"
+	}
+	destination, err := normalizeAlertDestination(destination)
+	if err != nil {
 		return nil, err
 	}
 	rule, err := a.Get(id)
@@ -101,11 +120,25 @@ func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, t
 		rule.WindowSeconds = windowSeconds
 	}
 	rule.WebhookURL = webhookURL
+	rule.Destination = destination
 	rule.UpdatedAt = time.Now().Unix()
 	if err := a.DB.Save(rule).Error; err != nil {
 		return nil, err
 	}
 	return rule, nil
+}
+
+func normalizeAlertDestination(destination string) (string, error) {
+	destination = strings.ToLower(strings.TrimSpace(destination))
+	if destination == "" {
+		destination = "webhook"
+	}
+	switch destination {
+	case "webhook", "slack", "pagerduty", "email":
+		return destination, nil
+	default:
+		return "", fmt.Errorf("unsupported alert destination %q", destination)
+	}
 }
 
 func validateAlertRule(eventName, metric string, threshold, windowSeconds int64) error {
@@ -312,7 +345,8 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 		// few attempts with a short backoff before giving up; if every
 		// attempt fails, DispatchWithRetry persists the delivery to
 		// WebhookDeadLetter instead of this just silently dropping it.
-		if err := DispatchWithRetryAndNotify(svc.DB, client, svc.DeadLetterNotifyURL, rule.ID, rule.WebhookURL, payload, 3, func(attempt int) {
+		deliveryPayload := alertDeliveryPayload(rule.Destination, payload)
+		if err := DispatchWithRetryAndNotify(svc.DB, client, svc.DeadLetterNotifyURL, rule.ID, rule.WebhookURL, deliveryPayload, 3, func(attempt int) {
 			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
 		}); err != nil {
 			if logger != nil {
@@ -328,6 +362,20 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 		fired++
 	}
 	return fired, nil
+}
+
+func alertDeliveryPayload(destination string, payload map[string]any) map[string]any {
+	switch strings.ToLower(destination) {
+	case "slack":
+		b, _ := json.Marshal(payload)
+		return map[string]any{"text": string(b), "eye": payload}
+	case "pagerduty":
+		return map[string]any{"event_action": "trigger", "payload": map[string]any{
+			"summary": "Eye alert fired", "source": "eye", "severity": "error", "custom_details": payload,
+		}}
+	default:
+		return payload
+	}
 }
 
 // RunAlertJob periodically evaluates every enabled AlertRule and dispatches
