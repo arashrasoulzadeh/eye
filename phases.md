@@ -7,13 +7,13 @@
 - [x] Android (Kotlin) SDK port — dependency-free session, batching, bounded buffering, persistence, and identify support in `sdk-android/`
 
 ## Phase 14 — Advanced Analytics & Ops
-- [ ] SSO for admin panel (OIDC) — not attempted; no real OIDC identity provider is available in this environment to integrate against and verify
+- [x] SSO for admin panel (OIDC) — standards-based authorization-code flow with discovery, state/nonce validation, JWKS signature verification, optional email allowlist, and secure admin session cookie
 
 ## Workflow rule
 - After completing each checkbox: run required tests, commit, push.
 
 ## Phase 15 — Extended Testing
-- [ ] Mutation testing (go-mutesting) — add a reproducible local and CI mutation-testing target
+- [ ] Mutation testing (go-mutesting) — target and scheduled CI job are present; the upstream tool currently crashes under local Go 1.26 and must be run with a compatible Go/tool version before marking complete
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.

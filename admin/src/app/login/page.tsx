@@ -56,6 +56,9 @@ export default function Login() {
             Sign in
           </Button>
         </form>
+        {process.env.NEXT_PUBLIC_OIDC_ENABLED === "true" && (
+          <a href="/api/oidc/start" className="mt-3 block rounded border border-border px-3 py-2 text-center text-sm text-fg">Sign in with SSO</a>
+        )}
       </Card>
     </div>
   );

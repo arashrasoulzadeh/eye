@@ -12,6 +12,7 @@
     "sync:cdn": "cp ../web-sdk/dist/eye.min.js public/cdn-eye.min.js && cp ../web-sdk/dist/eye.min.js.map public/cdn-eye.min.js.map"
   },
   "dependencies": {
+    "jose": "^6.2.17",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
