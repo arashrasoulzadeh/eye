@@ -1,28 +1,29 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, DashboardCache } from "@/lib/api";
 import { StatCard, Card, CardHeader } from "@/components/Card";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
+import { Button } from "@/components/Button";
 import Link from "next/link";
 
 export default function Dashboard() {
   const [cache, setCache] = useState<DashboardCache | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(""), [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.dashboardCache().then(setCache).catch((e: ApiError) => setError(e.message));
-  }, []);
+  const load = useCallback(async () => { setLoading(true); setError(""); try { setCache(await api.dashboardCache()); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, []);
+  useEffect(() => { void load(); }, [load]);
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-fg">Dashboard</h1>
+      <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
       <p className="mt-1 text-sm text-fg-muted">Cached metrics (refreshed every minute).</p>
+      </div><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
         <p className="mt-2 text-fg-muted">These totals come from the server-side dashboard cache, not the browser. The charts summarize the latest materialized event window and refresh automatically once per minute.</p>
       </details>
 
-      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+      {error && <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Events" value={cache ? cache.events.toLocaleString() : "…"} hint="Server-cached total" />
