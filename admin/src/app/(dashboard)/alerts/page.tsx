@@ -5,7 +5,7 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input, Label, Select } from "@/components/Input";
 import { Combobox, ComboOption } from "@/components/Combobox";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
@@ -38,10 +38,10 @@ export default function AlertsPage() {
       .catch(() => {});
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
     try {
-      setRules(await api.alerts.list(tenantId));
+      setRules(await api.alerts.list(tenantId, { filter: query.filter, dir: query.sortDir }));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load alert rules");
     }
@@ -164,7 +164,7 @@ export default function AlertsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Alert rules (${rules.length})`} />
-        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." />
+        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide totalRows={rules.length} onQueryChange={(query) => void refresh(query)} />
       </Card>
 
       <ConfirmDialog

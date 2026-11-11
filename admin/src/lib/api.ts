@@ -168,7 +168,7 @@ export const api = {
   },
 
   alerts: {
-    list: (tenantId: string) => req<AlertRule[]>(`alerts?tenant_id=${encodeURIComponent(tenantId)}`),
+    list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<AlertRule[]>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
     remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),

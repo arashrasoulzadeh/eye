@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/arashrasoulzadeh/eye/internal/service"
@@ -74,6 +75,22 @@ func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		filter := strings.ToLower(r.URL.Query().Get("filter"))
+		if filter != "" {
+			filtered := list[:0]
+			for _, item := range list {
+				if strings.Contains(strings.ToLower(item.EventName), filter) || strings.Contains(strings.ToLower(item.Metric), filter) {
+					filtered = append(filtered, item)
+				}
+			}
+			list = filtered
+		}
+		sort.SliceStable(list, func(i, j int) bool {
+			if r.URL.Query().Get("dir") == "asc" {
+				return list[i].CreatedAt < list[j].CreatedAt
+			}
+			return list[i].CreatedAt > list[j].CreatedAt
+		})
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b alertRuleBody
