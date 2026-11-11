@@ -29,6 +29,7 @@ export default function SessionDetailClient() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const eventsRef = useRef(events);
   const journeyRef = useRef<HTMLDivElement>(null);
@@ -41,6 +42,7 @@ export default function SessionDetailClient() {
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLoadError("");
       try {
         // Same pattern as the tenant detail page: there is no GET
         // /sessions/{id} endpoint, only a list, so this finds the one we
@@ -57,7 +59,7 @@ export default function SessionDetailClient() {
         setTenant(s ? tenants.find((t) => t.ID === s.TenantID) || null : null);
         setEvents(uniqueEvents(sessionEvents));
       } catch (e) {
-        if (!cancelled) push("error", e instanceof ApiError ? e.message : "Failed to load session");
+        if (!cancelled) { const message = e instanceof ApiError ? e.message : "Failed to load session"; setLoadError(message); push("error", message); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -132,6 +134,10 @@ export default function SessionDetailClient() {
 
   if (loading) {
     return <p className="text-sm text-fg-muted">Loading session…</p>;
+  }
+
+  if (loadError) {
+    return <div><h1 className="text-xl font-semibold text-fg">Unable to load session</h1><p className="mt-2 text-sm text-danger">{loadError}</p><Link href="/sessions" className="mt-4 inline-block text-sm text-accent hover:underline">Back to sessions</Link></div>;
   }
 
   if (notFound || !session) {
