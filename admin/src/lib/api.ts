@@ -184,6 +184,17 @@ export const api = {
       req<RuntimeSettings>("settings", { method: "PUT", body: JSON.stringify(partial) }),
   },
 
+  operations: {
+    flags: (tenantId: string) => req<unknown[]>(`feature-flags?tenant_id=${encodeURIComponent(tenantId)}`),
+    setFlag: (tenantId: string, key: string, enabled: boolean) => req<unknown>("feature-flags", { method: "PUT", body: JSON.stringify({ tenant_id: tenantId, key, enabled }) }),
+    aggregations: (tenantId: string) => req<unknown[]>(`aggregations?tenant_id=${encodeURIComponent(tenantId)}`),
+    refreshAggregations: (tenantId: string) => req<unknown>(`aggregations/refresh?tenant_id=${encodeURIComponent(tenantId)}`, { method: "POST" }),
+    anomalies: () => req<unknown[]>("anomalies"),
+    auditLog: () => req<unknown[]>("audit-log"),
+    deadLetters: () => req<unknown[]>("webhooks/dead-letter"),
+    replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
+  },
+
   ingest: {
     send: (events: Record<string, unknown>[]) =>
       req<{ accepted: number; rejected: number }>("ingest", {
