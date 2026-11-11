@@ -20,7 +20,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install go-mutesting
-        run: go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest
+        run: go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@bb372ba
 
       - name: Run mutation testing
         run: make mutation-test

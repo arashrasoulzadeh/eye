@@ -13,7 +13,7 @@
 - After completing each checkbox: run required tests, commit, push.
 
 ## Phase 15 — Extended Testing
-- [ ] Mutation testing (go-mutesting) — target and scheduled CI job are present; the upstream tool currently crashes under local Go 1.26 and must be run with a compatible Go/tool version before marking complete
+- [ ] Mutation testing (go-mutesting) — target and scheduled CI job are present; the pinned compatible fork runs, but the legacy mutator still crashes on some generated temporary diffs under Go 1.26 and needs a tool-level fix before marking complete
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.
