@@ -8,14 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
 	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
 	"github.com/arashrasoulzadeh/eye/internal/config"
 	"github.com/arashrasoulzadeh/eye/internal/handler"
@@ -23,6 +15,11 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/repository"
 	"github.com/arashrasoulzadeh/eye/internal/service"
 	"github.com/arashrasoulzadeh/eye/internal/storage"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -50,7 +47,7 @@ func main() {
 		logger.Error("invalid production configuration", "err", err)
 		os.Exit(1)
 	}
-	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
+	db, err := storage.OpenDatabase(cfg)
 	if err != nil {
 		logger.Error("db open failed", "err", err)
 		os.Exit(1)

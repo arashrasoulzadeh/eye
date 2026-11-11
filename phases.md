@@ -3,17 +3,17 @@
 - API: grpc-gateway (google.golang.org/grpc + grpc-ecosystem/grpc-gateway) auto-generates REST from proto.
 - ORM: GORM for all DB access.
 
-## Phase 10 — Mobile & Server SDKs
-- [x] Android (Kotlin) SDK port — dependency-free session, batching, bounded buffering, persistence, and identify support in `sdk-android/`
-
-## Phase 14 — Advanced Analytics & Ops
-- [x] SSO for admin panel (OIDC) — standards-based authorization-code flow with discovery, state/nonce validation, JWKS signature verification, optional email allowlist, and secure admin session cookie
+## Production hardening
+- [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations
+- [ ] Durable collector transport and persisted ingestion queue
+- [ ] Prometheus/Grafana dashboards, structured logs, and alerting
+- [ ] Automated database backups and restore-drill verification
+- [ ] End-to-end Docker deployment test: tenant → key → session → ingest → query
+- [ ] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles
+- [ ] Pagination, cursor queries, analytics caching, and scalable aggregation workers
 
 ## Workflow rule
 - After completing each checkbox: run required tests, commit, push.
-
-## Phase 15 — Extended Testing
-- [x] Mutation testing (go-mutesting) — pinned compatible fork, scheduled CI job, and a focused production-configuration mutation gate with a 1.000000 mutation score
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.

@@ -12,6 +12,8 @@ import (
 type Config struct {
 	Port           int    `mapstructure:"port"`
 	DBPath         string `mapstructure:"db_path"`
+	DBDriver       string `mapstructure:"db_driver"`
+	DatabaseURL    string `mapstructure:"database_url"`
 	AdminKey       string `mapstructure:"admin_key"`
 	APIKeySalt     string `mapstructure:"api_key_salt"`
 	RetentionHours int    `mapstructure:"retention_hours"`
@@ -37,6 +39,7 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 	viper.SetDefault("port", 8080)
 	viper.SetDefault("db_path", "eye.db")
+	viper.SetDefault("db_driver", "sqlite")
 	viper.SetDefault("api_key_salt", "dev-insecure-salt")
 	viper.SetDefault("admin_key", "dev-insecure-admin-key")
 	viper.SetDefault("retention_hours", 24*30)
