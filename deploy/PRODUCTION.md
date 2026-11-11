@@ -10,7 +10,13 @@ Set `DB_DRIVER=postgres` and provide `DATABASE_URL` (or `DATABASE_URL_FILE`) for
 
 For a local production-like stack, run `POSTGRES_PASSWORD=... docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build server postgres`.
 
-Add `-f docker-compose.redis.yml` to enable Redis Streams locally. Kubernetes deployments should apply `deploy/k8s/redis.yaml` and the server manifest together.
+Add `-f docker-compose.redis.yml` to enable Redis Streams locally:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.redis.yml up -d --build
+```
+
+Kubernetes deployments should apply `deploy/k8s/redis.yaml` and the server manifest together.
 
 Use a dedicated application database role. Do not run the API as the database owner. RLS policy generation exists in `internal/storage/rls.go`, but must only be enabled after every tenant request path establishes `app.tenant_id` inside a transaction.
 
