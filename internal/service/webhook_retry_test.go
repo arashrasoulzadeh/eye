@@ -58,6 +58,16 @@ func TestWebhookDeadLetterService_List(t *testing.T) {
 	}
 }
 
+func TestWebhookDeadLetterService_Delete(t *testing.T) {
+	db := newTestDB_webhook_test(t)
+	svc := &WebhookDeadLetterService{DB: db}
+	db.Create(&model.WebhookDeadLetter{ID: "delete-me", URL: "https://example.com"})
+	if err := svc.Delete("delete-me"); err != nil { t.Fatalf("Delete: %v", err) }
+	var count int64
+	db.Model(&model.WebhookDeadLetter{}).Count(&count)
+	if count != 0 { t.Fatalf("expected dead letter to be deleted, got %d", count) }
+}
+
 func TestDispatchWithRetry(t *testing.T) {
 	db := newTestDB_webhook_test(t)
 
