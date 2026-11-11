@@ -19,7 +19,7 @@
 - [ ] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations
 - [ ] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies
 - [ ] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications
-- [ ] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics
+- [x] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics — all four packages now implement durable offline queues, retry-safe flushing, session persistence, and diagnostics with contract coverage
 - [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
 
 ## Admin product completeness
