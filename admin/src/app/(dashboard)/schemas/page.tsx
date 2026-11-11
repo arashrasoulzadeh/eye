@@ -4,7 +4,7 @@ import { api, Tenant, Schema, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input, Label, Select, Textarea } from "@/components/Input";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { useToast } from "@/components/Toast";
 
@@ -25,10 +25,10 @@ export default function SchemasPage() {
     });
   }, []);
 
-  const loadSchemas = useCallback(async (id: string) => {
+  const loadSchemas = useCallback(async (id: string, query: TableQuery = { filter: "", sortKey: "version", sortDir: "desc", page: 0 }) => {
     if (!id) return;
     try {
-      setSchemas(await api.schemas.list(id));
+      setSchemas(await api.schemas.list(id, { filter: query.filter, dir: query.sortDir }));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load schemas");
     }
@@ -102,7 +102,7 @@ export default function SchemasPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Versions for this tenant (${schemas.length})`} />
-        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." />
+        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." serverSide totalRows={schemas.length} onQueryChange={(query) => void loadSchemas(tenantId, query)} />
       </Card>
     </div>
   );

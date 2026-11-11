@@ -148,7 +148,7 @@ export const api = {
   eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
 
   schemas: {
-    list: (tenantId: string) => req<Schema[]>(`schemas?tenant_id=${encodeURIComponent(tenantId)}`),
+    list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<Schema[]>(`schemas?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     register: (tenantId: string, name: string, definition: string) =>
       req<Schema>("schemas", {
         method: "POST",
