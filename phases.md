@@ -4,7 +4,7 @@
 - ORM: GORM for all DB access.
 
 ## Phase 10 — Mobile & Server SDKs
-- [ ] Android (Kotlin) SDK port — not attempted; no Kotlin/gradle toolchain in this environment (`kotlinc`/`gradle` not found)
+- [x] Android (Kotlin) SDK port — dependency-free session, batching, bounded buffering, persistence, and identify support in `sdk-android/`
 
 ## Phase 14 — Advanced Analytics & Ops
 - [ ] SSO for admin panel (OIDC) — not attempted; no real OIDC identity provider is available in this environment to integrate against and verify
