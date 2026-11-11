@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/repository"
 )
@@ -36,8 +38,11 @@ type TenantLimiter interface {
 }
 
 type IngestService struct {
-	Repo   *repository.Repo
-	ExpSvc ExperimentAssigner
+	Repo *repository.Repo
+	// SetTenantContext is provided by the PostgreSQL runtime. It sets the
+	// transaction-local RLS tenant; nil keeps SQLite/dev behavior unchanged.
+	SetTenantContext func(*gorm.DB, string) error
+	ExpSvc           ExperimentAssigner
 	// TierLimiter, if set, is consulted once per event after its tenant is
 	// resolved from the session, gating ingestion by the tenant's Tier
 	// (see TenantRateLimiter). A denied event counts toward "rejected".
@@ -115,13 +120,10 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 				continue
 			}
 		}
-		if err := s.Repo.InsertEvent(ev); err != nil {
+		if err := s.insertAndUpdateSession(ev, sess); err != nil {
 			rejected++
 			continue
 		}
-		sess.EventCount++
-		sess.LastSeen = time.Now()
-		s.Repo.UpdateSession(sess)
 		accepted++
 		if s.Counters != nil {
 			s.Counters.Increment(ev.TenantID)
@@ -132,4 +134,35 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		}
 	}
 	return accepted, rejected
+}
+
+func (s *IngestService) insertAndUpdateSession(ev *model.Event, sess *model.Session) error {
+	if s.SetTenantContext == nil {
+		if err := s.Repo.InsertEvent(ev); err != nil {
+			return err
+		}
+		sess.EventCount++
+		sess.LastSeen = time.Now()
+		return s.Repo.UpdateSession(sess)
+	}
+	tx := s.Repo.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := s.SetTenantContext(tx, ev.TenantID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	txRepo := repository.New(tx)
+	if err := txRepo.InsertEvent(ev); err != nil {
+		tx.Rollback()
+		return err
+	}
+	sess.EventCount++
+	sess.LastSeen = time.Now()
+	if err := txRepo.UpdateSession(sess); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }

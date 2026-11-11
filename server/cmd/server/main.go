@@ -79,6 +79,9 @@ func main() {
 	// (sync path) and StreamIngestPipeline (async path) on every accepted event.
 	liveSessions := service.NewLiveSessionHub()
 	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters, Sessions: liveSessions}
+	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
+		svc.SetTenantContext = storage.SetTenantContext
+	}
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", handler.HealthHandler{})
 	// Phase 14: audit log for admin actions. Audit must sit INSIDE AdminAuth
