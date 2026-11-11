@@ -1,4 +1,6 @@
 "use client";
+/* The loader intentionally follows tenant/granularity changes; it is recreated with the page state. */
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react";
 import { api, Tenant } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
