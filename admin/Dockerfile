@@ -7,7 +7,7 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build -- --webpack
+RUN npm run build
 
 FROM node:22-bookworm-slim
 WORKDIR /app

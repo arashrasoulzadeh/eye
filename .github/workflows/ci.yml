@@ -114,8 +114,11 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build
-        run: npm run build -- --webpack
+        run: npm run build
 
   go-sdk-test:
     name: Go SDK Tests
