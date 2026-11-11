@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/arashrasoulzadeh/eye/internal/service"
 )
@@ -13,6 +14,19 @@ type WebhookDeadLetterHandler struct {
 }
 
 func (h *WebhookDeadLetterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/replay") {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/webhooks/dead-letter/"), "/replay")
+		if id == "" {
+			http.Error(w, "id required", http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.Replay(id); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if r.Method == http.MethodDelete {
 		id := r.URL.Query().Get("id")
 		if id == "" {

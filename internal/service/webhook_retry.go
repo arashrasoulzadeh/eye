@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"gorm.io/gorm"
@@ -54,6 +55,21 @@ func DispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url strin
 // WebhookDeadLetterService lists exhausted webhook deliveries so an operator
 // can inspect and, if useful, manually re-fire them.
 type WebhookDeadLetterService struct{ DB *gorm.DB }
+
+func (s *WebhookDeadLetterService) Replay(id string) error {
+	var dl model.WebhookDeadLetter
+	if err := s.DB.First(&dl, "id = ?", id).Error; err != nil {
+		return err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(dl.Payload), &payload); err != nil {
+		return err
+	}
+	if err := (&HTTPWebhookClient{Client: &http.Client{Timeout: 10 * time.Second}}).PostJSON(dl.URL, payload); err != nil {
+		return err
+	}
+	return s.DB.Delete(&dl).Error
+}
 
 func (s *WebhookDeadLetterService) List(limit int) ([]model.WebhookDeadLetter, error) {
 	var list []model.WebhookDeadLetter
