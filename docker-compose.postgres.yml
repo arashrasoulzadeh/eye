@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eye}
+      POSTGRES_USER: ${POSTGRES_USER:-eye}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: ["eye-postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  server:
+    environment:
+      DB_DRIVER: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-eye}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-eye}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+  admin:
+    depends_on:
+      server:
+        condition: service_started
+
+volumes:
+  eye-postgres:
