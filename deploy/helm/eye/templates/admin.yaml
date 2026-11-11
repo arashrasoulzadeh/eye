@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: {{ include "eye.fullname" . }}-admin }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: {{ include "eye.fullname" . }}-admin } }
+  template:
+    metadata: { labels: { app: {{ include "eye.fullname" . }}-admin } }
+    spec:
+      containers:
+        - name: admin
+          image: {{ .Values.image.admin }}
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - name: ADMIN_API_KEY
+              valueFrom: { secretKeyRef: { name: {{ include "eye.fullname" . }}, key: ADMIN_KEY } }
+            - name: BACKEND_URL
+              value: http://{{ include "eye.fullname" . }}-server:8080
+---
+apiVersion: v1
+kind: Service
+metadata: { name: {{ include "eye.fullname" . }}-admin }
+spec:
+  selector: { app: {{ include "eye.fullname" . }}-admin }
+  ports: [{ name: http, port: 3000, targetPort: http }]

@@ -1,0 +1,13 @@
+image:
+  server: ghcr.io/arashrasoulzadeh/eye-server:latest
+  admin: ghcr.io/arashrasoulzadeh/eye-admin:latest
+server:
+  replicas: 1
+  adminKey: ""
+  apiKeySalt: ""
+  databaseURL: ""
+ingress:
+  enabled: false
+  className: nginx
+  adminHost: eye.example.com
+  apiHost: eye-api.example.com
