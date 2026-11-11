@@ -4,7 +4,7 @@ import { api, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input, Label } from "@/components/Input";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CopyButton } from "@/components/CopyButton";
 import { useToast } from "@/components/Toast";
@@ -17,9 +17,9 @@ export default function TenantsPage() {
   const [rotated, setRotated] = useState<{ tenant: Tenant; key: string } | null>(null);
   const { push } = useToast();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     try {
-      setTenants(await api.tenants.list());
+      setTenants(await api.tenants.list({ filter: query.filter, sort: query.sortKey ?? "created", dir: query.sortDir, limit: 10, offset: query.page * 10 }));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load tenants");
     }
@@ -118,7 +118,7 @@ export default function TenantsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`All tenants (${tenants.length})`} />
-        <DataTable columns={columns} rows={tenants} rowKey={(t) => t.ID} emptyMessage="No tenants yet — create one above." />
+        <DataTable columns={columns} rows={tenants} rowKey={(t) => t.ID} emptyMessage="No tenants yet — create one above." serverSide onQueryChange={(query) => void refresh(query)} totalRows={tenants.length} />
       </Card>
 
       <ConfirmDialog

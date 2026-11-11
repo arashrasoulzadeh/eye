@@ -46,6 +46,31 @@ func (a *AdminService) ListTenants() ([]model.Tenant, error) {
 	return ts, nil
 }
 
+func (a *AdminService) ListTenantsQuery(filter, sort, direction string, limit, offset int) ([]model.Tenant, error) {
+	q := a.Repo.DB.Model(&model.Tenant{})
+	if filter != "" {
+		like := "%" + filter + "%"
+		q = q.Where("id LIKE ? OR name LIKE ?", like, like)
+	}
+	if sort != "name" {
+		sort = "created_at"
+	}
+	if direction != "asc" {
+		direction = "desc"
+	}
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var ts []model.Tenant
+	if err := q.Order(sort + " " + direction).Offset(offset).Limit(limit).Find(&ts).Error; err != nil {
+		return nil, err
+	}
+	return ts, nil
+}
+
 // DeleteTenant permanently removes a tenant by ID.
 func (a *AdminService) DeleteTenant(tenantID string) error {
 	res := a.Repo.DB.Delete(&model.Tenant{}, "id = ?", tenantID)

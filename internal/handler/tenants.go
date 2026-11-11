@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -11,6 +12,13 @@ import (
 )
 
 type TenantsHandler struct{ Svc *service.AdminService }
+
+func queryInt(r *http.Request, key string, fallback int) int {
+	if value, err := strconv.Atoi(r.URL.Query().Get(key)); err == nil {
+		return value
+	}
+	return fallback
+}
 
 func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/tenants")
@@ -82,7 +90,7 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		list, _ := h.Svc.ListTenants()
+		list, _ := h.Svc.ListTenantsQuery(r.URL.Query().Get("filter"), r.URL.Query().Get("sort"), r.URL.Query().Get("dir"), queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b struct{ Name, APIKey string }

@@ -100,7 +100,7 @@ export const api = {
   dashboardCache: () => req<DashboardCache>("dashboard-cache"),
 
   tenants: {
-    list: () => req<Tenant[]>("tenants"),
+    list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; return req<Tenant[]>(`tenants${query}`); },
     create: (name: string, apiKey: string) =>
       req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }),
     remove: (id: string) => req<void>(`tenants/${id}`, { method: "DELETE" }),
