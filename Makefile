@@ -1,4 +1,4 @@
-.PHONY: server admin test
+.PHONY: server admin test admin-build mutation-test
 server:
 	cd server && go run ./cmd/server --env=../.env
 
@@ -11,3 +11,7 @@ test:
 
 admin-build:
 	cd admin && npm run build -- --webpack
+
+mutation-test:
+	@command -v go-mutesting >/dev/null 2>&1 || { echo "go-mutesting is required; install with: go install github.com/zimmsKi/go-mutesting/cmd/go-mutesting@latest"; exit 1; }
+	go-mutesting ./internal/...

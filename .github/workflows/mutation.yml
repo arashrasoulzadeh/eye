@@ -1,0 +1,26 @@
+name: Mutation Testing
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 2 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Go mutation testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install go-mutesting
+        run: go install github.com/zimmsKi/go-mutesting/cmd/go-mutesting@latest
+
+      - name: Run mutation testing
+        run: make mutation-test
