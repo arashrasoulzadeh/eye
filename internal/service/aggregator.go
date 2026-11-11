@@ -257,3 +257,56 @@ func RunAggregationJob(ctx context.Context, svc *AggregatorService, interval tim
 		}
 	}
 }
+
+// RunDistributedAggregationJob coordinates polling workers with a PostgreSQL
+// advisory lock. SQLite keeps the existing single-process behavior; multiple
+// SQLite workers are not a supported deployment.
+func RunDistributedAggregationJob(ctx context.Context, svc *AggregatorService, interval time.Duration, logger *slog.Logger) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			locked := true
+			if svc.DB.Dialector.Name() == "postgres" {
+				var acquired bool
+				if err := svc.DB.Raw("SELECT pg_try_advisory_lock(hashtext('eye-aggregation-worker'))").Scan(&acquired).Error; err != nil {
+					if logger != nil {
+						logger.Error("aggregation lock failed", "err", err)
+					}
+					continue
+				}
+				locked = acquired
+				if !acquired {
+					continue
+				}
+			}
+			if locked {
+				runAggregationCycle(ctx, svc, logger)
+				if svc.DB.Dialector.Name() == "postgres" {
+					_ = svc.DB.Exec("SELECT pg_advisory_unlock(hashtext('eye-aggregation-worker'))").Error
+				}
+			}
+		}
+	}
+}
+
+func runAggregationCycle(ctx context.Context, svc *AggregatorService, logger *slog.Logger) {
+	var aggs []model.Aggregation
+	if err := svc.DB.Where("enabled = ?", true).Find(&aggs).Error; err != nil {
+		if logger != nil {
+			logger.Error("aggregation job: list failed", "err", err)
+		}
+		return
+	}
+	for _, agg := range aggs {
+		if ctx.Err() != nil {
+			return
+		}
+		if _, err := svc.Backfill(agg.ID); err != nil && logger != nil {
+			logger.Error("aggregation job: backfill failed", "id", agg.ID, "err", err)
+		}
+	}
+}

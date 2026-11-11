@@ -26,5 +26,5 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	service.RunAggregationJob(ctx, &service.AggregatorService{DB: db}, time.Minute, slog.Default())
+	service.RunDistributedAggregationJob(ctx, &service.AggregatorService{DB: db}, time.Minute, slog.Default())
 }

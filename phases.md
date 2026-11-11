@@ -10,7 +10,7 @@
 - [x] Automated database backups and restore-drill verification — scripts, optional S3 upload, Kubernetes CronJob, and scheduled GitHub restore-drill workflow are implemented; production credentials still need configuration
 - [x] End-to-end Docker deployment test: tenant → key → session → ingest → query — GitHub Actions Compose workflow added for the complete authenticated flow
 - [x] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles — CORS allowlist, expiration, explicit tenant-key revocation, optional OIDC email/group allowlists, and `*_FILE` secret mounts are implemented
-- [ ] Pagination, cursor queries, analytics caching, and scalable aggregation workers — cursor pagination, bounded query caching, and a separately deployable aggregation worker are implemented; distributed locking/partitioning remains before multiple replicas
+- [x] Pagination, cursor queries, analytics caching, and scalable aggregation workers — cursor pagination, bounded query caching, standalone aggregation worker, and PostgreSQL advisory locking are implemented
 
 ## Workflow rule
 - After completing each checkbox: run required tests, commit, push.
