@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const BACKEND = process.env.BACKEND_URL || "http://localhost:8080";
 
 async function forward(req: NextRequest, path: string[]) {
+  const started = performance.now();
   const key = (await cookies()).get("admin_key")?.value;
   if (!key) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
@@ -21,10 +22,14 @@ async function forward(req: NextRequest, path: string[]) {
 
   const res = await fetch(url, init);
   const text = await res.text();
-  return new NextResponse(text, {
+  const response = new NextResponse(text, {
     status: res.status,
     headers: { "content-type": res.headers.get("content-type") || "application/json" },
   });
+  const backendMs = (performance.now() - started).toFixed(1);
+  response.headers.set("server-timing", `backend;dur=${backendMs}`);
+  response.headers.set("x-eye-backend-ms", backendMs);
+  return response;
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
