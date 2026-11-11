@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, Tenant, Session, Event, ApiError } from "@/lib/api";
+import { api, Tenant, Session, Event, TenantUsage, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { CopyButton } from "@/components/CopyButton";
@@ -35,6 +35,7 @@ export default function TenantDetailClient() {
   const [notFound, setNotFound] = useState(false);
   const [rotated, setRotated] = useState<string | null>(null);
   const [confirmingRotate, setConfirmingRotate] = useState(false);
+  const [usage, setUsage] = useState<TenantUsage | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +57,8 @@ export default function TenantDetailClient() {
         setNotFound(!t);
         setSessions(allSessions.filter((s) => s.TenantID === tenantId));
         setEvents(tenantEvents);
+        const currentUsage = await api.tenants.usage(tenantId);
+        if (!cancelled) setUsage(currentUsage);
       } catch (e) {
         if (!cancelled) push("error", e instanceof ApiError ? e.message : "Failed to load tenant");
       } finally {
@@ -129,6 +132,16 @@ export default function TenantDetailClient() {
         <LiveCounter tenantId={tenant.ID} />
       </div>
 
+      {usage && (
+        <Card className="mt-6">
+          <CardHeader title="Current month usage" />
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <UsageMetric label="Events" used={usage.event_count} limit={usage.event_limit} />
+            <UsageMetric label="Storage" used={usage.storage_bytes} limit={usage.storage_limit} formatBytes />
+          </div>
+        </Card>
+      )}
+
       <Card className="mt-6">
         <CardHeader title="Events by hour (loaded sample)" />
         <div className="p-5">
@@ -175,4 +188,10 @@ export default function TenantDetailClient() {
       )}
     </div>
   );
+}
+
+function UsageMetric({ label, used, limit, formatBytes = false }: { label: string; used: number; limit: number; formatBytes?: boolean }) {
+  const format = (value: number) => formatBytes ? `${(value / 1024).toFixed(1)} KB` : value.toLocaleString();
+  const percent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  return <div><div className="flex justify-between text-sm"><span className="text-fg-muted">{label}</span><span className="font-medium text-fg">{format(used)}{limit > 0 ? ` / ${format(limit)}` : ""}</span></div><div className="mt-2 h-2 rounded-full bg-surface-2"><div className={`h-2 rounded-full ${percent >= 90 ? "bg-danger" : "bg-accent"}`} style={{ width: `${limit > 0 ? Math.max(2, percent) : 2}%` }} /></div><p className="mt-1 text-xs text-fg-muted">{limit > 0 ? `${percent.toFixed(0)}% of quota` : "Unlimited"}</p></div>;
 }
