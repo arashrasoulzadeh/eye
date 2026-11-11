@@ -198,7 +198,7 @@ export const api = {
     listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<AlertRulePage>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; window_seconds?: number; webhook_url: string }) =>
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
-    update: (id: string, rule: { event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
+    update: (id: string, rule: { event_name: string; dims_key?: string; metric?: string; threshold: number; window_seconds?: number; webhook_url: string }) =>
       req<AlertRule>(`alerts/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(rule) }),
     remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),
     setEnabled: (id: string, enabled: boolean) => req<AlertRule>(`alerts/${id}/${enabled ? "enable" : "disable"}`, { method: "POST" }),

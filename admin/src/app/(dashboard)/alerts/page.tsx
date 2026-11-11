@@ -83,7 +83,7 @@ export default function AlertsPage() {
     if (!editing || !eventName.trim() || !webhookUrl.trim()) return;
     setCreating(true);
     try {
-      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric, threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric, ...(metric === "absence" ? { window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim() });
       push("success", "Alert rule updated"); cancelEdit(); await refresh();
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to update alert rule"); }
     finally { setCreating(false); }

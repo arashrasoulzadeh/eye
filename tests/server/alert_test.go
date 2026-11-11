@@ -36,6 +36,8 @@ func TestAlertServiceAbsenceRule(t *testing.T) {
 	met, count, err = svc.Evaluate(rule)
 	if err != nil { t.Fatal(err) }
 	if met || count != 1 { t.Fatalf("expected recent event to clear absence, met=%v count=%d", met, count) }
+	updated, err := svc.UpdateWithWindow(rule.ID, "heartbeat", "", "absence", 0, 120, rule.WebhookURL)
+	if err != nil || updated.WindowSeconds != 120 { t.Fatalf("expected absence window update, rule=%+v err=%v", updated, err) }
 }
 
 func TestAlertServiceCRUD(t *testing.T) {

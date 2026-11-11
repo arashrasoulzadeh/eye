@@ -62,6 +62,10 @@ func (a *AlertService) Get(id string) (*model.AlertRule, error) {
 }
 
 func (a *AlertService) Update(id, eventName, dimsKey, metric string, threshold int64, webhookURL string) (*model.AlertRule, error) {
+	return a.UpdateWithWindow(id, eventName, dimsKey, metric, threshold, 0, webhookURL)
+}
+
+func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
 	rule, err := a.Get(id)
 	if err != nil {
 		return nil, err
@@ -72,6 +76,7 @@ func (a *AlertService) Update(id, eventName, dimsKey, metric string, threshold i
 		rule.Metric = metric
 	}
 	rule.Threshold = threshold
+	if windowSeconds > 0 || metric == "absence" { rule.WindowSeconds = windowSeconds }
 	rule.WebhookURL = webhookURL
 	rule.UpdatedAt = time.Now().Unix()
 	if err := a.DB.Save(rule).Error; err != nil {

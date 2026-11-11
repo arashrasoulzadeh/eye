@@ -51,7 +51,7 @@ func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			rule, err := h.Svc.Update(path, b.EventName, b.DimsKey, b.Metric, b.Threshold, b.WebhookURL)
+			rule, err := h.Svc.UpdateWithWindow(path, b.EventName, b.DimsKey, b.Metric, b.Threshold, b.WindowSeconds, b.WebhookURL)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
