@@ -6,7 +6,7 @@ import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 
 function JsonRows({ values }: { values: unknown[] }) {
-  return <div className="divide-y divide-border">{values.length === 0 ? <p className="p-4 text-sm text-fg-muted">No records.</p> : values.slice(0, 50).map((value, index) => <pre key={index} className="overflow-auto px-4 py-3 text-xs text-fg-muted">{JSON.stringify(value, null, 2)}</pre>)}</div>;
+  return <div className="divide-y divide-border">{values.length === 0 ? <p className="p-4 text-sm text-fg-muted">No records match the current scope.</p> : values.slice(0, 50).map((value, index) => <div key={index} className="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">{Object.entries((value && typeof value === "object" ? value : { value }) as Record<string, unknown>).map(([key, item]) => <div key={key} className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{key.replaceAll("_", " ")}</p><p className="truncate text-sm text-fg" title={String(item)}>{typeof item === "object" ? JSON.stringify(item) : String(item ?? "—")}</p></div>)}</div>)}</div>;
 }
 
 export default function OperationsPage() {
