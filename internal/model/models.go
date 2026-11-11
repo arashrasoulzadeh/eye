@@ -216,6 +216,19 @@ type AuditLog struct {
 	CreatedAt   int64
 }
 
+// AdminUser is the durable identity/role record used by the multi-user admin workspace.
+// Authentication remains delegated to the configured OIDC/admin gateway; this table
+// stores authorization and lifecycle state without persisting passwords or tokens.
+type AdminUser struct {
+	ID        string `gorm:"primaryKey" json:"id"`
+	Email     string `gorm:"uniqueIndex" json:"email"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`   // owner, admin, analyst, viewer
+	Status    string `json:"status"` // active, invited, suspended
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
 // DashboardCache holds pre-computed dashboard metrics, refreshed by a
 // background job on a configurable interval. The dashboard UI reads from
 // this table instead of querying the database directly.

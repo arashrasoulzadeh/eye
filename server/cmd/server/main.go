@@ -286,6 +286,8 @@ func main() {
 	// Phase 14: audit log listing (writes happen via the Audit middleware
 	// wrapping adminAuth above).
 	mux.Handle("/audit-log", adminAuth(&handler.AuditLogHandler{DB: db}))
+	mux.Handle("/admin-users", adminAuth(&handler.AdminUsersHandler{DB: db}))
+	mux.Handle("/admin-users/", adminAuth(&handler.AdminUsersHandler{DB: db}))
 
 	// Phase 8: basic statistical (z-score over a rolling window) anomaly
 	// detection, sampled from the same materialized AggregateCount read
