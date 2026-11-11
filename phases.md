@@ -15,7 +15,7 @@
 ## Product expansion roadmap
 - [ ] Multi-user admin workspace — users, invitations, teams, roles, session management, and migration from the single admin key
 - [x] Usage metering, quotas, and billing foundations — period-based event/storage counters, plan limits, enforcement, usage API, and quota alerts
-- [ ] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
+- [x] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
 - [ ] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations
 - [ ] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies
 - [ ] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications
