@@ -54,6 +54,8 @@ export default function EventsPage() {
         from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
         to_ts: toTime ? new Date(toTime).getTime() : undefined,
         sort: query.sortDir,
+        limit: 10,
+        offset: query.page * 10,
       }));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load events");

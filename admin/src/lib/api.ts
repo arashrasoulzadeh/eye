@@ -128,6 +128,8 @@ export const api = {
         from_ts?: number;
         to_ts?: number;
         sort?: "desc" | "asc";
+        limit?: number;
+        offset?: number;
       } = {}
     ) => {
       // Newest-first by default — the admin events page always wants the

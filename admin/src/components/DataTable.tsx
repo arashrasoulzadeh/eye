@@ -46,7 +46,9 @@ export function DataTable<T>({
   const [copied, setCopied] = useState(false);
 
   function notify(next: Partial<TableQuery>) {
-    onQueryChange?.({ filter, sortKey, sortDir, page, ...next });
+    const query = { filter, sortKey, sortDir, page, ...next };
+    setPage(query.page);
+    onQueryChange?.(query);
   }
 
   const filtered = useMemo(() => {
@@ -73,9 +75,9 @@ export function DataTable<T>({
     return copy;
   }, [filtered, sortKey, sortDir, columns, serverSide]);
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil((serverSide ? totalRows ?? rows.length : sorted.length) / pageSize));
   const clampedPage = Math.min(page, pageCount - 1);
-  const pageRows = sorted.slice(clampedPage * pageSize, clampedPage * pageSize + pageSize);
+  const pageRows = serverSide ? rows : sorted.slice(clampedPage * pageSize, clampedPage * pageSize + pageSize);
 
   function toggleSort(col: Column<T>) {
     if (sortKey === col.key) {
