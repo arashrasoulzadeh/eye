@@ -17,6 +17,12 @@ const NAV = [
   { href: "/cohorts", label: "Cohorts", icon: "◔" },
   { href: "/alerts", label: "Alerts", icon: "!" },
   { href: "/operations", label: "Operations", icon: "⚑" },
+  { href: "/feature-flags", label: "Feature Flags", icon: "⚙" },
+  { href: "/aggregations", label: "Aggregations", icon: "Σ" },
+  { href: "/anomalies", label: "Anomalies", icon: "△" },
+  { href: "/audit-log", label: "Audit Log", icon: "≡" },
+  { href: "/dead-letters", label: "Dead Letters", icon: "!" },
+  { href: "/replay", label: "Replay", icon: "↻" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
