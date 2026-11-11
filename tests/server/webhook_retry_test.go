@@ -123,3 +123,18 @@ func TestWebhookDeadLetterHandlerLists(t *testing.T) {
 		t.Fatal("expected LastError to be recorded")
 	}
 }
+
+func TestWebhookDeadLetterFilteredPage(t *testing.T) {
+	db := newWebhookRetryTestDB(t)
+	db.Create(&model.WebhookDeadLetter{ID: "keep-1", URL: "https://slack.example/hook", LastError: "timeout", FailedAt: 3})
+	db.Create(&model.WebhookDeadLetter{ID: "keep-2", URL: "https://slack.example/hook", LastError: "timeout", FailedAt: 2})
+	db.Create(&model.WebhookDeadLetter{ID: "other", URL: "https://pager.example/hook", LastError: "refused", FailedAt: 1})
+
+	items, total, err := (&service.WebhookDeadLetterService{DB: db}).ListFilteredPage(1, 1, "slack", "desc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 || len(items) != 1 || items[0].ID != "keep-2" {
+		t.Fatalf("unexpected filtered page: total=%d items=%+v", total, items)
+	}
+}
