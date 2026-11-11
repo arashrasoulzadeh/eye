@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { api, Tenant, Session, Event, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -99,9 +100,9 @@ export default function TenantDetailClient() {
         <p className="mt-1 text-sm text-fg-muted">
           No tenant with id <span className="font-mono">{tenantId}</span>.
         </p>
-        <a href="/tenants" className="mt-4 inline-block text-sm text-accent hover:underline">
+        <Link href="/tenants" className="mt-4 inline-block text-sm text-accent hover:underline">
           Back to tenants
-        </a>
+        </Link>
       </div>
     );
   }

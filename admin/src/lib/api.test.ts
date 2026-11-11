@@ -14,7 +14,7 @@ describe("api client", () => {
 
   beforeEach(() => {
     fetchMock = vi.fn();
-    (globalThis as any).fetch = fetchMock;
+    Object.defineProperty(globalThis, "fetch", { value: fetchMock, configurable: true, writable: true });
   });
 
   afterEach(() => {

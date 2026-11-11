@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { api, Session, Event, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { DataTable, Column } from "@/components/DataTable";
@@ -140,9 +141,9 @@ export default function SessionDetailClient() {
         <p className="mt-1 text-sm text-fg-muted">
           No session with id <span className="font-mono">{sessionId}</span>.
         </p>
-        <a href="/sessions" className="mt-4 inline-block text-sm text-accent hover:underline">
+        <Link href="/sessions" className="mt-4 inline-block text-sm text-accent hover:underline">
           Back to sessions
-        </a>
+        </Link>
       </div>
     );
   }
