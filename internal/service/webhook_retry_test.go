@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -62,10 +64,39 @@ func TestWebhookDeadLetterService_Delete(t *testing.T) {
 	db := newTestDB_webhook_test(t)
 	svc := &WebhookDeadLetterService{DB: db}
 	db.Create(&model.WebhookDeadLetter{ID: "delete-me", URL: "https://example.com"})
-	if err := svc.Delete("delete-me"); err != nil { t.Fatalf("Delete: %v", err) }
+	if err := svc.Delete("delete-me"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 	var count int64
 	db.Model(&model.WebhookDeadLetter{}).Count(&count)
-	if count != 0 { t.Fatalf("expected dead letter to be deleted, got %d", count) }
+	if count != 0 {
+		t.Fatalf("expected dead letter to be deleted, got %d", count)
+	}
+}
+
+func TestWebhookDeadLetterService_Replay(t *testing.T) {
+	db := newTestDB_webhook_test(t)
+	var received string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(body)
+		received = string(body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	svc := &WebhookDeadLetterService{DB: db}
+	db.Create(&model.WebhookDeadLetter{ID: "replay-me", URL: server.URL, Payload: `{"event":"retry"}`})
+	if err := svc.Replay("replay-me"); err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if received != `{"event":"retry"}` {
+		t.Fatalf("unexpected replay payload: %s", received)
+	}
+	var count int64
+	db.Model(&model.WebhookDeadLetter{}).Count(&count)
+	if count != 0 {
+		t.Fatalf("expected replayed record removed, got %d", count)
+	}
 }
 
 func TestDispatchWithRetry(t *testing.T) {
