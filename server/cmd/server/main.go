@@ -145,6 +145,7 @@ func main() {
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/funnel/suggested", adminAuth(&handler.SuggestedFunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/views", adminAuth(&handler.AnalyticsViewsHandler{DB: db}))
 	mux.Handle("/analytics/session-events", adminAuth(&handler.SessionEventsHandler{Svc: analyticsSvc}))

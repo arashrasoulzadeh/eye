@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -248,6 +249,119 @@ type FunnelStepResult struct {
 	EventName      string  `json:"event_name"`
 	Sessions       int     `json:"sessions"`
 	ConversionRate float64 `json:"conversion_rate"` // vs. the previous step; 1.0 for the first step
+}
+
+// SuggestedFunnelStep is a human-readable stage inferred from the most common
+// ordered event path in a tenant's sessions.
+type SuggestedFunnelStep struct {
+	Position  int    `json:"position"`
+	EventName string `json:"event_name"`
+	Title     string `json:"title"`
+	Sessions  int    `json:"sessions"`
+}
+
+// SuggestedFunnel discovers a useful starting funnel without requiring the
+// operator to guess event names. It chooses the most common first event, then
+// greedily follows the most common next distinct event across sessions.
+func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64) ([]SuggestedFunnelStep, error) {
+	q := a.DB.Where("tenant_id = ?", tenantID)
+	if fromTS != nil {
+		q = q.Where("client_ts >= ?", *fromTS)
+	}
+	if toTS != nil {
+		q = q.Where("client_ts <= ?", *toTS)
+	}
+	var events []model.Event
+	if err := q.Order("session_id asc, client_ts asc").Find(&events).Error; err != nil {
+		return nil, err
+	}
+	sessions := map[string][]model.Event{}
+	for _, event := range events {
+		sessions[event.SessionID] = append(sessions[event.SessionID], event)
+	}
+	firstCounts := map[string]int{}
+	for _, path := range sessions {
+		if len(path) > 0 {
+			firstCounts[path[0].EventName]++
+		}
+	}
+	current := mostCommonEvent(firstCounts)
+	if current == "" {
+		return []SuggestedFunnelStep{}, nil
+	}
+	result := make([]SuggestedFunnelStep, 0, 5)
+	remaining := map[string]bool{}
+	for len(result) < 5 && current != "" {
+		count := 0
+		nextCounts := map[string]int{}
+		for sessionID, path := range sessions {
+			_ = sessionID
+			for i, event := range path {
+				if event.EventName != current {
+					continue
+				}
+				if len(result) == 0 && i != 0 {
+					continue
+				}
+				if len(result) > 0 && !remaining[sessionID] {
+					continue
+				}
+				count++
+				for j := i + 1; j < len(path); j++ {
+					if path[j].EventName != current {
+						nextCounts[path[j].EventName]++
+						break
+					}
+				}
+				break
+			}
+		}
+		result = append(result, SuggestedFunnelStep{Position: len(result) + 1, EventName: current, Title: humanEventTitle(current), Sessions: count})
+		if len(result) == 5 {
+			break
+		}
+		next := mostCommonEvent(nextCounts)
+		if next == "" {
+			break
+		}
+		remaining = map[string]bool{}
+		for sessionID, path := range sessions {
+			for i, event := range path {
+				if event.EventName == current {
+					for j := i + 1; j < len(path); j++ {
+						if path[j].EventName == next {
+							remaining[sessionID] = true
+						}
+						break
+					}
+					break
+				}
+			}
+		}
+		current = next
+	}
+	return result, nil
+}
+
+func mostCommonEvent(counts map[string]int) string {
+	best := ""
+	bestCount := 0
+	for name, count := range counts {
+		if count > bestCount || (count == bestCount && name < best) {
+			best, bestCount = name, count
+		}
+	}
+	return best
+}
+
+func humanEventTitle(name string) string {
+	parts := strings.FieldsFunc(name, func(r rune) bool { return r == '_' || r == '-' || r == '.' })
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // Funnel computes, for the given ordered steps, how many distinct sessions

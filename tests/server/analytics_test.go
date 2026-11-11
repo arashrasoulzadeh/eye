@@ -81,6 +81,20 @@ func TestFunnelInOrderCompletion(t *testing.T) {
 	}
 }
 
+func TestSuggestedFunnelFindsCommonSessionPathAndTitles(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	svc := &service.AnalyticsService{DB: db}
+	mustInsertEvent(t, db, "s1-1", "s1", "t1", "page_view", 1)
+	mustInsertEvent(t, db, "s1-2", "s1", "t1", "signup_started", 2)
+	mustInsertEvent(t, db, "s1-3", "s1", "t1", "purchase", 3)
+	mustInsertEvent(t, db, "s2-1", "s2", "t1", "page_view", 1)
+	mustInsertEvent(t, db, "s2-2", "s2", "t1", "signup_started", 2)
+	mustInsertEvent(t, db, "s3-1", "s3", "t1", "page_view", 1)
+	steps, err := svc.SuggestedFunnel("t1", nil, nil)
+	if err != nil || len(steps) != 3 { t.Fatalf("suggested funnel = %#v, err=%v", steps, err) }
+	if steps[0].Title != "Page View" || steps[1].Title != "Signup Started" || steps[2].Sessions != 1 { t.Fatalf("unexpected suggestions: %#v", steps) }
+}
+
 func TestFunnelSkippedStepDoesNotCount(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	svc := &service.AnalyticsService{DB: db}

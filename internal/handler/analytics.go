@@ -4,12 +4,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 // FunnelHandler serves POST /analytics/funnel.
 type FunnelHandler struct{ Svc *service.AnalyticsService }
+
+type SuggestedFunnelHandler struct{ Svc *service.AnalyticsService }
+
+func (h *SuggestedFunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	query := r.URL.Query()
+	tenantID := query.Get("tenant_id")
+	if tenantID == "" {
+		http.Error(w, "tenant_id is required", http.StatusBadRequest)
+		return
+	}
+	var fromTS, toTS *int64
+	if raw := query.Get("from_ts"); raw != "" {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			fromTS = &value
+		}
+	}
+	if raw := query.Get("to_ts"); raw != "" {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			toTS = &value
+		}
+	}
+	result, err := h.Svc.SuggestedFunnel(tenantID, fromTS, toTS)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(result)
+}
 
 type funnelRequest struct {
 	TenantID string   `json:"tenant_id"`
