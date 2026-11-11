@@ -20,7 +20,7 @@ export default function OperationsPage() {
     setLoading(true); setError("");
     try {
       const [f, a, n, l, d] = await Promise.all([api.operations.flags(tenantId), api.operations.aggregations(tenantId), api.operations.anomalies(), api.operations.auditLog(), api.operations.deadLetters()]);
-      setFlags(f); setAggregations(a); setAnomalies(n); setAudit(l); setDeadLetters(d);
+      setFlags(f); setAggregations(a); setAnomalies(n); setAudit(l); setDeadLetters(d.items);
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load operations"); } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { api.tenants.list().then((list) => { setTenants(list); if (list[0]) setTenantId(list[0].ID); }).catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load tenants")); }, []);
