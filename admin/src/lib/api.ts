@@ -193,6 +193,8 @@ export const api = {
     auditLog: () => req<unknown[]>("audit-log"),
     deadLetters: () => req<unknown[]>("webhooks/dead-letter"),
     replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
+    createExperiment: (body: { name: string; tenant_id: string; variants: string; traffic: number }) => req<unknown>("experiments", { method: "POST", body: JSON.stringify(body) }),
+    assignExperiment: (id: string, sessionId: string) => req<unknown>(`experiments/${encodeURIComponent(id)}/assign?session_id=${encodeURIComponent(sessionId)}`),
   },
 
   ingest: {

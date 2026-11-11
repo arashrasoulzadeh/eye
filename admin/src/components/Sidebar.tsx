@@ -23,6 +23,7 @@ const NAV = [
   { href: "/audit-log", label: "Audit Log", icon: "≡" },
   { href: "/dead-letters", label: "Dead Letters", icon: "!" },
   { href: "/replay", label: "Replay", icon: "↻" },
+  { href: "/experiments", label: "Experiments", icon: "◈" },
   { href: "/settings", label: "Settings", icon: "⚙" },
 ];
 
