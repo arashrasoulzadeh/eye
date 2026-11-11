@@ -258,6 +258,9 @@ func (h *HTTPWebhookClient) PostJSON(url string, payload map[string]any) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("webhook returned HTTP %s", resp.Status)
+	}
 	return nil
 }
 

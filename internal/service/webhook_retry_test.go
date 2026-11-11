@@ -110,6 +110,16 @@ func TestWebhookDeadLetterService_Replay(t *testing.T) {
 	}
 }
 
+func TestHTTPWebhookClientReturnsErrorForHTTPFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	if err := (&HTTPWebhookClient{Client: server.Client()}).PostJSON(server.URL, map[string]any{"event": "x"}); err == nil {
+		t.Fatal("expected HTTP failure to be returned as an error")
+	}
+}
+
 func TestDispatchWithRetry(t *testing.T) {
 	db := newTestDB_webhook_test(t)
 
