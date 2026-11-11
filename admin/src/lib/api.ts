@@ -66,6 +66,9 @@ function handleUnauthorized() {
   // this module has no access to the Next.js router.
   fetch("/api/logout", { method: "POST" }).finally(() => {
     if (typeof window !== "undefined") {
+      // This module is outside React, so use a hard navigation after clearing
+      // the cookie instead of importing a router into the API client.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/login";
     }
   });
