@@ -7,6 +7,7 @@ type Tenant struct {
 	Name            string
 	APIKey          string
 	APIKeyExpiresAt *time.Time
+	APIKeyRevokedAt *time.Time
 	// Tier picks the tenant's ingest rate limit (see service.TierRates /
 	// service.TenantRateLimiter). Empty means "free", the lowest tier, so
 	// existing rows created before this field existed behave unchanged.

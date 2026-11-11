@@ -69,6 +69,7 @@ func (a *AdminService) RotateKey(tenantID string) (string, error) {
 	newKey := randomHex(24)
 	t.APIKey = a.hashKey(newKey)
 	t.APIKeyExpiresAt = a.keyExpiry()
+	t.APIKeyRevokedAt = nil
 	if err := a.Repo.DB.Save(&t).Error; err != nil {
 		return "", err
 	}
@@ -82,7 +83,20 @@ func (a *AdminService) VerifyAPIKey(tenantID, apiKey string) bool {
 	if err := a.Repo.DB.First(&t, "id = ?", tenantID).Error; err != nil {
 		return false
 	}
-	return (t.APIKeyExpiresAt == nil || t.APIKeyExpiresAt.After(time.Now())) && t.APIKey == a.hashKey(apiKey)
+	return t.APIKeyRevokedAt == nil && (t.APIKeyExpiresAt == nil || t.APIKeyExpiresAt.After(time.Now())) && t.APIKey == a.hashKey(apiKey)
+}
+
+// RevokeKey invalidates the current tenant key without issuing a replacement.
+func (a *AdminService) RevokeKey(tenantID string) error {
+	now := time.Now()
+	res := a.Repo.DB.Model(&model.Tenant{}).Where("id = ?", tenantID).Updates(map[string]any{"api_key_revoked_at": &now})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (a *AdminService) keyExpiry() *time.Time {

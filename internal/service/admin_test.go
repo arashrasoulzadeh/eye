@@ -75,3 +75,24 @@ func TestAdminService_ExpiredAPIKeyIsRejected(t *testing.T) {
 		t.Fatal("expired API key was accepted")
 	}
 }
+
+func TestAdminService_RevokedAPIKeyIsRejected(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Tenant{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &AdminService{Repo: repository.New(db), Salt: "salt"}
+	tenant, err := svc.CreateTenant("test", "client-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RevokeKey(tenant.ID); err != nil {
+		t.Fatal(err)
+	}
+	if svc.VerifyAPIKey(tenant.ID, "client-key") {
+		t.Fatal("revoked API key was accepted")
+	}
+}

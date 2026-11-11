@@ -27,9 +27,21 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/revoke-key") {
+		tenantID := strings.TrimSuffix(path, "/revoke-key")
+		if err := h.Svc.RevokeKey(tenantID); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	if r.Method == http.MethodPut && strings.HasSuffix(path, "/tier") {
 		tenantID := strings.TrimSuffix(path, "/tier")
-		var b struct{ Tier string `json:"tier"` }
+		var b struct {
+			Tier string `json:"tier"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
