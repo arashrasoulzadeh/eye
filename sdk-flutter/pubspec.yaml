@@ -1,0 +1,6 @@
+name: eye_sdk
+description: Eye analytics SDK for Flutter with a durable offline queue.
+version: 0.1.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
