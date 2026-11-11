@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: eye-alerts
+  namespace: eye
+  labels: { release: kube-prometheus-stack }
+spec:
+  groups:
+    - name: eye.production
+      rules:
+        - alert: EyeServerDown
+          expr: up{job="eye-server"} == 0
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: Eye API is down
+            description: The Eye API target has been unavailable for more than five minutes.
+        - alert: EyeIngestErrors
+          expr: rate(eye_ingest_errors_total[5m]) > 1
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Eye ingestion errors are elevated
+            description: The API is returning more than one ingestion error per second.
+        - alert: EyeStreamBackpressure
+          expr: eye_stream_queue_depth > 200
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Eye async stream is backed up
+            description: The in-process stream queue has remained above 200 events.
