@@ -54,7 +54,7 @@ export default function AlertsPage() {
     if (!eventName.trim() || !webhookUrl.trim() || !tenantId) return;
     setCreating(true);
     try {
-      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), ...(dimsKey.trim() ? { dims_key: dimsKey.trim() } : {}), threshold, webhook_url: webhookUrl.trim() });
       setEventName("");
       setDimsKey("");
       setThreshold(10);
