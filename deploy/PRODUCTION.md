@@ -2,6 +2,10 @@
 
 ## Database
 
+Copy `.env.example` to `.env`, replace every `replace-me` value, and keep the
+file outside version control. Compose loads `.env` automatically; Kubernetes
+values must be stored in the configured secret manager.
+
 Set `DB_DRIVER=postgres` and provide `DATABASE_URL` (or `DATABASE_URL_FILE`) for a PostgreSQL/TimescaleDB database. The server runs the portable GORM migration first, then creates the Timescale hypertable and indexes.
 
 For a local production-like stack, run `POSTGRES_PASSWORD=... docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build server postgres`.
