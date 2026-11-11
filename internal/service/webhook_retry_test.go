@@ -46,7 +46,7 @@ func TestWebhookDeadLetterService_List(t *testing.T) {
 	}
 	db.Create(dl)
 
-	list, err := svc.List()
+	list, err := svc.List(100)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}

@@ -112,7 +112,7 @@ func TestWebhookDeadLetterHandlerLists(t *testing.T) {
 	service.DispatchWithRetry(db, client, "rule-4", "https://example.com/hook", map[string]any{"x": 1}, 2, func(int) {})
 
 	svc := &service.WebhookDeadLetterService{DB: db}
-	list, err := svc.List()
+	list, err := svc.List(100)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}

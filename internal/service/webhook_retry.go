@@ -55,9 +55,12 @@ func DispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url strin
 // can inspect and, if useful, manually re-fire them.
 type WebhookDeadLetterService struct{ DB *gorm.DB }
 
-func (s *WebhookDeadLetterService) List() ([]model.WebhookDeadLetter, error) {
+func (s *WebhookDeadLetterService) List(limit int) ([]model.WebhookDeadLetter, error) {
 	var list []model.WebhookDeadLetter
-	if err := s.DB.Order("failed_at desc").Find(&list).Error; err != nil {
+	if limit <= 0 {
+		limit = 100
+	}
+	if err := s.DB.Order("failed_at desc").Limit(limit).Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil
