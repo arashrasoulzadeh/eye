@@ -11,8 +11,12 @@ type Tenant struct {
 	// Tier picks the tenant's ingest rate limit (see service.TierRates /
 	// service.TenantRateLimiter). Empty means "free", the lowest tier, so
 	// existing rows created before this field existed behave unchanged.
-	Tier      string
-	CreatedAt time.Time
+	Tier string
+	// Monthly limits are zero when unlimited. They are enforced by the usage
+	// quota service, allowing existing tenants to keep their current behavior.
+	MonthlyEventLimit   int64
+	MonthlyStorageLimit int64
+	CreatedAt           time.Time
 }
 
 // FeatureFlag is a per-tenant boolean toggle, looked up by (TenantID, Key).

@@ -22,6 +22,24 @@ type UsageSnapshot struct {
 
 type UsageService struct{ DB *gorm.DB }
 
+type QuotaDecision struct {
+	Allowed      bool  `json:"allowed"`
+	EventLimit   int64 `json:"event_limit"`
+	StorageLimit int64 `json:"storage_limit"`
+	EventUsage   int64 `json:"event_usage"`
+	StorageUsage int64 `json:"storage_usage"`
+}
+
+func (s *UsageService) Check(snapshot UsageSnapshot, eventLimit, storageLimit, additionalStorage int64) QuotaDecision {
+	return QuotaDecision{
+		Allowed:      (eventLimit <= 0 || snapshot.EventCount+1 <= eventLimit) && (storageLimit <= 0 || snapshot.StorageBytes+additionalStorage <= storageLimit),
+		EventLimit:   eventLimit,
+		StorageLimit: storageLimit,
+		EventUsage:   snapshot.EventCount,
+		StorageUsage: snapshot.StorageBytes,
+	}
+}
+
 func (s *UsageService) Current(tenantID string, now time.Time) (UsageSnapshot, error) {
 	start := time.Date(now.UTC().Year(), now.UTC().Month(), 1, 0, 0, 0, 0, time.UTC)
 	end := start.AddDate(0, 1, 0)

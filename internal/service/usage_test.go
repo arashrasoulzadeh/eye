@@ -29,3 +29,19 @@ func TestUsageServiceCurrentCountsCalendarMonth(t *testing.T) {
 		t.Fatalf("unexpected usage: %+v", usage)
 	}
 }
+
+func TestUsageServiceCheckEnforcesConfiguredLimits(t *testing.T) {
+	s := UsageSnapshot{EventCount: 9, StorageBytes: 90}
+	if !((&UsageService{}).Check(s, 10, 100, 10)).Allowed {
+		t.Fatal("expected event within both quotas to be allowed")
+	}
+	if ((&UsageService{}).Check(s, 9, 0, 0)).Allowed {
+		t.Fatal("expected event quota to reject the next event")
+	}
+	if ((&UsageService{}).Check(s, 0, 99, 10)).Allowed {
+		t.Fatal("expected storage quota to reject the next payload")
+	}
+	if !((&UsageService{}).Check(s, 0, 0, 999999)).Allowed {
+		t.Fatal("zero limits should mean unlimited")
+	}
+}
