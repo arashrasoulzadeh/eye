@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -33,6 +34,9 @@ func (a *AlertService) Create(tenantID, eventName, dimsKey, metric string, thres
 func (a *AlertService) CreateWithWindow(tenantID, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
 	if metric == "" {
 		metric = "count"
+	}
+	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
+		return nil, err
 	}
 	now := time.Now().Unix()
 	rule := &model.AlertRule{
@@ -67,6 +71,12 @@ func (a *AlertService) Update(id, eventName, dimsKey, metric string, threshold i
 }
 
 func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
+	if metric == "" {
+		metric = "count"
+	}
+	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
+		return nil, err
+	}
 	rule, err := a.Get(id)
 	if err != nil {
 		return nil, err
@@ -86,6 +96,25 @@ func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, t
 		return nil, err
 	}
 	return rule, nil
+}
+
+func validateAlertRule(eventName, metric string, threshold, windowSeconds int64) error {
+	if strings.TrimSpace(eventName) == "" {
+		return fmt.Errorf("event name is required")
+	}
+	if metric != "count" && metric != "absence" && metric != "conversion" {
+		return fmt.Errorf("unsupported alert metric %q", metric)
+	}
+	if metric != "absence" && threshold <= 0 {
+		return fmt.Errorf("threshold must be greater than zero")
+	}
+	if (metric == "absence" || metric == "conversion") && windowSeconds < 0 {
+		return fmt.Errorf("window_seconds cannot be negative")
+	}
+	if metric == "conversion" && len(strings.Split(eventName, ",")) < 2 {
+		return fmt.Errorf("conversion requires at least two comma-separated events")
+	}
+	return nil
 }
 
 func (a *AlertService) Delete(id string) error {

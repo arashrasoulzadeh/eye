@@ -72,6 +72,20 @@ func TestAlertServiceConversionRule(t *testing.T) {
 	}
 }
 
+func TestAlertServiceRejectsInvalidRules(t *testing.T) {
+	db := newAlertTestDB(t)
+	svc := &service.AlertService{DB: db}
+	if _, err := svc.CreateWithWindow("t1", "landing", "", "conversion", 1, 60, "https://example.com"); err == nil {
+		t.Fatal("expected conversion sequence validation error")
+	}
+	if _, err := svc.CreateWithWindow("t1", "error", "", "count", 0, 0, "https://example.com"); err == nil {
+		t.Fatal("expected threshold validation error")
+	}
+	if _, err := svc.CreateWithWindow("t1", "error", "", "unknown", 1, 0, "https://example.com"); err == nil {
+		t.Fatal("expected metric validation error")
+	}
+}
+
 func TestAlertServiceCRUD(t *testing.T) {
 	db := newAlertTestDB(t)
 	svc := &service.AlertService{DB: db}
