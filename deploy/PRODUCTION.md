@@ -10,6 +10,8 @@ Add `-f docker-compose.redis.yml` to enable Redis Streams locally. Kubernetes de
 
 Use a dedicated application database role. Do not run the API as the database owner. RLS policy generation exists in `internal/storage/rls.go`, but must only be enabled after every tenant request path establishes `app.tenant_id` inside a transaction.
 
+Bootstrap the non-owner role with `deploy/postgres/roles.sql`, substituting its password through the deployment secret manager.
+
 ## Required secrets
 
 Provide `ADMIN_KEY`, `API_KEY_SALT`, and `DATABASE_URL` through a secret manager or mounted files. Never commit these values. Set `CORS_ORIGINS` to the exact customer origins in production.
