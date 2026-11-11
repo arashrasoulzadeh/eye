@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV = [
@@ -38,6 +38,11 @@ export function Sidebar() {
   const [moreOpen, setMoreOpen] = useState(() => NAV.some((item) => !PRIMARY_HREFS.has(item.href) && pathname?.startsWith(item.href)));
   const primary = NAV.filter((item) => PRIMARY_HREFS.has(item.href));
   const secondary = NAV.filter((item) => !PRIMARY_HREFS.has(item.href));
+  const secondaryActive = secondary.some((item) => pathname === item.href || pathname?.startsWith(item.href + "/"));
+
+  useEffect(() => {
+    if (secondaryActive) setMoreOpen(true);
+  }, [secondaryActive]);
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
@@ -68,7 +73,7 @@ export function Sidebar() {
             </Link>
           );
         })}
-        <button type="button" onClick={() => setMoreOpen((open) => !open)} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg">
+        <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm ${secondaryActive ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}>
           <span className="flex items-center gap-3"><span className="w-4 text-center text-xs">⋯</span>More</span>
           <span className="text-xs">{moreOpen ? "▴" : "▾"}</span>
         </button>
