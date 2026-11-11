@@ -41,6 +41,7 @@ spec:
             - { name: DB_PATH, value: /data/eye.db }
             - { name: DB_DRIVER, value: postgres }
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: DATABASE_URL } } }
+            - { name: BROKER_URL, value: redis://eye-redis:6379 }
             - { name: SNAPSHOT_DIR, value: /data/snapshots }
             - { name: ADMIN_KEY, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: ADMIN_KEY } } }
             - { name: API_KEY_SALT, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: API_KEY_SALT } } }

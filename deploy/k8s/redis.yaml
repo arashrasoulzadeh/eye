@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: eye-redis, namespace: eye }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: eye-redis } }
+  template:
+    metadata: { labels: { app: eye-redis } }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-bookworm
+          args: ["redis-server", "--appendonly", "yes"]
+          ports: [{ name: redis, containerPort: 6379 }]
+          volumeMounts: [{ name: data, mountPath: /data }]
+          readinessProbe: { exec: { command: ["redis-cli", "ping"] }, periodSeconds: 5 }
+          livenessProbe: { exec: { command: ["redis-cli", "ping"] }, periodSeconds: 10 }
+      volumes: [{ name: data, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: eye-redis, namespace: eye }
+spec:
+  selector: { app: eye-redis }
+  ports: [{ name: redis, port: 6379, targetPort: redis }]
