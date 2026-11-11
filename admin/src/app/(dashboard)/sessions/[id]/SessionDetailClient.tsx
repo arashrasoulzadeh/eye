@@ -164,6 +164,7 @@ export default function SessionDetailClient() {
             <EntityLink kind="tenant" id={session.TenantID} />
           )}
         </p>
+        <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Session detail help</summary><p className="mt-2 text-fg-muted">This view combines server session metadata with a deduplicated journey and live event updates. Event rows link to their complete payload and dimensions.</p></details>
       </div>
 
       <LiveSession session={session} className="mt-6" />
