@@ -55,3 +55,37 @@ func TestTenantIngestAuthAllowsAdmin(t *testing.T) {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusNoContent)
 	}
 }
+
+func TestAdminRoleAuth(t *testing.T) {
+	h := AdminRoleAuth("admin-key", func(email string) (string, bool) {
+		if email == "viewer@example.com" {
+			return "viewer", true
+		}
+		if email == "admin@example.com" {
+			return "admin", true
+		}
+		return "", false
+	}, []string{"owner", "admin"}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	for _, tc := range []struct {
+		name, email string
+		want        int
+	}{
+		{"shared key owner compatibility", "", http.StatusNoContent},
+		{"active admin", "admin@example.com", http.StatusNoContent},
+		{"viewer forbidden", "viewer@example.com", http.StatusForbidden},
+		{"unknown identity forbidden", "unknown@example.com", http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/admin-users", nil)
+			req.Header.Set("x-admin-key", "admin-key")
+			if tc.email != "" {
+				req.Header.Set("x-admin-email", tc.email)
+			}
+			res := httptest.NewRecorder()
+			h.ServeHTTP(res, req)
+			if res.Code != tc.want {
+				t.Fatalf("status=%d want=%d", res.Code, tc.want)
+			}
+		})
+	}
+}
