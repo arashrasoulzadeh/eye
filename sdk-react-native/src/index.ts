@@ -1,0 +1,21 @@
+export type Storage = { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void> };
+export type RNEvent = { event_id: string; session_id: string; event_name: string; client_ts: number; payload: Record<string, unknown>; dims: Record<string, unknown> };
+export type ReactNativeOptions = { endpoint: string; apiKey: string; tenantId: string; storage: Storage; storageKey?: string; maxQueueSize?: number; fetch?: typeof globalThis.fetch };
+export type Diagnostics = { tenantId: string; sessionId: string | null; queuedEvents: number; droppedEvents: number; lastFlushAt: number | null; lastError: string | null };
+type State = { sessionId: string | null; events: RNEvent[]; droppedEvents: number; lastFlushAt: number | null; lastError: string | null };
+const eventId = () => typeof globalThis.crypto?.randomUUID === "function" ? globalThis.crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+export class EyeReactNativeClient {
+  private readonly options: Required<Pick<ReactNativeOptions, "endpoint" | "apiKey" | "tenantId" | "storage" | "storageKey" | "maxQueueSize">> & { fetch: typeof globalThis.fetch };
+  private state: State = { sessionId: null, events: [], droppedEvents: 0, lastFlushAt: null, lastError: null };
+  private loaded = false;
+  constructor(options: ReactNativeOptions) { this.options = { ...options, endpoint: options.endpoint.replace(/\/$/, ""), storageKey: options.storageKey ?? "eye_react_native_queue", maxQueueSize: options.maxQueueSize ?? 10000, fetch: options.fetch ?? globalThis.fetch }; }
+  private async load() { if (this.loaded) return; const raw = await this.options.storage.getItem(this.options.storageKey); if (raw) this.state = JSON.parse(raw) as State; this.loaded = true; }
+  private async save() { await this.options.storage.setItem(this.options.storageKey, JSON.stringify(this.state)); }
+  async ensureSession(): Promise<string> { await this.load(); if (this.state.sessionId) return this.state.sessionId; const response = await this.options.fetch(`${this.options.endpoint}/sessions`, { method: "POST", headers: { "content-type": "application/json", "x-api-key": this.options.apiKey }, body: JSON.stringify({ tenant_id: this.options.tenantId, device: { runtime: "react-native" } }) }); if (!response.ok) throw new Error(`session creation failed: HTTP ${response.status}`); const body = await response.json() as { ID?: string; id?: string; session_id?: string }; const id = body.session_id ?? body.ID ?? body.id; if (!id) throw new Error("session creation returned no id"); this.state.sessionId = id; await this.save(); return id; }
+  async track(eventName: string, payload: Record<string, unknown> = {}, dims: Record<string, unknown> = {}): Promise<void> { await this.load(); if (!eventName.trim()) throw new Error("event name is required"); if (!this.state.sessionId) throw new Error("call ensureSession first"); this.state.events.push({ event_id: eventId(), session_id: this.state.sessionId, event_name: eventName, client_ts: Date.now(), payload, dims }); if (this.state.events.length > this.options.maxQueueSize) { this.state.events.splice(0, this.state.events.length - this.options.maxQueueSize); this.state.droppedEvents++; } await this.save(); }
+  async flush(): Promise<number> { await this.load(); if (!this.state.events.length) return 0; const events = [...this.state.events]; try { const response = await this.options.fetch(`${this.options.endpoint}/ingest`, { method: "POST", headers: { "content-type": "application/json", "x-api-key": this.options.apiKey }, body: JSON.stringify({ events }) }); if (!response.ok) throw new Error(`ingest failed: HTTP ${response.status}`); this.state.events.splice(0, events.length); this.state.lastFlushAt = Date.now(); this.state.lastError = null; await this.save(); return events.length; } catch (error) { this.state.lastError = error instanceof Error ? error.message : String(error); await this.save(); throw error; } }
+  async diagnostics(): Promise<Diagnostics> { await this.load(); return { tenantId: this.options.tenantId, sessionId: this.state.sessionId, queuedEvents: this.state.events.length, droppedEvents: this.state.droppedEvents, lastFlushAt: this.state.lastFlushAt, lastError: this.state.lastError }; }
+}
+
+export default EyeReactNativeClient;

@@ -1,0 +1,9 @@
+{
+  "name": "eye-react-native-sdk",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": { "test": "vitest run", "build": "tsc" },
+  "peerDependencies": { "@react-native-async-storage/async-storage": ">=1.17.0" },
+  "devDependencies": { "typescript": "^5.0.0", "vitest": "^2.0.0" }
+}
