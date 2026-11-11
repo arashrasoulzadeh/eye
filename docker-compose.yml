@@ -8,6 +8,7 @@ services:
       DB_PATH: /data/eye.db
       DB_DRIVER: ${DB_DRIVER:-sqlite}
       DATABASE_URL: ${DATABASE_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SNAPSHOT_DIR: /data/snapshots
       ADMIN_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
       API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}

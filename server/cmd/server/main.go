@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	eyev1 "github.com/arashrasoulzadeh/eye/gen/go/eyev1"
@@ -25,9 +26,19 @@ import (
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-func cors(next http.Handler) http.Handler {
+func cors(origins string, next http.Handler) http.Handler {
+	allowed := map[string]bool{}
+	for _, origin := range strings.Split(origins, ",") {
+		if value := strings.TrimSpace(origin); value != "" {
+			allowed[value] = true
+		}
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if allowed["*"] || allowed[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,x-api-key,x-admin-key")
 		if r.Method == http.MethodOptions {
@@ -300,7 +311,11 @@ func main() {
 	}()
 
 	logger.Info("server starting", "addr", cfg.Addr())
-	if err := http.ListenAndServe(cfg.Addr(), cors(mux)); err != nil {
+	origins := cfg.CORSOrigins
+	if origins == "" && !strings.EqualFold(os.Getenv("EYE_ENV"), "production") {
+		origins = "*"
+	}
+	if err := http.ListenAndServe(cfg.Addr(), cors(origins, mux)); err != nil {
 		logger.Error("server stopped", "err", err)
 		os.Exit(1)
 	}

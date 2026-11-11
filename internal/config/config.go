@@ -14,6 +14,7 @@ type Config struct {
 	DBPath         string `mapstructure:"db_path"`
 	DBDriver       string `mapstructure:"db_driver"`
 	DatabaseURL    string `mapstructure:"database_url"`
+	CORSOrigins    string `mapstructure:"cors_origins"`
 	AdminKey       string `mapstructure:"admin_key"`
 	APIKeySalt     string `mapstructure:"api_key_salt"`
 	RetentionHours int    `mapstructure:"retention_hours"`
