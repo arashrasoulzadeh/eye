@@ -41,9 +41,21 @@ func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	response := struct {
 		service.UsageSnapshot
-		EventLimit   int64 `json:"event_limit"`
-		StorageLimit int64 `json:"storage_limit"`
-	}{UsageSnapshot: usage, EventLimit: tenant.MonthlyEventLimit, StorageLimit: tenant.MonthlyStorageLimit}
+		EventLimit   int64    `json:"event_limit"`
+		StorageLimit int64    `json:"storage_limit"`
+		Warnings     []string `json:"warnings"`
+	}{UsageSnapshot: usage, EventLimit: tenant.MonthlyEventLimit, StorageLimit: tenant.MonthlyStorageLimit, Warnings: quotaWarnings(usage.EventCount, usage.StorageBytes, tenant.MonthlyEventLimit, tenant.MonthlyStorageLimit)}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func quotaWarnings(events, storage, eventLimit, storageLimit int64) []string {
+	warnings := []string{}
+	if eventLimit > 0 && events*100 >= eventLimit*80 {
+		warnings = append(warnings, "event usage reached 80% of the monthly quota")
+	}
+	if storageLimit > 0 && storage*100 >= storageLimit*80 {
+		warnings = append(warnings, "storage usage reached 80% of the monthly quota")
+	}
+	return warnings
 }

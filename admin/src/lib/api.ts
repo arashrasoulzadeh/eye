@@ -57,7 +57,7 @@ export type AlertRulePage = { items: AlertRule[]; total: number; limit: number; 
 export type Question = { ID: string; TenantID: string; Name: string; EventName: string; EventNames: string; MatchMode: "any" | "all"; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
 export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
 export type EventOption = { value: string; count: number; last_ts: number };
-export type TenantUsage = { tenant_id: string; period_start: number; period_end: number; event_count: number; payload_bytes: number; storage_bytes: number; event_limit: number; storage_limit: number };
+export type TenantUsage = { tenant_id: string; period_start: number; period_end: number; event_count: number; payload_bytes: number; storage_bytes: number; event_limit: number; storage_limit: number; warnings?: string[] };
 
 class ApiError extends Error {
   status: number;

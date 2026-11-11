@@ -161,6 +161,7 @@ export default function TenantDetailClient() {
             <UsageMetric label="Events" used={usage.event_count} limit={usage.event_limit} />
             <UsageMetric label="Storage" used={usage.storage_bytes} limit={usage.storage_limit} formatBytes />
           </div>
+          {usage.warnings?.length ? <div className="border-t border-border px-5 py-3 text-sm text-warning">{usage.warnings.join(" · ")}</div> : null}
         </Card>
       )}
 
