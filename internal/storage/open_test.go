@@ -19,3 +19,9 @@ func TestOpenDatabaseRejectsUnknownDriver(t *testing.T) {
 		t.Fatal("expected unsupported driver error")
 	}
 }
+
+func TestSetTenantContextRequiresTenant(t *testing.T) {
+	if err := SetTenantContext(nil, ""); err == nil {
+		t.Fatal("expected tenant id validation error")
+	}
+}
