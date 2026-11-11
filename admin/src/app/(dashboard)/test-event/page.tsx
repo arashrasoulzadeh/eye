@@ -45,14 +45,15 @@ export default function TestEventPage() {
   }
 
   const [recent, setRecent] = useState<Event[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
   const { push } = useToast();
 
   useEffect(() => {
     api.tenants.list().then((ts) => {
       setTenants(ts);
       if (ts[0]) setTenantId(ts[0].ID);
-    });
-  }, []);
+    }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
+  }, [push]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -60,8 +61,8 @@ export default function TestEventPage() {
       const mine = page.items.filter((s) => s.TenantID === tenantId);
       setSessions(mine);
       setSessionId(mine[0]?.ID || "");
-    });
-  }, [tenantId]);
+    }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
+  }, [push, tenantId]);
 
   async function createSession() {
     if (!tenantId) return;
@@ -80,13 +81,13 @@ export default function TestEventPage() {
 
   const refreshRecent = useCallback(async () => {
     if (!tenantId) return;
+    setRecentLoading(true);
     try {
       const list = await api.events.list({ tenant_id: tenantId, session_id: sessionId || undefined });
       setRecent(list);
-    } catch {
-      // non-fatal; leave previous list in place
-    }
-  }, [sessionId, tenantId]);
+    } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to load recent events"); }
+    finally { setRecentLoading(false); }
+  }, [push, sessionId, tenantId]);
 
   useEffect(() => {
     void refreshRecent();
@@ -238,9 +239,10 @@ export default function TestEventPage() {
             }
           />
           <div className="max-h-[560px] divide-y divide-border overflow-y-auto">
-            {recent.length === 0 && <p className="px-5 py-8 text-center text-sm text-fg-muted">No events sent yet.</p>}
-            {recent.map((e) => (
-              <div key={e.EventID} className="px-5 py-3">
+            {recentLoading && !recent.length && <p className="px-5 py-8 text-center text-sm text-fg-muted">Loading recent events…</p>}
+            {!recentLoading && recent.length === 0 && <p className="px-5 py-8 text-center text-sm text-fg-muted">No events sent yet.</p>}
+            {recent.map((e, index) => (
+              <div key={e.EventID || `${e.SessionID}-${e.ClientTS}-${index}`} className="px-5 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-fg">{e.EventName}</span>
                   <span className="text-xs text-fg-muted">{e.IngestTS ? new Date(e.IngestTS).toLocaleTimeString() : ""}</span>
