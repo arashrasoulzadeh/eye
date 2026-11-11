@@ -24,6 +24,7 @@ export type Event = {
   IsAggregated: boolean;
   AggregationID: string;
 };
+export type EventPage = { items: Event[]; total: number; limit: number; offset: number };
 export type Schema = { ID: string; TenantID: string; Name: string; Version: number; Definition: string; CreatedAt: number };
 export type SchemaPage = { items: Schema[]; total: number; limit: number; offset: number };
 export type Metrics = { events: number; sessions: number; tenants: number };
@@ -149,6 +150,7 @@ export const api = {
       const suffix = qs.toString() ? `?${qs}` : "";
       return req<Event[]>(`query${suffix}`);
     },
+    listPage: (filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number; sort?: "desc" | "asc"; limit?: number; offset?: number } = {}) => { const qs = new URLSearchParams(Object.entries({ ...filters, page: "true" }).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])); return req<EventPage>(`query?${qs}`); },
   },
   eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
 

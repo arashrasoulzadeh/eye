@@ -15,13 +15,13 @@ type queryCacheEntry struct {
 }
 
 type QueryService struct {
-	DB      *gorm.DB
+	DB *gorm.DB
 	// SetTenantContext is configured for PostgreSQL/Timescale deployments so
 	// every tenant-filtered read also carries transaction-local RLS context.
 	// It remains nil for SQLite/dev deployments.
 	SetTenantContext func(*gorm.DB, string) error
-	cacheMu sync.Mutex
-	cache   map[string]queryCacheEntry
+	cacheMu          sync.Mutex
+	cache            map[string]queryCacheEntry
 }
 
 func (q *QueryService) EventsByName(name string, limit int) ([]model.Event, error) {
@@ -137,4 +137,28 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 	q.cache[key] = queryCacheEntry{expires: time.Now().Add(5 * time.Second), events: append([]model.Event(nil), list...)}
 	q.cacheMu.Unlock()
 	return list, nil
+}
+
+func (q *QueryService) Count(f EventFilter) (int64, error) {
+	db := q.DB.Model(&model.Event{})
+	if f.TenantID != "" {
+		db = db.Where("tenant_id = ?", f.TenantID)
+	}
+	if f.SessionID != "" {
+		db = db.Where("session_id = ?", f.SessionID)
+	}
+	if f.EventName != "" {
+		db = db.Where("event_name = ?", f.EventName)
+	}
+	if f.DimsContains != "" {
+		db = db.Where("dims LIKE ?", "%"+f.DimsContains+"%")
+	}
+	if f.FromTS != nil {
+		db = db.Where("client_ts >= ?", *f.FromTS)
+	}
+	if f.ToTS != nil {
+		db = db.Where("client_ts <= ?", *f.ToTS)
+	}
+	var total int64
+	return total, db.Count(&total).Error
 }

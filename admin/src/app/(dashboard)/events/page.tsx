@@ -13,6 +13,7 @@ import { useToast } from "@/components/Toast";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
+  const [totalEvents, setTotalEvents] = useState(0);
   const [eventName, setEventName] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [sessionId, setSessionId] = useState("");
@@ -47,7 +48,7 @@ export default function EventsPage() {
   async function loadTable(query: TableQuery) {
     setLoading(true);
     try {
-      setEvents(await api.events.list({
+      const page = await api.events.listPage({
         event_name: query.filter || eventName,
         tenant_id: tenantId,
         session_id: sessionId,
@@ -56,7 +57,7 @@ export default function EventsPage() {
         sort: query.sortDir,
         limit: 10,
         offset: query.page * 10,
-      }));
+      }); setEvents(page.items); setTotalEvents(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load events");
     } finally {
@@ -136,7 +137,7 @@ export default function EventsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Events (${events.length})`} />
-        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide loading={loading} onQueryChange={loadTable} />
+        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide totalRows={totalEvents} loading={loading} onQueryChange={loadTable} />
       </Card>
     </div>
   );

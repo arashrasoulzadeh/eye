@@ -64,6 +64,15 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if q.Get("page") == "true" {
+		total, countErr := h.Svc.Count(f)
+		if countErr != nil {
+			http.Error(w, countErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
+		return
+	}
 	if len(list) == limit {
 		last := list[len(list)-1]
 		encoded, _ := json.Marshal(queryCursor{ClientTS: last.ClientTS, EventID: last.EventID})
