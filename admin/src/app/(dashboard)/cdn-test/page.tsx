@@ -12,6 +12,8 @@ export default function CdnTestPage() {
   const [tenantId, setTenantId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [rotating, setRotating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [endpoint, setEndpoint] = useState("http://localhost:8080");
   const [scriptUrl, setScriptUrl] = useState("/cdn-eye.min.js");
   const { push } = useToast();
@@ -20,12 +22,13 @@ export default function CdnTestPage() {
     api.tenants.list().then((ts) => {
       setTenants(ts);
       if (ts[0]) setTenantId(ts[0].ID);
-    });
+    }).catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load tenants")).finally(() => setLoading(false));
   }, []);
 
   async function rotateAndFillKey() {
     if (!tenantId) return;
     setRotating(true);
+    setError("");
     try {
       const res = await api.tenants.rotateKey(tenantId);
       setApiKey(res.api_key);
@@ -63,6 +66,8 @@ export default function CdnTestPage() {
         (<code className="text-xs">web-sdk/src/cdn.ts</code> → <code className="text-xs">window.Eye</code>) exactly the
         way a customer&apos;s site would, and fires its auto-tracked events for real against this backend.
       </p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">How to use this page</summary><p className="mt-2 text-fg-muted">Use a disposable tenant, rotate its key, verify the endpoint and CDN script URL, then open the standalone test page. Key rotation immediately invalidates the previous key.</p></details>
+      {error && <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
 
       <Card className="mt-6">
         <CardHeader title="Test configuration" />
@@ -70,7 +75,8 @@ export default function CdnTestPage() {
           <div>
             <Label>Tenant</Label>
             <Select value={tenantId} onChange={(e) => { setTenantId(e.target.value); setApiKey(""); }}>
-              {tenants.length === 0 && <option value="">Create a tenant first</option>}
+              {loading && <option value="">Loading tenants…</option>}
+              {!loading && tenants.length === 0 && <option value="">Create a tenant first</option>}
               {tenants.map((t) => (
                 <option key={t.ID} value={t.ID}>
                   {t.Name}
