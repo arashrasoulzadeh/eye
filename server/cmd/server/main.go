@@ -156,6 +156,9 @@ func main() {
 	// consumer inserts events and maintains materialized aggregate counts.
 	stream := service.NewChannelStream(256)
 	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
+	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
+		streamPipeline.SetTenantContext = storage.SetTenantContext
+	}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)

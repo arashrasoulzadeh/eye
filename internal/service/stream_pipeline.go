@@ -18,9 +18,12 @@ import (
 // materialized aggregate update — decoupling the ingest request path from
 // storage, which is Phase 7's goal.
 type StreamIngestPipeline struct {
-	Repo     *repository.Repo
-	DB       *gorm.DB
-	Producer StreamProducer
+	Repo *repository.Repo
+	DB   *gorm.DB
+	// SetTenantContext scopes the consumer transaction for PostgreSQL RLS.
+	// It is nil for SQLite/dev deployments.
+	SetTenantContext func(*gorm.DB, string) error
+	Producer         StreamProducer
 	// TierLimiter, if set, applies the same per-tenant tier limit as the
 	// synchronous ingest path after the session resolves the tenant.
 	TierLimiter TenantLimiter
@@ -97,17 +100,55 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 // materialized per-(tenant, event_name, dims) aggregate count.
 func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 	ev := msg.Event
-	if err := p.Repo.InsertEvent(ev); err != nil {
+	if p.SetTenantContext == nil {
+		if err := p.Repo.InsertEvent(ev); err != nil {
+			return err
+		}
+		if sess, err := p.Repo.GetSession(ev.SessionID); err == nil {
+			sess.EventCount++
+			sess.LastSeen = time.Now()
+			_ = p.Repo.UpdateSession(sess)
+			if p.Sessions != nil {
+				p.Sessions.Update(sess)
+				p.Sessions.AddEvent(ev.SessionID, ev)
+			}
+		}
+		return UpsertAggregateCount(p.DB, ev.TenantID, ev.EventName, ev.Dims)
+	}
+
+	tx := p.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := p.SetTenantContext(tx, ev.TenantID); err != nil {
+		tx.Rollback()
 		return err
 	}
-	if sess, err := p.Repo.GetSession(ev.SessionID); err == nil {
+	txRepo := repository.New(tx)
+	if err := txRepo.InsertEvent(ev); err != nil {
+		tx.Rollback()
+		return err
+	}
+	var session *model.Session
+	if sess, err := txRepo.GetSession(ev.SessionID); err == nil {
 		sess.EventCount++
 		sess.LastSeen = time.Now()
-		_ = p.Repo.UpdateSession(sess)
-		if p.Sessions != nil {
-			p.Sessions.Update(sess)
-			p.Sessions.AddEvent(ev.SessionID, ev)
+		if err := txRepo.UpdateSession(sess); err != nil {
+			tx.Rollback()
+			return err
 		}
+		session = sess
 	}
-	return UpsertAggregateCount(p.DB, ev.TenantID, ev.EventName, ev.Dims)
+	if err := UpsertAggregateCount(tx, ev.TenantID, ev.EventName, ev.Dims); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	if p.Sessions != nil && session != nil {
+		p.Sessions.Update(session)
+		p.Sessions.AddEvent(ev.SessionID, ev)
+	}
+	return nil
 }
