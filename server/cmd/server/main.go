@@ -77,6 +77,7 @@ func main() {
 	liveSessions := service.NewLiveSessionHub()
 	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters, Sessions: liveSessions}
 	mux := http.NewServeMux()
+	mux.Handle("/healthz", handler.HealthHandler{})
 	// Phase 14: audit log for admin actions. Audit must sit INSIDE AdminAuth
 	// so a request that fails authentication is never logged as an action —
 	// only requests that actually passed admin auth reach it. See

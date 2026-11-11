@@ -11,6 +11,11 @@ services:
       API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}
     ports: ["8080:8080", "50052:50052"]
     volumes: ["eye-data:/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
   collector:
     build: { context: ., dockerfile: Dockerfile }
@@ -30,6 +35,11 @@ services:
       NEXT_PUBLIC_OIDC_ENABLED: ${NEXT_PUBLIC_OIDC_ENABLED:-false}
     ports: ["3003:3000"]
     depends_on: [server]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 volumes:
   eye-data:

@@ -7,7 +7,7 @@ RUN CGO_ENABLED=1 go build -o /out/eye-server ./server/cmd/server
 RUN CGO_ENABLED=1 go build -o /out/eye-collector ./server/cmd/collector
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 eye
 WORKDIR /app
 COPY --from=build /out/eye-server /app/eye-server
