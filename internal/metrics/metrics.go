@@ -33,6 +33,8 @@ var StreamQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{Name: "stream_qu
 // counts.
 var IngestSampleRate = prometheus.NewGauge(prometheus.GaugeOpts{Name: "ingest_sample_rate"})
 
+var HTTPRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_request_duration_seconds", Help: "HTTP request duration by method and status."}, []string{"method", "status"})
+
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration)
 }

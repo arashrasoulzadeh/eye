@@ -358,7 +358,7 @@ func main() {
 	if origins == "" && !strings.EqualFold(os.Getenv("EYE_ENV"), "production") {
 		origins = "*"
 	}
-	if err := http.ListenAndServe(cfg.Addr(), cors(origins, mux)); err != nil {
+	if err := http.ListenAndServe(cfg.Addr(), handler.Observability(cors(origins, mux))); err != nil {
 		logger.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
