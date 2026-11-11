@@ -29,15 +29,18 @@ export default function EventsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setEvents(
-        await api.events.list({
+      const page = await api.events.listPage({
           event_name: eventName,
           tenant_id: tenantId,
           session_id: sessionId,
           from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
           to_ts: toTime ? new Date(toTime).getTime() : undefined,
-        })
-      );
+          sort: "desc",
+          limit: 10,
+          offset: 0,
+        });
+      setEvents(page.items);
+      setTotalEvents(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load events");
     } finally {
@@ -67,11 +70,11 @@ export default function EventsPage() {
 
   useEffect(() => {
     void load();
-    api.tenants.list().then(setTenants).catch(() => {});
-    api.sessions.list().then((page) => setSessions(page.items)).catch(() => {});
-  }, [load]);
+    api.tenants.list().then(setTenants).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
+    api.sessions.list().then((page) => setSessions(page.items)).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
+  }, [load, push]);
 
-  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions(options.map((option) => ({ value: option.value })))).catch(() => {}); }, [tenantId]);
+  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions(options.map((option) => ({ value: option.value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [tenantId, push]);
 
   const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
   const sessionOptions: ComboOption[] = sessions
@@ -127,7 +130,7 @@ export default function EventsPage() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title={`Events (${events.length})`} />
+        <CardHeader title={`Events (${totalEvents})`} />
         <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide totalRows={totalEvents} loading={loading} onQueryChange={loadTable} />
       </Card>
     </div>
