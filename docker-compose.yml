@@ -22,7 +22,7 @@ services:
     environment:
       ADMIN_API_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
       BACKEND_URL: http://server:8080
-    ports: ["3000:3000"]
+    ports: ["3003:3000"]
     depends_on: [server]
     restart: unless-stopped
 volumes:
