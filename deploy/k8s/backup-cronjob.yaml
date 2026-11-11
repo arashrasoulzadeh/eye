@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: eye-postgres-backup, namespace: eye }
+spec:
+  schedule: "15 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:17-bookworm
+              command: ["/bin/sh", "-c"]
+              args: ["pg_dump --format=custom --no-owner --file=/backup/eye-$(date -u +%Y%m%dT%H%M%SZ).dump \"$DATABASE_URL\""]
+              env:
+                - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: DATABASE_URL } } }
+              volumeMounts: [{ name: backup, mountPath: /backup }]
+          volumes: [{ name: backup, persistentVolumeClaim: { claimName: eye-backups } }]
