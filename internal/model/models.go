@@ -3,9 +3,10 @@ package model
 import "time"
 
 type Tenant struct {
-	ID     string `gorm:"primaryKey"`
-	Name   string
-	APIKey string
+	ID              string `gorm:"primaryKey"`
+	Name            string
+	APIKey          string
+	APIKeyExpiresAt *time.Time
 	// Tier picks the tenant's ingest rate limit (see service.TierRates /
 	// service.TenantRateLimiter). Empty means "free", the lowest tier, so
 	// existing rows created before this field existed behave unchanged.

@@ -9,7 +9,7 @@
 - [ ] Prometheus/Grafana dashboards, structured logs, and alerting
 - [ ] Automated database backups and restore-drill verification
 - [ ] End-to-end Docker deployment test: tenant → key → session → ingest → query
-- [ ] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles
+- [ ] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles — CORS allowlist and optional tenant-key expiration are implemented; secret manager, explicit revocation, and OIDC roles remain
 - [ ] Pagination, cursor queries, analytics caching, and scalable aggregation workers
 
 ## Workflow rule

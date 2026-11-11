@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -13,8 +14,9 @@ import (
 )
 
 type AdminService struct {
-	Repo *repository.Repo
-	Salt string
+	Repo      *repository.Repo
+	Salt      string
+	APIKeyTTL time.Duration
 }
 
 func randomHex(n int) string {
@@ -29,7 +31,7 @@ func (a *AdminService) hashKey(apiKey string) string {
 }
 
 func (a *AdminService) CreateTenant(name, apiKey string) (*model.Tenant, error) {
-	t := &model.Tenant{ID: randomHex(16), Name: name, APIKey: a.hashKey(apiKey)}
+	t := &model.Tenant{ID: randomHex(16), Name: name, APIKey: a.hashKey(apiKey), APIKeyExpiresAt: a.keyExpiry()}
 	if err := a.Repo.DB.Create(t).Error; err != nil {
 		return nil, err
 	}
@@ -66,6 +68,7 @@ func (a *AdminService) RotateKey(tenantID string) (string, error) {
 	}
 	newKey := randomHex(24)
 	t.APIKey = a.hashKey(newKey)
+	t.APIKeyExpiresAt = a.keyExpiry()
 	if err := a.Repo.DB.Save(&t).Error; err != nil {
 		return "", err
 	}
@@ -79,7 +82,15 @@ func (a *AdminService) VerifyAPIKey(tenantID, apiKey string) bool {
 	if err := a.Repo.DB.First(&t, "id = ?", tenantID).Error; err != nil {
 		return false
 	}
-	return t.APIKey == a.hashKey(apiKey)
+	return (t.APIKeyExpiresAt == nil || t.APIKeyExpiresAt.After(time.Now())) && t.APIKey == a.hashKey(apiKey)
+}
+
+func (a *AdminService) keyExpiry() *time.Time {
+	if a.APIKeyTTL <= 0 {
+		return nil
+	}
+	expires := time.Now().Add(a.APIKeyTTL)
+	return &expires
 }
 
 // RegisterSchema registers a new version of a named schema for a tenant.

@@ -75,7 +75,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt}
+	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt, APIKeyTTL: time.Duration(cfg.APIKeyTTLHours) * time.Hour}
 	expSvc := &service.ExperimentService{DB: db}
 	// Phase 14: per-tenant rate tiers. Only the synchronous /ingest path
 	// (IngestService) is tier-limited; the async /ingest/stream path

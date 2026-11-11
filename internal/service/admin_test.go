@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -47,5 +48,30 @@ func TestAdminService_GetSchema(t *testing.T) {
 	}
 	if schema.ID != "test-schema" {
 		t.Errorf("schema.ID = %s, want test-schema", schema.ID)
+	}
+}
+
+func TestAdminService_ExpiredAPIKeyIsRejected(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Tenant{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &AdminService{Repo: repository.New(db), Salt: "salt", APIKeyTTL: time.Hour}
+	if _, err := svc.CreateTenant("test", "client-key"); err != nil {
+		t.Fatal(err)
+	}
+	var tenant model.Tenant
+	if err := db.First(&tenant).Error; err != nil {
+		t.Fatal(err)
+	}
+	expired := time.Now().Add(-time.Minute)
+	if err := db.Model(&tenant).Update("api_key_expires_at", expired).Error; err != nil {
+		t.Fatal(err)
+	}
+	if svc.VerifyAPIKey(tenant.ID, "client-key") {
+		t.Fatal("expired API key was accepted")
 	}
 }
