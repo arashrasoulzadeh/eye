@@ -13,6 +13,7 @@ describe("api client", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    api.tenants.clearCache();
     fetchMock = vi.fn();
     Object.defineProperty(globalThis, "fetch", { value: fetchMock, configurable: true, writable: true });
   });

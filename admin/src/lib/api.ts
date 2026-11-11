@@ -99,17 +99,21 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : null) as T;
 }
 
+let tenantsCache: { value: Tenant[]; expires: number } | null = null;
+let tenantsRequest: Promise<Tenant[]> | null = null;
+function invalidateTenants() { tenantsCache = null; tenantsRequest = null; }
+
 export const api = {
   metrics: () => req<Metrics>("metrics"),
 
   dashboardCache: () => req<DashboardCache>("dashboard-cache"),
 
   tenants: {
-    list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; return req<Tenant[]>(`tenants${query}`); },
+    list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { if (!Object.keys(params).length && tenantsCache && tenantsCache.expires > Date.now()) return Promise.resolve(tenantsCache.value); const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; if (!query && tenantsRequest) return tenantsRequest; const request = req<Tenant[]>(`tenants${query}`); if (query) return request; tenantsRequest = request.then((value) => { tenantsCache = { value, expires: Date.now() + 30_000 }; tenantsRequest = null; return value; }).catch((error) => { tenantsRequest = null; throw error; }); return tenantsRequest; },
     listPage: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => req<TenantPage>(`tenants?page=true&filter=${encodeURIComponent(params.filter ?? "")}&sort=${params.sort ?? "created"}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
-    create: (name: string, apiKey: string) =>
-      req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }),
-    remove: (id: string) => req<void>(`tenants/${id}`, { method: "DELETE" }),
+    clearCache: invalidateTenants,
+    create: async (name: string, apiKey: string) => { const result = await req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }); invalidateTenants(); return result; },
+    remove: async (id: string) => { const result = await req<void>(`tenants/${id}`, { method: "DELETE" }); invalidateTenants(); return result; },
     rotateKey: (id: string) => req<{ api_key: string }>(`tenants/${id}/rotate-key`, { method: "POST" }),
     usage: (id: string) => req<TenantUsage>(`tenant-usage/${encodeURIComponent(id)}`),
     setQuota: (id: string, eventLimit: number, storageLimit: number) => req<void>(`tenants/${encodeURIComponent(id)}/quota`, { method: "PUT", body: JSON.stringify({ event_limit: eventLimit, storage_limit: storageLimit }) }),
