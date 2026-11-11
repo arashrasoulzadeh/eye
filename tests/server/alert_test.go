@@ -84,6 +84,9 @@ func TestAlertServiceRejectsInvalidRules(t *testing.T) {
 	if _, err := svc.CreateWithWindow("t1", "error", "", "unknown", 1, 0, "https://example.com"); err == nil {
 		t.Fatal("expected metric validation error")
 	}
+	if _, err := svc.CreateWithWindow("t1", "error", "", "count", 1, 0, "file:///tmp/hook"); err == nil {
+		t.Fatal("expected webhook URL validation error")
+	}
 }
 
 func TestAlertServiceCRUD(t *testing.T) {

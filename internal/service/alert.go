@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -36,6 +37,9 @@ func (a *AlertService) CreateWithWindow(tenantID, eventName, dimsKey, metric str
 		metric = "count"
 	}
 	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
+		return nil, err
+	}
+	if err := validateWebhookURL(webhookURL); err != nil {
 		return nil, err
 	}
 	now := time.Now().Unix()
@@ -77,6 +81,9 @@ func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, t
 	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
 		return nil, err
 	}
+	if err := validateWebhookURL(webhookURL); err != nil {
+		return nil, err
+	}
 	rule, err := a.Get(id)
 	if err != nil {
 		return nil, err
@@ -113,6 +120,14 @@ func validateAlertRule(eventName, metric string, threshold, windowSeconds int64)
 	}
 	if metric == "conversion" && len(strings.Split(eventName, ",")) < 2 {
 		return fmt.Errorf("conversion requires at least two comma-separated events")
+	}
+	return nil
+}
+
+func validateWebhookURL(raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("webhook_url must be an absolute http(s) URL")
 	}
 	return nil
 }
