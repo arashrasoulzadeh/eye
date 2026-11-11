@@ -101,7 +101,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 let tenantsCache: { value: Tenant[]; expires: number } | null = null;
 let tenantsRequest: Promise<Tenant[]> | null = null;
+let sessionsCache: { value: SessionPage; expires: number } | null = null;
+let sessionsRequest: Promise<SessionPage> | null = null;
 function invalidateTenants() { tenantsCache = null; tenantsRequest = null; }
+function invalidateSessions() { sessionsCache = null; sessionsRequest = null; }
 
 export const api = {
   metrics: () => req<Metrics>("metrics"),
@@ -120,10 +123,11 @@ export const api = {
   },
 
   sessions: {
-    list: (params: { limit?: number; offset?: number; filter?: string; sort?: string; dir?: string } = {}) => req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc" }).map(([key, value]) => [key, String(value)])))}`),
+    list: (params: { limit?: number; offset?: number; filter?: string; sort?: string; dir?: string } = {}) => { const isDefault = !Object.keys(params).length; if (isDefault && sessionsCache && sessionsCache.expires > Date.now()) return Promise.resolve(sessionsCache.value); if (isDefault && sessionsRequest) return sessionsRequest; const request = req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc" }).map(([key, value]) => [key, String(value)])))}`); if (!isDefault) return request; sessionsRequest = request.then((value) => { sessionsCache = { value, expires: Date.now() + 10_000 }; sessionsRequest = null; return value; }).catch((error) => { sessionsRequest = null; throw error; }); return sessionsRequest; },
     get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
     create: (tenantId: string) =>
-      req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }),
+      req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }).then((value) => { invalidateSessions(); return value; }),
+    clearCache: invalidateSessions,
   },
 
   events: {
