@@ -16,6 +16,10 @@ type Config struct {
 	DatabaseURL    string `mapstructure:"database_url"`
 	CORSOrigins    string `mapstructure:"cors_origins"`
 	APIKeyTTLHours int    `mapstructure:"api_key_ttl_hours"`
+	BrokerURL      string `mapstructure:"broker_url"`
+	BrokerStream   string `mapstructure:"broker_stream"`
+	BrokerGroup    string `mapstructure:"broker_group"`
+	BrokerConsumer string `mapstructure:"broker_consumer"`
 	AdminKey       string `mapstructure:"admin_key"`
 	APIKeySalt     string `mapstructure:"api_key_salt"`
 	RetentionHours int    `mapstructure:"retention_hours"`
@@ -46,6 +50,9 @@ func Load() (*Config, error) {
 	viper.SetDefault("admin_key", "dev-insecure-admin-key")
 	viper.SetDefault("retention_hours", 24*30)
 	viper.SetDefault("snapshot_dir", "./snapshots")
+	viper.SetDefault("broker_stream", "eye-events")
+	viper.SetDefault("broker_group", "eye-consumers")
+	viper.SetDefault("broker_consumer", "eye-server")
 	c := &Config{}
 	if err := viper.Unmarshal(c); err != nil {
 		return nil, err

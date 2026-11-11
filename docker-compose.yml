@@ -9,6 +9,10 @@ services:
       DB_DRIVER: ${DB_DRIVER:-sqlite}
       DATABASE_URL: ${DATABASE_URL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      BROKER_URL: ${BROKER_URL:-}
+      BROKER_STREAM: ${BROKER_STREAM:-eye-events}
+      BROKER_GROUP: ${BROKER_GROUP:-eye-consumers}
+      BROKER_CONSUMER: ${BROKER_CONSUMER:-eye-server}
       SNAPSHOT_DIR: /data/snapshots
       ADMIN_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
       API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}

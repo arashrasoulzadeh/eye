@@ -173,14 +173,28 @@ func main() {
 	// (ChannelStream — see internal/service/stream.go for why this is an
 	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
 	// consumer inserts events and maintains materialized aggregate counts.
-	stream := service.NewChannelStream(256)
+	var stream service.StreamProducer
+	var streamConsumer service.StreamConsumer
+	queueDepth := func() int { return 0 }
+	if cfg.BrokerURL != "" {
+		redisStream, err := service.NewRedisStream(cfg.BrokerURL, cfg.BrokerStream, cfg.BrokerGroup, cfg.BrokerConsumer)
+		if err != nil {
+			logger.Error("broker setup failed", "err", err)
+			os.Exit(1)
+		}
+		stream, streamConsumer = redisStream, redisStream
+	} else {
+		channelStream := service.NewChannelStream(256)
+		stream, streamConsumer = channelStream, channelStream
+		queueDepth = channelStream.QueueDepth
+	}
 	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		streamPipeline.SetTenantContext = storage.SetTenantContext
 	}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
-	stream.Start(streamCtx, streamPipeline.Consume)
+	streamConsumer.Start(streamCtx, streamPipeline.Consume)
 	if err := streamPipeline.ReplayPending(stream); err != nil {
 		logger.Error("pending stream replay failed", "err", err)
 	}
@@ -221,7 +235,7 @@ func main() {
 			case <-queueCtx.Done():
 				return
 			case <-ticker.C:
-				depth := stream.QueueDepth()
+				depth := queueDepth()
 				metrics.StreamQueueDepth.Set(float64(depth))
 				metrics.IngestSampleRate.Set(sampler.UpdateRate(depth))
 			}
