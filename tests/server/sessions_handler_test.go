@@ -35,12 +35,15 @@ func TestSessionsHandlerCreateAndList(t *testing.T) {
 	req2 := httptest.NewRequest(http.MethodGet, "/sessions", nil)
 	w2 := httptest.NewRecorder()
 	h.ServeHTTP(w2, req2)
-	var list []map[string]any
-	if err := json.NewDecoder(w2.Body).Decode(&list); err != nil {
+	var page struct {
+		Items []map[string]any `json:"items"`
+		Total int              `json:"total"`
+	}
+	if err := json.NewDecoder(w2.Body).Decode(&page); err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 1 {
-		t.Fatalf("expected 1 session, got %d", len(list))
+	if len(page.Items) != 1 || page.Total != 1 {
+		t.Fatalf("expected one session and total, got %+v", page)
 	}
 }
 

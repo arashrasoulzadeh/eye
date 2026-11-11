@@ -9,6 +9,7 @@ export type Session = {
   IP: string;
   DeviceInfo: string;
 };
+export type SessionPage = { items: Session[]; total: number; limit: number; offset: number };
 export type Event = {
   EventID: string;
   SessionID: string;
@@ -109,7 +110,7 @@ export const api = {
   },
 
   sessions: {
-    list: () => req<Session[]>("sessions?limit=100"),
+    list: (params: { limit?: number; offset?: number; filter?: string; sort?: string; dir?: string } = {}) => req<SessionPage>(`sessions?${new URLSearchParams(Object.entries({ limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc" }))}`),
     get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
     create: (tenantId: string) =>
       req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }),

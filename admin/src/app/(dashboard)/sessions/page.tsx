@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { EntityLink } from "@/components/EntityLink";
 import { Badge } from "@/components/Badge";
 import { useToast } from "@/components/Toast";
@@ -20,12 +20,16 @@ function deviceSummary(s: Session): string {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const { push } = useToast();
 
-  useEffect(() => {
-    api.sessions.list().then(setSessions).catch((e: ApiError) => push("error", e.message)).finally(() => setLoading(false));
+  const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "last_seen", sortDir: "desc", page: 0 }) => {
+    setLoading(true);
+    try { const page = await api.sessions.list({ limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey ?? "last_seen", dir: query.sortDir }); setSessions(page.items); setTotal(page.total); }
+    catch (e) { push("error", (e as ApiError).message); } finally { setLoading(false); }
   }, [push]);
+  useEffect(() => { void load(); }, [load]);
 
   const columns: Column<Session>[] = [
     { key: "id", header: "Session ID", render: (s) => <EntityLink kind="session" id={s.ID} truncate={12} /> },
@@ -46,8 +50,8 @@ export default function SessionsPage() {
       </details>
 
       <Card className="mt-6">
-        <CardHeader title={`All sessions (${sessions.length})`} />
-        <DataTable columns={columns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions yet." loading={loading} />
+        <CardHeader title="All sessions" />
+        <DataTable columns={columns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions yet." loading={loading} serverSide totalRows={total} onQueryChange={(query) => void load(query)} />
       </Card>
     </div>
   );

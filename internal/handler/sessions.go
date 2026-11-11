@@ -87,13 +87,33 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		var list []model.Session
 		limit := 100
+		offset := 0
 		if raw := r.URL.Query().Get("limit"); raw != "" {
 			if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 1000 {
 				limit = parsed
 			}
 		}
-		h.DB.Order("last_seen desc").Limit(limit).Find(&list)
-		json.NewEncoder(w).Encode(list)
+		if raw := r.URL.Query().Get("offset"); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 0 {
+				offset = parsed
+			}
+		}
+		query := h.DB.Model(&model.Session{})
+		if filter := strings.TrimSpace(r.URL.Query().Get("filter")); filter != "" {
+			like := "%" + filter + "%"
+			query = query.Where("id LIKE ? OR tenant_id LIKE ? OR user_agent LIKE ? OR ip LIKE ?", like, like, like, like)
+		}
+		var total int64
+		query.Count(&total)
+		order := "last_seen desc"
+		if r.URL.Query().Get("sort") == "started" {
+			order = "started_at desc"
+		}
+		if r.URL.Query().Get("dir") == "asc" {
+			order = strings.Replace(order, " desc", " asc", 1)
+		}
+		query.Order(order).Offset(offset).Limit(limit).Find(&list)
+		json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
 	case http.MethodPut, http.MethodPatch:
 		sessionID := r.URL.Query().Get("session_id")
 		if sessionID == "" {
