@@ -102,7 +102,7 @@ export function DataTable<T>({
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-3">
         <input
           value={filter}
           onChange={(event) => {
@@ -120,15 +120,16 @@ export function DataTable<T>({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-fg-muted">
+            <tr className="sticky top-0 border-b border-border bg-surface-2 text-left text-xs font-medium uppercase tracking-wide text-fg-muted">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => toggleSort(col)}
-                  className="cursor-pointer select-none px-5 py-2.5 hover:text-fg"
+                  aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                  className="select-none px-5 py-2.5"
                 >
-                  {col.header}
-                  {sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
+                  <button type="button" onClick={() => toggleSort(col)} className="flex w-full items-center gap-1 text-left hover:text-fg" title={`Sort by ${col.header}`}>
+                    {col.header}<span className="text-[10px]">{sortKey === col.key ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span>
+                  </button>
                 </th>
               ))}
               {showActions && <th className="px-5 py-2.5 text-right">Actions</th>}
