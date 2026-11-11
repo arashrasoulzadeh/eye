@@ -12,6 +12,8 @@ Use a dedicated application database role. Do not run the API as the database ow
 
 Bootstrap the non-owner role with `deploy/postgres/roles.sql`, substituting its password through the deployment secret manager.
 
+Set `ENABLE_POSTGRES_RLS=true` only after the API uses the non-owner role and the RLS integration workflow passes.
+
 ## Required secrets
 
 Provide `ADMIN_KEY`, `API_KEY_SALT`, and `DATABASE_URL` through a secret manager or mounted files. Never commit these values. Set `CORS_ORIGINS` to the exact customer origins in production.

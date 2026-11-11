@@ -74,6 +74,12 @@ func main() {
 			logger.Error("postgres migrations failed", "err", err)
 			os.Exit(1)
 		}
+		if cfg.EnablePostgresRLS {
+			if err := storage.ApplyPostgresRLS(db); err != nil {
+				logger.Error("postgres RLS migration failed", "err", err)
+				os.Exit(1)
+			}
+		}
 	}
 	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt, APIKeyTTL: time.Duration(cfg.APIKeyTTLHours) * time.Hour}
 	expSvc := &service.ExperimentService{DB: db}

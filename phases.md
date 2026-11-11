@@ -4,7 +4,7 @@
 - ORM: GORM for all DB access.
 
 ## Production hardening
-- [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations — driver selection, Timescale migrations, transaction-local context, and non-owner RLS integration coverage are implemented; remaining request read-path wiring is required before production enablement
+- [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations — driver selection, Timescale migrations, transaction-local context, non-owner integration coverage, role bootstrap, and explicit startup switch are implemented; request read-path verification remains before enabling in production
 - [x] Durable collector transport and persisted ingestion queue — database-backed pending events, restart replay, Redis Streams transport, runtime selection, Redis deployment manifests, and collector-to-API proxy routing are implemented
 - [x] Prometheus/Grafana dashboards, structured logs, and alerting — metrics, Grafana dashboard, JSON logs, Prometheus rules, and an Alertmanager routing template are implemented
 - [x] Automated database backups and restore-drill verification — scripts, optional S3 upload, Kubernetes CronJob, and scheduled GitHub restore-drill workflow are implemented; production credentials still need configuration
