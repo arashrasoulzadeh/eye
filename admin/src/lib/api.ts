@@ -50,6 +50,7 @@ export type AlertRule = {
   CreatedAt: number;
   UpdatedAt: number;
 };
+export type AlertRulePage = { items: AlertRule[]; total: number; limit: number; offset: number };
 export type Question = { ID: string; TenantID: string; Name: string; EventName: string; EventNames: string; MatchMode: "any" | "all"; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
 export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
 export type EventOption = { value: string; count: number; last_ts: number };
@@ -171,6 +172,7 @@ export const api = {
 
   alerts: {
     list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<AlertRule[]>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
+    listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<AlertRulePage>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
     remove: (id: string) => req<void>(`alerts/${id}`, { method: "DELETE" }),

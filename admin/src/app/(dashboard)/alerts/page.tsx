@@ -14,6 +14,7 @@ export default function AlertsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
   const [rules, setRules] = useState<AlertRule[]>([]);
+  const [totalRules, setTotalRules] = useState(0);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
 
   const [eventName, setEventName] = useState("");
@@ -41,7 +42,7 @@ export default function AlertsPage() {
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
     try {
-      setRules(await api.alerts.list(tenantId, { filter: query.filter, dir: query.sortDir }));
+      const page = await api.alerts.listPage(tenantId, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setRules(page.items); setTotalRules(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load alert rules");
     }
@@ -164,7 +165,7 @@ export default function AlertsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Alert rules (${rules.length})`} />
-        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={rules.length} />
+        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalRules} />
       </Card>
 
       <ConfirmDialog

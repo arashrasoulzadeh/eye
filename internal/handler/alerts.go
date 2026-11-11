@@ -91,6 +91,26 @@ func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return list[i].CreatedAt > list[j].CreatedAt
 		})
+		if r.URL.Query().Get("page") == "true" {
+			total := len(list)
+			limit := queryInt(r, "limit", 10)
+			offset := queryInt(r, "offset", 0)
+			if limit < 1 {
+				limit = 10
+			}
+			if offset < 0 {
+				offset = 0
+			}
+			if offset > total {
+				offset = total
+			}
+			end := offset + limit
+			if end > total {
+				end = total
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": list[offset:end], "total": total, "limit": limit, "offset": offset})
+			return
+		}
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b alertRuleBody

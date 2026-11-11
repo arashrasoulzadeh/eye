@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       tenants: { list: vi.fn() },
       events: { list: vi.fn() },
-      alerts: { list: vi.fn(), create: vi.fn(), remove: vi.fn(), setEnabled: vi.fn() },
+      alerts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), remove: vi.fn(), setEnabled: vi.fn() },
     },
   };
 });
@@ -45,6 +45,7 @@ describe("AlertsPage", () => {
     vi.mocked(api.tenants.list).mockResolvedValue([{ ID: "t1", Name: "acme", APIKey: "", CreatedAt: "" }]);
     vi.mocked(api.events.list).mockResolvedValue([]);
     vi.mocked(api.alerts.list).mockResolvedValue([baseRule]);
+    vi.mocked(api.alerts.listPage).mockResolvedValue({ items: [baseRule], total: 1, limit: 10, offset: 0 });
   });
 
   it("lists existing alert rules with enabled status and never-fired state", async () => {
