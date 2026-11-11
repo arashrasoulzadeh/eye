@@ -36,6 +36,9 @@ export default function TenantDetailClient() {
   const [rotated, setRotated] = useState<string | null>(null);
   const [confirmingRotate, setConfirmingRotate] = useState(false);
   const [usage, setUsage] = useState<TenantUsage | null>(null);
+  const [eventLimit, setEventLimit] = useState(0);
+  const [storageLimit, setStorageLimit] = useState(0);
+  const [savingQuota, setSavingQuota] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +58,10 @@ export default function TenantDetailClient() {
         const t = tenants.find((t) => t.ID === tenantId) || null;
         setTenant(t);
         setNotFound(!t);
+        if (t) {
+          setEventLimit(t.MonthlyEventLimit || 0);
+          setStorageLimit(t.MonthlyStorageLimit || 0);
+        }
         setSessions(allSessions.filter((s) => s.TenantID === tenantId));
         setEvents(tenantEvents);
         const currentUsage = await api.tenants.usage(tenantId);
@@ -89,6 +96,20 @@ export default function TenantDetailClient() {
       push("error", e instanceof ApiError ? e.message : "Failed to rotate key");
     } finally {
       setConfirmingRotate(false);
+    }
+  }
+
+  async function saveQuota() {
+    if (!tenant) return;
+    setSavingQuota(true);
+    try {
+      await api.tenants.setQuota(tenant.ID, Math.max(0, eventLimit), Math.max(0, storageLimit));
+      setUsage((current) => current ? { ...current, event_limit: eventLimit, storage_limit: storageLimit } : current);
+      push("success", "Tenant quotas updated");
+    } catch (e) {
+      push("error", e instanceof ApiError ? e.message : "Failed to update quotas");
+    } finally {
+      setSavingQuota(false);
     }
   }
 
@@ -141,6 +162,15 @@ export default function TenantDetailClient() {
           </div>
         </Card>
       )}
+
+      <Card className="mt-6">
+        <CardHeader title="Monthly quotas" />
+        <div className="flex flex-wrap items-end gap-3 p-5">
+          <label className="text-sm text-fg-muted">Events (0 = unlimited)<input type="number" min="0" value={eventLimit} onChange={(e) => setEventLimit(Number(e.target.value) || 0)} className="mt-1 block w-48 rounded border border-border bg-surface px-3 py-2 text-fg" /></label>
+          <label className="text-sm text-fg-muted">Storage bytes (0 = unlimited)<input type="number" min="0" value={storageLimit} onChange={(e) => setStorageLimit(Number(e.target.value) || 0)} className="mt-1 block w-48 rounded border border-border bg-surface px-3 py-2 text-fg" /></label>
+          <Button onClick={saveQuota} loading={savingQuota}>Save quotas</Button>
+        </div>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader title="Events by hour (loaded sample)" />

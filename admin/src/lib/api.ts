@@ -1,4 +1,4 @@
-export type Tenant = { ID: string; Name: string; APIKey: string; CreatedAt: string };
+export type Tenant = { ID: string; Name: string; APIKey: string; CreatedAt: string; MonthlyEventLimit?: number; MonthlyStorageLimit?: number };
 export type Session = {
   ID: string;
   TenantID: string;
