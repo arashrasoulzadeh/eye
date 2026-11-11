@@ -157,7 +157,7 @@ export const api = {
   },
 
   cohorts: {
-    list: (tenantId: string) => req<Cohort[]>(`cohorts?tenant_id=${encodeURIComponent(tenantId)}`),
+    list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<Cohort[]>(`cohorts?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     create: (tenantId: string, name: string, eventName: string, minCount: number) =>
       req<Cohort>("cohorts", {
         method: "POST",
