@@ -36,3 +36,11 @@ jobs:
       - run: go test ./internal/storage -run TestPostgresProductionMigrations -v
         env:
           DATABASE_URL: postgres://eye:test@localhost:5432/eye?sslmode=disable
+      - name: Create non-owner application role
+        run: |
+          PGPASSWORD=test psql -h localhost -U eye -d eye -v ON_ERROR_STOP=1 -c "CREATE ROLE eye_app LOGIN PASSWORD 'eye-app-test' NOSUPERUSER NOCREATEDB NOCREATEROLE;" || true
+          PGPASSWORD=test psql -h localhost -U eye -d eye -v ON_ERROR_STOP=1 -c "GRANT CONNECT ON DATABASE eye TO eye_app; GRANT USAGE ON SCHEMA public TO eye_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO eye_app; GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO eye_app;"
+      - run: go test ./internal/storage -run TestPostgresRLSRejectsCrossTenantRead -v
+        env:
+          DATABASE_URL: postgres://eye:test@localhost:5432/eye?sslmode=disable
+          RLS_DATABASE_URL: postgres://eye_app:eye-app-test@localhost:5432/eye?sslmode=disable
