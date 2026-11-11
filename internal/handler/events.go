@@ -58,9 +58,15 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		q = q.Where("session_id = ?", s)
 	}
 	limit := 100
+	offset := 0
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 1000 {
 			limit = n
+		}
+	}
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 0 {
+			offset = n
 		}
 	}
 	if raw := r.URL.Query().Get("cursor"); raw != "" {
@@ -71,7 +77,11 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		q = q.Where("(ingest_ts < ?) OR (ingest_ts = ? AND event_id < ?)", cursor.IngestTS, cursor.IngestTS, cursor.EventID)
 	}
-	q.Order("ingest_ts desc, event_id desc").Limit(limit + 1).Find(&list)
+	direction := "desc"
+	if r.URL.Query().Get("sort") == "asc" {
+		direction = "asc"
+	}
+	q.Order("ingest_ts " + direction + ", event_id " + direction).Offset(offset).Limit(limit + 1).Find(&list)
 	if len(list) > limit {
 		last := list[limit-1]
 		list = list[:limit]
