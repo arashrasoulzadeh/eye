@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+coverage.out
+server/*.db
+snapshots
+admin/node_modules
+admin/.next
+admin/coverage
+web-sdk/node_modules
+web-sdk/dist
+tests/web/node_modules
+sdk-go/bin
+*.log
