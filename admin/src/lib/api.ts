@@ -165,7 +165,7 @@ export const api = {
   },
   eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
   analytics: {
-    funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ step: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }),
+    funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ event_name: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }),
     suggestedFunnel: (tenantId: string, fromTs?: number, toTs?: number) => req<Array<{ position: number; event_name: string; title: string; sessions: number }>>(`analytics/funnel/suggested?tenant_id=${encodeURIComponent(tenantId)}${fromTs ? `&from_ts=${fromTs}` : ""}${toTs ? `&to_ts=${toTs}` : ""}`),
     retention: (tenantId: string, granularity: "daily" | "weekly" = "daily") => req<Array<{ cohort_period: string; cohort_size: number; active_by_n: number[]; retained_pct: number[] }>>(`analytics/retention?tenant_id=${encodeURIComponent(tenantId)}&granularity=${granularity}`),
     views: (tenantId: string) => req<Array<{ id: string; tenant_id: string; name: string; query: string; created_at: number; updated_at: number }>>(`analytics/views?tenant_id=${encodeURIComponent(tenantId)}`),
