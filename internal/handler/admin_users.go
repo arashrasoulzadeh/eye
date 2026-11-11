@@ -63,10 +63,55 @@ func (h *AdminUsersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		var users []model.AdminUser
-		q := h.DB.Order("created_at desc")
+		sortColumn := "created_at"
+		switch r.URL.Query().Get("sort") {
+		case "email":
+			sortColumn = "email"
+		case "name":
+			sortColumn = "name"
+		case "role":
+			sortColumn = "role"
+		case "status":
+			sortColumn = "status"
+		}
+		direction := "desc"
+		if strings.EqualFold(r.URL.Query().Get("dir"), "asc") {
+			direction = "asc"
+		}
+		q := h.DB.Order(sortColumn + " " + direction)
 		if filter := strings.TrimSpace(r.URL.Query().Get("filter")); filter != "" {
 			like := "%" + filter + "%"
-			q = q.Where("email LIKE ? OR name LIKE ? OR role LIKE ?", like, like, like)
+			q = q.Where("email LIKE ? OR name LIKE ? OR role LIKE ? OR status LIKE ?", like, like, like, like)
+		}
+		if r.URL.Query().Get("page") == "true" {
+			var total int64
+			countQuery := h.DB.Model(&model.AdminUser{})
+			if filter := strings.TrimSpace(r.URL.Query().Get("filter")); filter != "" {
+				like := "%" + filter + "%"
+				countQuery = countQuery.Where("email LIKE ? OR name LIKE ? OR role LIKE ? OR status LIKE ?", like, like, like, like)
+			}
+			if err := countQuery.Count(&total).Error; err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			limit := queryInt(r, "limit", 25)
+			offset := queryInt(r, "offset", 0)
+			if limit < 1 {
+				limit = 25
+			}
+			if limit > 100 {
+				limit = 100
+			}
+			if offset < 0 {
+				offset = 0
+			}
+			q = q.Limit(limit).Offset(offset)
+			if err := q.Find(&users).Error; err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": users, "total": total, "limit": limit, "offset": offset})
+			return
 		}
 		if err := q.Find(&users).Error; err != nil {
 			http.Error(w, err.Error(), 500)

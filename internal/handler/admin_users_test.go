@@ -42,6 +42,11 @@ func TestAdminUsersHandlerCRUD(t *testing.T) {
 	if list.Code != 200 || !bytes.Contains(list.Body.Bytes(), []byte("Updated")) {
 		t.Fatalf("list response=%d body=%s", list.Code, list.Body.String())
 	}
+	page := httptest.NewRecorder()
+	h.ServeHTTP(page, httptest.NewRequest("GET", "/admin-users?page=true&limit=1&offset=0&sort=email&dir=asc", nil))
+	if page.Code != 200 || !bytes.Contains(page.Body.Bytes(), []byte(`"items"`)) || !bytes.Contains(page.Body.Bytes(), []byte(`"total":1`)) {
+		t.Fatalf("paginated list response=%d body=%s", page.Code, page.Body.String())
+	}
 	remove := httptest.NewRecorder()
 	h.ServeHTTP(remove, httptest.NewRequest("DELETE", "/admin-users/"+created.ID, nil))
 	if remove.Code != 204 {
