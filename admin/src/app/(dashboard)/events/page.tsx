@@ -98,6 +98,10 @@ export default function EventsPage() {
     <div>
       <h1 className="text-xl font-semibold text-fg">Events</h1>
       <p className="mt-1 text-sm text-fg-muted">Browse ingested events, filtered by name, tenant, or session.</p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-fg">How event browsing works</summary>
+        <p className="mt-2 text-fg-muted">Filters and sorting are sent to the API. Results are newest first by default and limited to the current page so large tenants remain responsive.</p>
+      </details>
 
       <Card className="mt-6">
         <CardHeader title="Filters" />

@@ -16,13 +16,17 @@ export default function Dashboard() {
     <div>
       <h1 className="text-xl font-semibold text-fg">Dashboard</h1>
       <p className="mt-1 text-sm text-fg-muted">Cached metrics (refreshed every minute).</p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
+        <p className="mt-2 text-fg-muted">These totals come from the server-side dashboard cache, not the browser. The charts summarize the latest materialized event window and refresh automatically once per minute.</p>
+      </details>
 
       {error && <p className="mt-4 text-sm text-danger">{error}</p>}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Events" value={cache ? cache.events.toLocaleString() : "—"} />
-        <StatCard label="Sessions" value={cache ? cache.sessions.toLocaleString() : "—"} />
-        <StatCard label="Tenants" value={cache ? cache.tenants.toLocaleString() : "—"} />
+        <StatCard label="Events" value={cache ? cache.events.toLocaleString() : "…"} hint="Server-cached total" />
+        <StatCard label="Sessions" value={cache ? cache.sessions.toLocaleString() : "…"} hint="Server-cached total" />
+        <StatCard label="Tenants" value={cache ? cache.tenants.toLocaleString() : "…"} hint="Active tenant records" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
