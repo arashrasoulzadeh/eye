@@ -1,12 +1,24 @@
 package service
 
 import (
+	"fmt"
 	"gorm.io/gorm"
+	"sync"
+	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
-type QueryService struct{ DB *gorm.DB }
+type queryCacheEntry struct {
+	expires time.Time
+	events  []model.Event
+}
+
+type QueryService struct {
+	DB      *gorm.DB
+	cacheMu sync.Mutex
+	cache   map[string]queryCacheEntry
+}
 
 func (q *QueryService) EventsByName(name string, limit int) ([]model.Event, error) {
 	var list []model.Event
@@ -42,6 +54,14 @@ type EventFilter struct {
 // Filter returns events matching all set fields of f, ordered by ClientTS
 // ascending, with limit/offset pagination.
 func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, error) {
+	key := fmt.Sprintf("%+v:%d:%d", f, limit, offset)
+	q.cacheMu.Lock()
+	if entry, ok := q.cache[key]; ok && time.Now().Before(entry.expires) {
+		result := append([]model.Event(nil), entry.events...)
+		q.cacheMu.Unlock()
+		return result, nil
+	}
+	q.cacheMu.Unlock()
 	query := q.DB.Model(&model.Event{})
 	if f.TenantID != "" {
 		query = query.Where("tenant_id = ?", f.TenantID)
@@ -70,5 +90,17 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
 		return nil, err
 	}
+	q.cacheMu.Lock()
+	if q.cache == nil {
+		q.cache = make(map[string]queryCacheEntry)
+	}
+	if len(q.cache) >= 256 {
+		for oldKey := range q.cache {
+			delete(q.cache, oldKey)
+			break
+		}
+	}
+	q.cache[key] = queryCacheEntry{expires: time.Now().Add(5 * time.Second), events: append([]model.Event(nil), list...)}
+	q.cacheMu.Unlock()
 	return list, nil
 }
