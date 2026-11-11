@@ -40,6 +40,7 @@ export default function TenantDetailClient() {
   const [eventLimit, setEventLimit] = useState(0);
   const [storageLimit, setStorageLimit] = useState(0);
   const [savingQuota, setSavingQuota] = useState(false);
+  const [confirmingDataDelete, setConfirmingDataDelete] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +117,16 @@ export default function TenantDetailClient() {
     } finally {
       setSavingQuota(false);
     }
+  }
+
+  async function deleteTenantData() {
+    if (!tenant) return;
+    try {
+      const result = await api.tenantData.delete(tenant.ID);
+      push("success", `Deleted ${Object.values(result.deleted).reduce((sum, value) => sum + value, 0)} tenant records`);
+      setConfirmingDataDelete(false);
+      setSessions([]); setEvents([]);
+    } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to delete tenant data"); }
   }
 
   if (loading) {
@@ -206,6 +217,11 @@ export default function TenantDetailClient() {
         </div>
       </Card>
 
+      <Card className="mt-6 border-danger/30">
+        <CardHeader title="Danger zone" />
+        <div className="flex flex-wrap items-center justify-between gap-4 p-5"><div><p className="font-medium text-fg">Delete tenant analytics data</p><p className="mt-1 text-sm text-fg-muted">Permanently removes this tenant&apos;s events, sessions, schemas, and questions. The tenant and API key remain.</p></div><Button variant="danger" onClick={() => setConfirmingDataDelete(true)}>Delete data</Button></div>
+      </Card>
+
       <ConfirmDialog
         open={confirmingRotate}
         title={`Rotate API key for "${tenant.Name}"?`}
@@ -215,6 +231,8 @@ export default function TenantDetailClient() {
         onConfirm={rotate}
         onCancel={() => setConfirmingRotate(false)}
       />
+
+      <ConfirmDialog open={confirmingDataDelete} title={`Delete all analytics data for "${tenant.Name}"?`} description="This permanently removes events, sessions, schemas, and questions. This cannot be undone." confirmLabel="Delete all data" danger onConfirm={() => void deleteTenantData()} onCancel={() => setConfirmingDataDelete(false)} />
 
       {rotated && (
         <ConfirmDialog
