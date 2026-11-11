@@ -105,6 +105,7 @@ export const api = {
     remove: (id: string) => req<void>(`tenants/${id}`, { method: "DELETE" }),
     rotateKey: (id: string) => req<{ api_key: string }>(`tenants/${id}/rotate-key`, { method: "POST" }),
     usage: (id: string) => req<TenantUsage>(`tenant-usage/${encodeURIComponent(id)}`),
+    setQuota: (id: string, eventLimit: number, storageLimit: number) => req<void>(`tenants/${encodeURIComponent(id)}/quota`, { method: "PUT", body: JSON.stringify({ event_limit: eventLimit, storage_limit: storageLimit }) }),
   },
 
   sessions: {

@@ -96,3 +96,31 @@ func TestAdminService_RevokedAPIKeyIsRejected(t *testing.T) {
 		t.Fatal("revoked API key was accepted")
 	}
 }
+
+func TestAdminServiceSetQuotasValidatesAndPersists(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Tenant{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &AdminService{Repo: repository.New(db), Salt: "salt"}
+	tenant, err := svc.CreateTenant("test", "key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetQuotas(tenant.ID, 100, 2048); err != nil {
+		t.Fatal(err)
+	}
+	var saved model.Tenant
+	if err := db.First(&saved, "id = ?", tenant.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if saved.MonthlyEventLimit != 100 || saved.MonthlyStorageLimit != 2048 {
+		t.Fatalf("unexpected quotas: %+v", saved)
+	}
+	if err := svc.SetQuotas(tenant.ID, -1, 0); err == nil {
+		t.Fatal("negative quota accepted")
+	}
+}

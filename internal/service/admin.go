@@ -147,6 +147,22 @@ func (a *AdminService) SetTier(tenantID, tier string) error {
 	return nil
 }
 
+func (a *AdminService) SetQuotas(tenantID string, eventLimit, storageLimit int64) error {
+	if eventLimit < 0 || storageLimit < 0 {
+		return fmt.Errorf("quota limits cannot be negative")
+	}
+	res := a.Repo.DB.Model(&model.Tenant{}).Where("id = ?", tenantID).Updates(map[string]any{
+		"monthly_event_limit": eventLimit, "monthly_storage_limit": storageLimit,
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (a *AdminService) ListSchemas(tenantID string) ([]model.Schema, error) {
 	var list []model.Schema
 	if err := a.Repo.DB.Where("tenant_id = ?", tenantID).Find(&list).Error; err != nil {

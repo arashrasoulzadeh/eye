@@ -58,6 +58,28 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodPut && strings.HasSuffix(path, "/quota") {
+		tenantID := strings.TrimSuffix(path, "/quota")
+		var b struct {
+			EventLimit   int64 `json:"event_limit"`
+			StorageLimit int64 `json:"storage_limit"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.SetQuotas(tenantID, b.EventLimit, b.StorageLimit); err != nil {
+			status := http.StatusBadRequest
+			if err == gorm.ErrRecordNotFound {
+				status = http.StatusNotFound
+			}
+			http.Error(w, err.Error(), status)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		list, _ := h.Svc.ListTenants()
