@@ -14,6 +14,7 @@ const NAV = [
   { href: "/events", label: "Events", icon: "▤" },
   { href: "/alerts", label: "Alerts", icon: "!" },
   { href: "/operations", label: "Operations", icon: "⚑" },
+  { href: "/admin-users", label: "Admin Users", icon: "♙" },
   { href: "/graphs", label: "Graphs", icon: "◒" },
   { href: "/questions", label: "Questions", icon: "?" },
   { href: "/test-event", label: "Test Event", icon: "▶" },
