@@ -109,6 +109,7 @@ func main() {
 	adminAuth := func(h http.Handler) http.Handler { return handler.AdminAuth(cfg.AdminKey, handler.Audit(db, h)) }
 	mux.Handle("/tenants", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
 	mux.Handle("/tenants/", adminAuth(&handler.TenantsHandler{Svc: adminSvc}))
+	mux.Handle("/tenant-usage/", adminAuth(&handler.UsageHandler{DB: db, Svc: &service.UsageService{DB: db}}))
 	mux.Handle("/schemas", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	mux.Handle("/schemas/", adminAuth(&handler.SchemasHandler{Svc: adminSvc}))
 	// /sessions accepts the admin key OR a tenant's own API key for POST
