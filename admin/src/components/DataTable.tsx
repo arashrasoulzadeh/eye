@@ -22,6 +22,7 @@ export function DataTable<T>({
   onQueryChange,
   totalRows,
   showActions = true,
+  loading = false,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -33,6 +34,7 @@ export function DataTable<T>({
   onQueryChange?: (query: TableQuery) => void;
   totalRows?: number;
   showActions?: boolean;
+  loading?: boolean;
 }) {
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(() =>
@@ -91,6 +93,9 @@ export function DataTable<T>({
     }
   }
 
+  if (loading && rows.length === 0) {
+    return <div className="space-y-3 px-5 py-10" aria-label="Loading table"><div className="h-4 animate-pulse rounded bg-surface-2"/><div className="h-4 animate-pulse rounded bg-surface-2"/><div className="h-4 animate-pulse rounded bg-surface-2"/></div>;
+  }
   if (rows.length === 0) {
     return <div className="px-5 py-10 text-center text-sm text-fg-muted">{emptyMessage}</div>;
   }
@@ -111,6 +116,7 @@ export function DataTable<T>({
         />
         <span className="text-xs text-fg-muted">{serverSide ? totalRows ?? rows.length : filtered.length} rows</span>
       </div>
+      {loading && <div className="h-1 animate-pulse bg-accent" aria-label="Refreshing table" />}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

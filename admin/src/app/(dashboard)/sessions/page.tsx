@@ -20,13 +20,11 @@ function deviceSummary(s: Session): string {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
   const { push } = useToast();
 
   useEffect(() => {
-    api.sessions
-      .list()
-      .then(setSessions)
-      .catch((e: ApiError) => push("error", e.message));
+    api.sessions.list().then(setSessions).catch((e: ApiError) => push("error", e.message)).finally(() => setLoading(false));
   }, [push]);
 
   const columns: Column<Session>[] = [
@@ -49,7 +47,7 @@ export default function SessionsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`All sessions (${sessions.length})`} />
-        <DataTable columns={columns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions yet." />
+        <DataTable columns={columns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions yet." loading={loading} />
       </Card>
     </div>
   );

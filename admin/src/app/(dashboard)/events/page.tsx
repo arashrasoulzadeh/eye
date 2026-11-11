@@ -136,7 +136,7 @@ export default function EventsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Events (${events.length})`} />
-        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide onQueryChange={loadTable} />
+        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events match these filters." serverSide loading={loading} onQueryChange={loadTable} />
       </Card>
     </div>
   );
