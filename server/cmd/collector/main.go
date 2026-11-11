@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +36,7 @@ type server struct {
 	seen     map[string]struct{}
 	sessions map[string]*Session
 	limiters map[string]*service.Bucket
+	apiURL   string
 }
 
 type Session struct {
@@ -46,7 +52,32 @@ func newServer() *server {
 		seen:     map[string]struct{}{},
 		sessions: map[string]*Session{},
 		limiters: map[string]*service.Bucket{},
+		apiURL:   strings.TrimRight(os.Getenv("EYE_API_URL"), "/"),
 	}
+}
+
+func (s *server) proxy(ctx context.Context, path string, body any) ([]byte, int, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.apiURL+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, 0, err
+	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if keys := md.Get("x-api-key"); len(keys) > 0 {
+			req.Header.Set("x-api-key", keys[0])
+		}
+	}
+	req.Header.Set("content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	return data, resp.StatusCode, err
 }
 
 func (s *server) authenticate(ctx context.Context) (string, error) {
@@ -79,6 +110,22 @@ func (s *server) CreateSession(ctx context.Context, req *eyev1.CreateSessionRequ
 	if req.GetTenantId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
 	}
+	if s.apiURL != "" {
+		data, code, err := s.proxy(ctx, "/sessions", map[string]string{"tenant_id": req.GetTenantId()})
+		if err != nil {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		if code >= 300 {
+			return nil, status.Error(codes.Unauthenticated, string(data))
+		}
+		var session struct {
+			ID string `json:"ID"`
+		}
+		if err := json.Unmarshal(data, &session); err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return &eyev1.CreateSessionResponse{SessionId: session.ID, ExpiresAt: time.Now().Add(24 * time.Hour).Unix()}, nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := hex.EncodeToString([]byte(req.GetTenantId() + ":" + time.Now().String()))[:32]
@@ -89,6 +136,27 @@ func (s *server) CreateSession(ctx context.Context, req *eyev1.CreateSessionRequ
 }
 
 func (s *server) Ingest(ctx context.Context, req *eyev1.IngestRequest) (*eyev1.IngestResponse, error) {
+	if s.apiURL != "" {
+		events := make([]map[string]any, 0, len(req.GetEvents()))
+		for _, event := range req.GetEvents() {
+			events = append(events, map[string]any{"event_id": event.GetEventId(), "event_name": event.GetEventName(), "client_ts": event.GetClientTs(), "payload": json.RawMessage(event.GetPayload()), "dims": event.GetDims(), "session_id": event.GetSessionId(), "source": event.GetSource()})
+		}
+		data, code, err := s.proxy(ctx, "/ingest", map[string]any{"events": events})
+		if err != nil {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		if code >= 300 {
+			return nil, status.Error(codes.Unauthenticated, string(data))
+		}
+		var result struct {
+			Accepted int32 `json:"accepted"`
+			Rejected int32 `json:"rejected"`
+		}
+		if err := json.Unmarshal(data, &result); err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return &eyev1.IngestResponse{Accepted: result.Accepted, Rejected: result.Rejected}, nil
+	}
 	tenant, err := s.authenticate(ctx)
 	if err != nil {
 		return nil, err

@@ -27,6 +27,8 @@ services:
   collector:
     build: { context: ., dockerfile: Dockerfile }
     command: ["/app/eye-collector"]
+    environment:
+      EYE_API_URL: ${EYE_API_URL:-}
     ports: ["50051:50051"]
     restart: unless-stopped
   admin:
