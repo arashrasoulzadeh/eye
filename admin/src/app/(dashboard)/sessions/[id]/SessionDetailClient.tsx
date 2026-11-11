@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, Session, Event, Tenant, ApiError } from "@/lib/api";
-import { Card, CardHeader, StatCard } from "@/components/Card";
+import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
