@@ -21,6 +21,7 @@ export default function AlertsPage() {
   const [threshold, setThreshold] = useState(10);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toDelete, setToDelete] = useState<AlertRule | null>(null);
   const { push } = useToast();
 
@@ -28,24 +29,19 @@ export default function AlertsPage() {
     api.tenants.list().then((ts) => {
       setTenants(ts);
       if (ts[0]) setTenantId(ts[0].ID);
-    });
-    api.events
-      .list({})
-      .then((all) => {
-        const counts = new Map<string, number>();
-        for (const e of all) counts.set(e.EventName, (counts.get(e.EventName) || 0) + 1);
-        setEventNameOptions([...counts.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => ({ value: n })));
-      })
-      .catch(() => {});
-  }, []);
+    }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
+  }, [push]);
+
+  useEffect(() => { if (!tenantId) return; api.events.list({ tenant_id: tenantId, limit: 100, sort: "desc" }).then((events) => setEventNameOptions([...new Set(events.map((event) => event.EventName))].map((value) => ({ value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [push, tenantId]);
 
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
+    setLoading(true);
     try {
       const page = await api.alerts.listPage(tenantId, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setRules(page.items); setTotalRules(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load alert rules");
-    }
+    } finally { setLoading(false); }
   }, [push, tenantId]);
 
   useEffect(() => {
@@ -165,7 +161,7 @@ export default function AlertsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Alert rules (${rules.length})`} />
-        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalRules} />
+        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." loading={loading} serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalRules} />
       </Card>
 
       <ConfirmDialog
