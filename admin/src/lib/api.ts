@@ -36,6 +36,7 @@ export type DashboardCache = {
 };
 export type RuntimeSettings = { ID: number; RetentionHours: number; RateLimitPerSecond: number; UpdatedAt: number };
 export type Cohort = { ID: string; TenantID: string; Name: string; EventName: string; MinCount: number; CreatedAt: number; UpdatedAt: number };
+export type CohortPage = { items: Cohort[]; total: number; limit: number; offset: number };
 export type AlertRule = {
   ID: string;
   TenantID: string;
@@ -161,6 +162,7 @@ export const api = {
 
   cohorts: {
     list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<Cohort[]>(`cohorts?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
+    listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<CohortPage>(`cohorts?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     create: (tenantId: string, name: string, eventName: string, minCount: number) =>
       req<Cohort>("cohorts", {
         method: "POST",

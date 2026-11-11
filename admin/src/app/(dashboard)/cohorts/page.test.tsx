@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       tenants: { list: vi.fn() },
       events: { list: vi.fn() },
-      cohorts: { list: vi.fn(), create: vi.fn(), materialize: vi.fn() },
+      cohorts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), materialize: vi.fn() },
     },
   };
 });
@@ -32,6 +32,7 @@ describe("CohortsPage", () => {
     vi.mocked(api.cohorts.list).mockResolvedValue([
       { ID: "c1", TenantID: "t1", Name: "power_users", EventName: "purchase", MinCount: 3, CreatedAt: 0, UpdatedAt: 0 },
     ]);
+    vi.mocked(api.cohorts.listPage).mockResolvedValue({ items: [{ ID: "c1", TenantID: "t1", Name: "power_users", EventName: "purchase", MinCount: 3, CreatedAt: 0, UpdatedAt: 0 }], total: 1, limit: 10, offset: 0 });
   });
 
   it("lists existing cohorts for the selected tenant", async () => {

@@ -13,6 +13,7 @@ export default function CohortsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const [totalCohorts, setTotalCohorts] = useState(0);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
 
   const [name, setName] = useState("");
@@ -41,7 +42,7 @@ export default function CohortsPage() {
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
     try {
-      setCohorts(await api.cohorts.list(tenantId, { filter: query.filter, dir: query.sortDir }));
+      const page = await api.cohorts.listPage(tenantId, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setCohorts(page.items); setTotalCohorts(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load cohorts");
     }
@@ -145,7 +146,7 @@ export default function CohortsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Cohorts (${cohorts.length})`} />
-        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={cohorts.length} />
+        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalCohorts} />
       </Card>
     </div>
   );
