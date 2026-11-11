@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError, DashboardCache } from "@/lib/api";
 import { StatCard, Card, CardHeader } from "@/components/Card";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
+import Link from "next/link";
 
 export default function Dashboard() {
   const [cache, setCache] = useState<DashboardCache | null>(null);
@@ -54,13 +55,13 @@ export default function Dashboard() {
             ["Register a schema", "/schemas"],
             ["View sessions", "/sessions"],
           ].map(([label, href]) => (
-            <a
+            <Link
               key={href}
               href={href}
               className="rounded-lg border border-border px-3 py-2.5 text-sm text-fg hover:border-accent hover:text-accent"
             >
               {label}
-            </a>
+            </Link>
           ))}
         </div>
       </Card>
