@@ -4,7 +4,7 @@
 - ORM: GORM for all DB access.
 
 ## Production hardening
-- [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations
+- [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations — driver selection and Timescale hypertable/index migrations are implemented; tenant-context middleware and RLS policies remain
 - [ ] Durable collector transport and persisted ingestion queue
 - [ ] Prometheus/Grafana dashboards, structured logs, and alerting
 - [ ] Automated database backups and restore-drill verification

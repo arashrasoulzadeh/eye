@@ -57,6 +57,12 @@ func main() {
 		logger.Error("migrate failed", "err", err)
 		os.Exit(1)
 	}
+	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
+		if err := storage.ApplyPostgresFeatures(db); err != nil {
+			logger.Error("postgres migrations failed", "err", err)
+			os.Exit(1)
+		}
+	}
 	adminSvc := &service.AdminService{Repo: repo, Salt: cfg.APIKeySalt}
 	expSvc := &service.ExperimentService{DB: db}
 	// Phase 14: per-tenant rate tiers. Only the synchronous /ingest path
