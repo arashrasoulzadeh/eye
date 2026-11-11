@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -72,11 +73,24 @@ func (s *WebhookDeadLetterService) Replay(id string) error {
 }
 
 func (s *WebhookDeadLetterService) List(limit int) ([]model.WebhookDeadLetter, error) {
+	return s.ListFiltered(limit, "", "desc")
+}
+
+func (s *WebhookDeadLetterService) ListFiltered(limit int, filter, direction string) ([]model.WebhookDeadLetter, error) {
 	var list []model.WebhookDeadLetter
 	if limit <= 0 {
 		limit = 100
 	}
-	if err := s.DB.Order("failed_at desc").Limit(limit).Find(&list).Error; err != nil {
+	order := "failed_at desc"
+	if strings.EqualFold(direction, "asc") {
+		order = "failed_at asc"
+	}
+	q := s.DB.Order(order).Limit(limit)
+	if filter = strings.TrimSpace(filter); filter != "" {
+		like := "%" + filter + "%"
+		q = q.Where("url LIKE ? OR last_error LIKE ? OR id LIKE ?", like, like, like)
+	}
+	if err := q.Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil

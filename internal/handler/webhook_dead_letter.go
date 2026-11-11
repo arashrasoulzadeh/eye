@@ -50,7 +50,7 @@ func (h *WebhookDeadLetterHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			limit = parsed
 		}
 	}
-	list, err := h.Svc.List(limit)
+	list, err := h.Svc.ListFiltered(limit, r.URL.Query().Get("filter"), r.URL.Query().Get("dir"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

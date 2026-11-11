@@ -229,7 +229,7 @@ export const api = {
     backfillAggregation: (id: string) => req<unknown>(`aggregations/${encodeURIComponent(id)}/backfill`, { method: "POST" }),
     anomalies: () => req<unknown[]>("anomalies"),
     auditLog: () => req<unknown[]>("audit-log?limit=100"),
-    deadLetters: () => req<unknown[]>("webhooks/dead-letter?limit=100"),
+    deadLetters: (params: { filter?: string; dir?: string } = {}) => req<unknown[]>(`webhooks/dead-letter?limit=100&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     deleteDeadLetter: (id: string) => req<void>(`webhooks/dead-letter?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     replayDeadLetter: (id: string) => req<void>(`webhooks/dead-letter/${encodeURIComponent(id)}/replay`, { method: "POST" }),
     replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
