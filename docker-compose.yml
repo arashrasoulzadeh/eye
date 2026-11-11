@@ -7,8 +7,8 @@ services:
       PORT: 8080
       DB_PATH: /data/eye.db
       SNAPSHOT_DIR: /data/snapshots
-      ADMIN_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
-      API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}
+      ADMIN_KEY: ${ADMIN_KEY:-${admin_key:?set admin_key or ADMIN_KEY}}
+      API_KEY_SALT: ${API_KEY_SALT:-${api_key_salt:?set api_key_salt or API_KEY_SALT}}
     ports: ["8080:8080", "50052:50052"]
     volumes: ["eye-data:/data"]
     restart: unless-stopped
@@ -20,7 +20,7 @@ services:
   admin:
     build: { context: ./admin, dockerfile: Dockerfile }
     environment:
-      ADMIN_API_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
+      ADMIN_API_KEY: ${ADMIN_KEY:-${admin_key:?set admin_key or ADMIN_KEY}}
       BACKEND_URL: http://server:8080
     ports: ["3003:3000"]
     depends_on: [server]
