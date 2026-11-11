@@ -16,6 +16,10 @@ type queryCacheEntry struct {
 
 type QueryService struct {
 	DB      *gorm.DB
+	// SetTenantContext is configured for PostgreSQL/Timescale deployments so
+	// every tenant-filtered read also carries transaction-local RLS context.
+	// It remains nil for SQLite/dev deployments.
+	SetTenantContext func(*gorm.DB, string) error
 	cacheMu sync.Mutex
 	cache   map[string]queryCacheEntry
 }
@@ -64,7 +68,20 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 		return result, nil
 	}
 	q.cacheMu.Unlock()
-	query := q.DB.Model(&model.Event{})
+	queryDB := q.DB
+	var tx *gorm.DB
+	if q.SetTenantContext != nil && f.TenantID != "" {
+		tx = q.DB.Begin()
+		if tx.Error != nil {
+			return nil, tx.Error
+		}
+		if err := q.SetTenantContext(tx, f.TenantID); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		queryDB = tx
+	}
+	query := queryDB.Model(&model.Event{})
 	if f.TenantID != "" {
 		query = query.Where("tenant_id = ?", f.TenantID)
 	}
@@ -97,7 +114,15 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 	}
 	var list []model.Event
 	if err := query.Order(order + ", event_id " + map[bool]string{true: "desc", false: "asc"}[f.SortDesc]).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		if tx != nil {
+			tx.Rollback()
+		}
 		return nil, err
+	}
+	if tx != nil {
+		if err := tx.Commit().Error; err != nil {
+			return nil, err
+		}
 	}
 	q.cacheMu.Lock()
 	if q.cache == nil {

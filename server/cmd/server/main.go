@@ -125,6 +125,9 @@ func main() {
 	mux.Handle("/events", eventsHandler)
 	mux.Handle("/events/", eventsHandler)
 	qs := &service.QueryService{DB: db}
+	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
+		qs.SetTenantContext = storage.SetTenantContext
+	}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
