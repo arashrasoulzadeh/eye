@@ -62,6 +62,11 @@ describe("DataTable", () => {
     expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
   });
 
+  it("uses the server-reported total for server-side page counts", () => {
+    render(<DataTable columns={columns} rows={rows(10)} rowKey={(r) => r.id} pageSize={10} serverSide totalRows={25} />);
+    expect(screen.getByText(/Page 1 of 3/)).toBeInTheDocument();
+  });
+
   it("filters across all row fields", async () => {
     render(<DataTable columns={columns} rows={rows(3)} rowKey={(r) => r.id} />);
     await userEvent.type(screen.getByRole("textbox", { name: "Filter table" }), "r1");
