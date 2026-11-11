@@ -45,6 +45,7 @@ spec:
             - { name: SNAPSHOT_DIR, value: /data/snapshots }
             - { name: ADMIN_KEY, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: ADMIN_KEY } } }
             - { name: API_KEY_SALT, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: API_KEY_SALT } } }
+            - { name: DEAD_LETTER_NOTIFY_URL, value: "" }
           volumeMounts: [{ name: data, mountPath: /data }]
       volumes: [{ name: data, persistentVolumeClaim: { claimName: eye-data } }]
 ---

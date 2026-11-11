@@ -16,6 +16,7 @@ services:
       SNAPSHOT_DIR: /data/snapshots
       ADMIN_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
       API_KEY_SALT: ${API_KEY_SALT:?set API_KEY_SALT}
+      DEAD_LETTER_NOTIFY_URL: ${DEAD_LETTER_NOTIFY_URL:-}
     ports: ["8080:8080", "50052:50052"]
     volumes: ["eye-data:/data"]
     healthcheck:

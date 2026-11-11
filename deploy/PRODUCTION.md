@@ -24,6 +24,10 @@ Bootstrap the non-owner role with `deploy/postgres/roles.sql`, substituting its 
 
 Set `ENABLE_POSTGRES_RLS=true` only after the API uses the non-owner role and the RLS integration workflow passes.
 
+Set `DEAD_LETTER_NOTIFY_URL` to an internal HTTPS webhook if operators should be
+notified when an alert delivery exhausts all retries. Notifications are
+best-effort; the dead-letter record remains the source of truth.
+
 ## Required secrets
 
 Provide `ADMIN_KEY`, `API_KEY_SALT`, and `DATABASE_URL` through a secret manager or mounted files. Never commit these values. Set `CORS_ORIGINS` to the exact customer origins in production.

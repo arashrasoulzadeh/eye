@@ -6,6 +6,7 @@ server:
   adminKey: ""
   apiKeySalt: ""
   databaseURL: ""
+  deadLetterNotifyURL: ""
 ingress:
   enabled: false
   className: nginx
