@@ -12,6 +12,16 @@
 - [x] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles — CORS allowlist, expiration, explicit tenant-key revocation, optional OIDC email/group allowlists, and `*_FILE` secret mounts are implemented
 - [x] Pagination, cursor queries, analytics caching, and scalable aggregation workers — cursor pagination, bounded query caching, standalone aggregation worker, and PostgreSQL advisory locking are implemented
 
+## Product expansion roadmap
+- [ ] Multi-user admin workspace — users, invitations, teams, roles, session management, and migration from the single admin key
+- [ ] Usage metering, quotas, and billing foundations — period-based event/storage counters, plan limits, enforcement, usage API, and quota alerts
+- [ ] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
+- [ ] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations
+- [ ] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies
+- [ ] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications
+- [ ] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics
+- [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
+
 ## Workflow rule
 - After completing each checkbox: run required tests, commit, push.
 
