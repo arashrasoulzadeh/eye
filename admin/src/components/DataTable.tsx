@@ -167,14 +167,14 @@ export function DataTable<T>({
           </span>
           <div className="flex gap-1">
             <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              onClick={() => notify({ page: Math.max(0, clampedPage - 1) })}
               disabled={clampedPage === 0}
               className="rounded-md px-2 py-1 hover:bg-surface-2 disabled:opacity-40"
             >
               Prev
             </button>
             <button
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              onClick={() => notify({ page: Math.min(pageCount - 1, clampedPage + 1) })}
               disabled={clampedPage >= pageCount - 1}
               className="rounded-md px-2 py-1 hover:bg-surface-2 disabled:opacity-40"
             >

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DataTable, Column } from "./DataTable";
@@ -51,6 +51,15 @@ describe("DataTable", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText(/Page 3 of 3/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
+  it("notifies the API when server-side pagination changes page", async () => {
+    const onQueryChange = vi.fn();
+    render(<DataTable columns={columns} rows={rows(10)} rowKey={(r) => r.id} pageSize={10} serverSide totalRows={25} onQueryChange={onQueryChange} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
   });
 
   it("filters across all row fields", async () => {
