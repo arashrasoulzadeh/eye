@@ -48,7 +48,9 @@ type EventFilter struct {
 	// gRPC streaming pagination (query_grpc.go) and existing callers rely on
 	// a stable, append-only chronological order; only the admin Events page
 	// opts into newest-first via the REST handler's `sort=desc` param.
-	SortDesc bool
+	SortDesc      bool
+	AfterClientTS *int64
+	AfterEventID  string
 }
 
 // Filter returns events matching all set fields of f, ordered by ClientTS
@@ -86,8 +88,15 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 	if f.SortDesc {
 		order = "client_ts desc"
 	}
+	if f.AfterClientTS != nil && f.AfterEventID != "" {
+		if f.SortDesc {
+			query = query.Where("(client_ts < ?) OR (client_ts = ? AND event_id < ?)", *f.AfterClientTS, *f.AfterClientTS, f.AfterEventID)
+		} else {
+			query = query.Where("(client_ts > ?) OR (client_ts = ? AND event_id > ?)", *f.AfterClientTS, *f.AfterClientTS, f.AfterEventID)
+		}
+	}
 	var list []model.Event
-	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+	if err := query.Order(order + ", event_id " + map[bool]string{true: "desc", false: "asc"}[f.SortDesc]).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
 		return nil, err
 	}
 	q.cacheMu.Lock()
