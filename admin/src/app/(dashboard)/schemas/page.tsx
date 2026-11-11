@@ -69,6 +69,7 @@ export default function SchemasPage() {
     <div>
       <h1 className="text-xl font-semibold text-fg">Schemas</h1>
       <p className="mt-1 text-sm text-fg-muted">Register and version event payload schemas per tenant.</p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Schema help</summary><p className="mt-2 text-fg-muted">Schemas are immutable versions. Registering the same name creates a new version; existing event history is not rewritten.</p></details>
 
       <Card className="mt-6">
         <CardHeader title="Register schema" />

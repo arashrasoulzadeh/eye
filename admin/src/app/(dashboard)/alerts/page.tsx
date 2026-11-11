@@ -128,6 +128,7 @@ export default function AlertsPage() {
         Threshold rules checked against materialized event counts and dispatched to a webhook. Evaluation is a 1-minute poll, not
         real-time push (see phases.md Phase 8).
       </p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Alert help</summary><p className="mt-2 text-fg-muted">Rules are evaluated by the server polling job. Enable only tested webhook destinations; delivery failures are retried and eventually appear in Dead Letters.</p></details>
 
       <Card className="mt-6">
         <CardHeader title="New rule" />

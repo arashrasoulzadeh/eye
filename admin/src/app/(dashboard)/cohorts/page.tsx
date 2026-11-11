@@ -109,6 +109,7 @@ export default function CohortsPage() {
         Rule-based segments: sessions with at least N occurrences of an event. Materialization is on-demand (run it below), not a live
         stream — matching the backend&apos;s honest recompute job (see phases.md Phase 6).
       </p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Cohort help</summary><p className="mt-2 text-fg-muted">Creating a cohort stores its rule. Use Materialize to recompute matching sessions; membership is a snapshot, not a live subscription.</p></details>
 
       <Card className="mt-6">
         <CardHeader title="New cohort" />
