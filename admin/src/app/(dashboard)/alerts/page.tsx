@@ -175,9 +175,9 @@ export default function AlertsPage() {
           </div>
           <div className="w-36">
             <Label>Rule type</Label>
-            <Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="count">Count</option><option value="absence">Absence</option></Select>
+            <Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="count">Count</option><option value="absence">Absence</option><option value="conversion">Conversion</option></Select>
           </div>
-          {metric === "absence" && <div className="w-36"><Label>Window (seconds)</Label><Input type="number" min={30} value={windowSeconds} onChange={(e) => setWindowSeconds(Math.max(30, Number(e.target.value) || 30))} /></div>}
+          {(metric === "absence" || metric === "conversion") && <div className="w-36"><Label>Window (seconds)</Label><Input type="number" min={30} value={windowSeconds} onChange={(e) => setWindowSeconds(Math.max(30, Number(e.target.value) || 30))} /></div>}
           <div className="w-28">
             <Label>Threshold (count)</Label>
             <Input type="number" min={1} value={threshold} onChange={(e) => setThreshold(Math.max(1, Number(e.target.value) || 1))} />

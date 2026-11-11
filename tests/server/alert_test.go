@@ -28,16 +28,48 @@ func TestAlertServiceAbsenceRule(t *testing.T) {
 	db := newAlertTestDB(t)
 	svc := &service.AlertService{DB: db}
 	rule, err := svc.CreateWithWindow("t1", "heartbeat", "", "absence", 0, 60, "https://example.com/hook")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	met, count, err := svc.Evaluate(rule)
-	if err != nil { t.Fatal(err) }
-	if !met || count != 0 { t.Fatalf("expected absence to be met with zero events, met=%v count=%d", met, count) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !met || count != 0 {
+		t.Fatalf("expected absence to be met with zero events, met=%v count=%d", met, count)
+	}
 	db.Create(&model.Event{EventID: "e1", TenantID: "t1", EventName: "heartbeat", IngestTS: time.Now()})
 	met, count, err = svc.Evaluate(rule)
-	if err != nil { t.Fatal(err) }
-	if met || count != 1 { t.Fatalf("expected recent event to clear absence, met=%v count=%d", met, count) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if met || count != 1 {
+		t.Fatalf("expected recent event to clear absence, met=%v count=%d", met, count)
+	}
 	updated, err := svc.UpdateWithWindow(rule.ID, "heartbeat", "", "absence", 0, 120, rule.WebhookURL)
-	if err != nil || updated.WindowSeconds != 120 { t.Fatalf("expected absence window update, rule=%+v err=%v", updated, err) }
+	if err != nil || updated.WindowSeconds != 120 {
+		t.Fatalf("expected absence window update, rule=%+v err=%v", updated, err)
+	}
+}
+
+func TestAlertServiceConversionRule(t *testing.T) {
+	db := newAlertTestDB(t)
+	svc := &service.AlertService{DB: db}
+	now := time.Now()
+	db.Create(&model.Event{EventID: "c1", TenantID: "t1", SessionID: "s1", EventName: "landing", IngestTS: now})
+	db.Create(&model.Event{EventID: "c2", TenantID: "t1", SessionID: "s1", EventName: "purchase", IngestTS: now})
+	db.Create(&model.Event{EventID: "c3", TenantID: "t1", SessionID: "s2", EventName: "landing", IngestTS: now})
+	rule, err := svc.CreateWithWindow("t1", "landing,purchase", "", "conversion", 1, 3600, "https://example.com/hook")
+	if err != nil {
+		t.Fatal(err)
+	}
+	met, count, err := svc.Evaluate(rule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !met || count != 1 {
+		t.Fatalf("expected one converted session, met=%v count=%d", met, count)
+	}
 }
 
 func TestAlertServiceCRUD(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -76,7 +77,9 @@ func (a *AlertService) UpdateWithWindow(id, eventName, dimsKey, metric string, t
 		rule.Metric = metric
 	}
 	rule.Threshold = threshold
-	if windowSeconds > 0 || metric == "absence" { rule.WindowSeconds = windowSeconds }
+	if windowSeconds > 0 || metric == "absence" {
+		rule.WindowSeconds = windowSeconds
+	}
 	rule.WebhookURL = webhookURL
 	rule.UpdatedAt = time.Now().Unix()
 	if err := a.DB.Save(rule).Error; err != nil {
@@ -109,14 +112,58 @@ func (a *AlertService) SetEnabled(id string, enabled bool) (*model.AlertRule, er
 // dims bucket for (TenantID, EventName); otherwise only the matching dims
 // bucket is used.
 func (a *AlertService) Evaluate(rule *model.AlertRule) (met bool, count int64, err error) {
+	if rule.Metric == "conversion" {
+		names := strings.Split(rule.EventName, ",")
+		for i := range names {
+			names[i] = strings.TrimSpace(names[i])
+		}
+		if len(names) < 2 {
+			return false, 0, nil
+		}
+		window := rule.WindowSeconds
+		if window <= 0 {
+			window = 86400
+		}
+		cutoff := time.Now().Add(-time.Duration(window) * time.Second)
+		var events []model.Event
+		if err := a.DB.Where("tenant_id = ? AND ingest_ts >= ?", rule.TenantID, cutoff).Where("event_name IN ?", names).Find(&events).Error; err != nil {
+			return false, 0, err
+		}
+		completed := make(map[string]map[string]bool)
+		for _, event := range events {
+			if completed[event.SessionID] == nil {
+				completed[event.SessionID] = map[string]bool{}
+			}
+			completed[event.SessionID][event.EventName] = true
+		}
+		for _, seen := range completed {
+			ok := true
+			for _, name := range names {
+				if !seen[name] {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				count++
+			}
+		}
+		return count >= rule.Threshold, count, nil
+	}
 	if rule.Metric == "absence" {
 		window := rule.WindowSeconds
-		if window <= 0 { window = 300 }
+		if window <= 0 {
+			window = 300
+		}
 		cutoff := time.Now().Add(-time.Duration(window) * time.Second)
 		var total int64
 		q := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND event_name = ? AND ingest_ts >= ?", rule.TenantID, rule.EventName, cutoff)
-		if rule.DimsKey != "" { q = q.Where("dims = ?", rule.DimsKey) }
-		if err := q.Count(&total).Error; err != nil { return false, 0, err }
+		if rule.DimsKey != "" {
+			q = q.Where("dims = ?", rule.DimsKey)
+		}
+		if err := q.Count(&total).Error; err != nil {
+			return false, 0, err
+		}
 		return total == 0, total, nil
 	}
 	q := a.DB.Model(&model.AggregateCount{}).Where("tenant_id = ? AND event_name = ?", rule.TenantID, rule.EventName)
