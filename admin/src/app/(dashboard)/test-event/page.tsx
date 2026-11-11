@@ -134,6 +134,7 @@ export default function TestEventPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Test Event</h1>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Test event help</summary><p className="mt-2 text-fg-muted">This page sends real authenticated events through the configured ingest path. Use a development tenant, validate JSON before sending, and use the recent-events list to confirm ingestion.</p></details>
       <p className="mt-1 text-sm text-fg-muted">Manually send an event through /ingest and watch it land.</p>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
