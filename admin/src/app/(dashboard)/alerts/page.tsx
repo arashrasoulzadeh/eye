@@ -172,7 +172,8 @@ export default function AlertsPage() {
           </div>
           <div className="min-w-[180px]">
             <Label>Event name</Label>
-            <Combobox value={eventName} onChange={setEventName} options={eventNameOptions} placeholder="error" />
+            <Combobox value={eventName} onChange={setEventName} options={eventNameOptions} placeholder={metric === "conversion" ? "landing,purchase" : "error"} />
+            {metric === "conversion" && <p className="mt-1 text-[11px] text-fg-muted">Enter the ordered sequence as comma-separated event names.</p>}
           </div>
           <div className="w-36">
             <Label>Rule type</Label>
