@@ -21,6 +21,7 @@ export default function CohortsPage() {
   const [eventName, setEventName] = useState("");
   const [minCount, setMinCount] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [materializing, setMaterializing] = useState<string | null>(null);
   const { push } = useToast();
@@ -29,24 +30,19 @@ export default function CohortsPage() {
     api.tenants.list().then((ts) => {
       setTenants(ts);
       if (ts[0]) setTenantId(ts[0].ID);
-    });
-    api.events
-      .list({})
-      .then((all) => {
-        const counts = new Map<string, number>();
-        for (const e of all) counts.set(e.EventName, (counts.get(e.EventName) || 0) + 1);
-        setEventNameOptions([...counts.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => ({ value: n })));
-      })
-      .catch(() => {});
-  }, []);
+    }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
+  }, [push]);
+
+  useEffect(() => { if (!tenantId) return; api.events.list({ tenant_id: tenantId, limit: 100, sort: "desc" }).then((events) => setEventNameOptions([...new Set(events.map((event) => event.EventName))].map((value) => ({ value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [push, tenantId]);
 
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
+    setLoading(true);
     try {
       const page = await api.cohorts.listPage(tenantId, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setCohorts(page.items); setTotalCohorts(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load cohorts");
-    }
+    } finally { setLoading(false); }
   }, [push, tenantId]);
 
   useEffect(() => {
@@ -82,7 +78,7 @@ export default function CohortsPage() {
       setMaterializing(null);
     }
   }
-  async function remove(c: Cohort) { if (!globalThis.window.confirm(`Delete cohort "${c.Name}" and its membership snapshot?`)) return; setDeleting(c.ID); try { await api.cohorts.remove(c.ID); await refresh(); } finally { setDeleting(null); } }
+  async function remove(c: Cohort) { if (!globalThis.window.confirm(`Delete cohort "${c.Name}" and its membership snapshot?`)) return; setDeleting(c.ID); try { await api.cohorts.remove(c.ID); await refresh(); } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to delete cohort"); } finally { setDeleting(null); } }
 
   const columns: Column<Cohort>[] = [
     { key: "name", header: "Name", render: (c) => <span className="font-medium text-fg">{c.Name}</span>, sortValue: (c) => c.Name },
@@ -149,7 +145,7 @@ export default function CohortsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Cohorts (${cohorts.length})`} />
-        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalCohorts} />
+        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." loading={loading} serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalCohorts} />
       </Card>
     </div>
   );
