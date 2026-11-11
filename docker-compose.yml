@@ -34,6 +34,7 @@ services:
   admin:
     build: { context: ./admin, dockerfile: Dockerfile }
     environment:
+      HOSTNAME: 0.0.0.0
       ADMIN_API_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
       BACKEND_URL: http://server:8080
       OIDC_ISSUER: ${OIDC_ISSUER:-}
