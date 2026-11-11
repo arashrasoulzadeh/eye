@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -17,17 +17,17 @@ export default function TenantsPage() {
   const [rotated, setRotated] = useState<{ tenant: Tenant; key: string } | null>(null);
   const { push } = useToast();
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       setTenants(await api.tenants.list());
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load tenants");
     }
-  }
+  }, [push]);
 
   useEffect(() => {
-    refresh();
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   async function create() {
     if (!name.trim()) return;

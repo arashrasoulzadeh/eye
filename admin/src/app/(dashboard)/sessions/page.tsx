@@ -27,7 +27,7 @@ export default function SessionsPage() {
       .list()
       .then(setSessions)
       .catch((e: ApiError) => push("error", e.message));
-  }, []);
+  }, [push]);
 
   const columns: Column<Session>[] = [
     { key: "id", header: "Session ID", render: (s) => <EntityLink kind="session" id={s.ID} truncate={12} /> },

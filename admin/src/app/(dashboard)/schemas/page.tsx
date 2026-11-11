@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Tenant, Schema, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -25,18 +25,18 @@ export default function SchemasPage() {
     });
   }, []);
 
-  async function loadSchemas(id: string) {
+  const loadSchemas = useCallback(async (id: string) => {
     if (!id) return;
     try {
       setSchemas(await api.schemas.list(id));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load schemas");
     }
-  }
+  }, [push]);
 
   useEffect(() => {
-    loadSchemas(tenantId);
-  }, [tenantId]);
+    void loadSchemas(tenantId);
+  }, [loadSchemas, tenantId]);
 
   async function register() {
     try {

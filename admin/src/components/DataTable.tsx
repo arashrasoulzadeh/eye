@@ -57,7 +57,7 @@ export function DataTable<T>({
       return values.some((value) => value !== undefined && String(value).toLowerCase().includes(query)) ||
         JSON.stringify(row).toLowerCase().includes(query);
     });
-  }, [rows, columns, filter]);
+  }, [rows, columns, filter, serverSide]);
 
   const sorted = useMemo(() => {
     if (serverSide || !sortKey) return filtered;

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Cohort, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -38,18 +38,18 @@ export default function CohortsPage() {
       .catch(() => {});
   }, []);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!tenantId) return;
     try {
       setCohorts(await api.cohorts.list(tenantId));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load cohorts");
     }
-  }
+  }, [push, tenantId]);
 
   useEffect(() => {
-    refresh();
-  }, [tenantId]);
+    void refresh();
+  }, [refresh]);
 
   async function create() {
     if (!name.trim() || !eventName.trim() || !tenantId) return;

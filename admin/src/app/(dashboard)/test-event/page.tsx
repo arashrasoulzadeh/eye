@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Tenant, Session, Event, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -78,7 +78,7 @@ export default function TestEventPage() {
     }
   }
 
-  async function refreshRecent() {
+  const refreshRecent = useCallback(async () => {
     if (!tenantId) return;
     try {
       const list = await api.events.list({ tenant_id: tenantId, session_id: sessionId || undefined });
@@ -86,11 +86,11 @@ export default function TestEventPage() {
     } catch {
       // non-fatal; leave previous list in place
     }
-  }
+  }, [sessionId, tenantId]);
 
   useEffect(() => {
-    refreshRecent();
-  }, [tenantId, sessionId]);
+    void refreshRecent();
+  }, [refreshRecent]);
 
   async function send() {
     if (!sessionId) {

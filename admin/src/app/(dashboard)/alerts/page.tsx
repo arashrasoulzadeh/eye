@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, AlertRule, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -38,18 +38,18 @@ export default function AlertsPage() {
       .catch(() => {});
   }, []);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!tenantId) return;
     try {
       setRules(await api.alerts.list(tenantId));
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load alert rules");
     }
-  }
+  }, [push, tenantId]);
 
   useEffect(() => {
-    refresh();
-  }, [tenantId]);
+    void refresh();
+  }, [refresh]);
 
   async function create() {
     if (!eventName.trim() || !webhookUrl.trim() || !tenantId) return;

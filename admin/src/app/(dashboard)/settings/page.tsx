@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, RuntimeSettings } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const { push } = useToast();
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const s = await api.settings.get();
@@ -26,11 +26,11 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [push]);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
 
   async function save() {
     setSaving(true);

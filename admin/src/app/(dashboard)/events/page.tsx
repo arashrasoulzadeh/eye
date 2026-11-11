@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
@@ -25,7 +25,7 @@ export default function EventsPage() {
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
   const { push } = useToast();
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       setEvents(
@@ -42,7 +42,7 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [eventName, fromTime, push, sessionId, tenantId, toTime]);
 
   async function loadTable(query: TableQuery) {
     setLoading(true);
@@ -63,7 +63,7 @@ export default function EventsPage() {
   }
 
   useEffect(() => {
-    load();
+    void load();
     api.tenants.list().then(setTenants).catch(() => {});
     api.sessions.list().then(setSessions).catch(() => {});
     // Preload the most frequent event names across recent events so the
@@ -77,7 +77,7 @@ export default function EventsPage() {
         setEventNameOptions(top);
       })
       .catch(() => {});
-  }, []);
+  }, [load]);
 
   const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
   const sessionOptions: ComboOption[] = sessions
