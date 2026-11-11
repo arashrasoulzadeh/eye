@@ -292,14 +292,15 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 			continue
 		}
 		payload := map[string]any{
-			"rule_id":    rule.ID,
-			"tenant_id":  rule.TenantID,
-			"event_name": rule.EventName,
-			"dims_key":   rule.DimsKey,
-			"metric":     rule.Metric,
-			"threshold":  rule.Threshold,
-			"count":      count,
-			"fired_at":   time.Now().Unix(),
+			"rule_id":        rule.ID,
+			"tenant_id":      rule.TenantID,
+			"event_name":     rule.EventName,
+			"dims_key":       rule.DimsKey,
+			"metric":         rule.Metric,
+			"threshold":      rule.Threshold,
+			"count":          count,
+			"window_seconds": rule.WindowSeconds,
+			"fired_at":       time.Now().Unix(),
 		}
 		// Phase 14: retries + dead-letter queue. A transient failure gets a
 		// few attempts with a short backoff before giving up; if every
