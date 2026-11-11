@@ -10,6 +10,7 @@ export async function POST(req: Request) {
       path: "/",
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
+      maxAge: 8 * 60 * 60,
     });
     res.cookies.delete("admin_email");
     return res;

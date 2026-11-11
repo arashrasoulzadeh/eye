@@ -51,6 +51,7 @@ describe("POST /api/login", () => {
     expect(response.headers.get("set-cookie")).toContain("HttpOnly");
     expect(response.headers.get("set-cookie")?.toLowerCase()).toContain("samesite=strict");
     expect(response.headers.get("set-cookie")).toContain("Secure");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=28800");
     process.env.NODE_ENV = originalNodeEnv;
   });
 });

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   if (allowedGroups.length && !allowedGroups.some((group) => groups.includes(group))) return NextResponse.redirect(new URL("/login?error=forbidden", req.url));
   const res = NextResponse.redirect(new URL("/dashboard", req.url));
   res.cookies.delete("oidc_state"); res.cookies.delete("oidc_nonce");
-  res.cookies.set("admin_key", process.env.ADMIN_API_KEY!, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });
-  if (email) res.cookies.set("admin_email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });
+  res.cookies.set("admin_key", process.env.ADMIN_API_KEY!, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 8 * 60 * 60 });
+  if (email) res.cookies.set("admin_email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 8 * 60 * 60 });
   return res;
 }
