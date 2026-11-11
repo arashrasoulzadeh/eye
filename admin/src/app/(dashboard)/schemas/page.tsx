@@ -16,23 +16,24 @@ export default function SchemasPage() {
   const [name, setName] = useState("");
   const [definition, setDefinition] = useState('{\n  "type": "object",\n  "properties": {}\n}');
   const [jsonError, setJsonError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false), [loading, setLoading] = useState(true);
   const { push } = useToast();
 
   useEffect(() => {
     api.tenants.list().then((ts) => {
       setTenants(ts);
       if (ts[0]) setTenantId(ts[0].ID);
-    });
-  }, []);
+    }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
+  }, [push]);
 
   const loadSchemas = useCallback(async (id: string, query: TableQuery = { filter: "", sortKey: "version", sortDir: "desc", page: 0 }) => {
     if (!id) return;
+    setLoading(true);
     try {
       const page = await api.schemas.listPage(id, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setSchemas(page.items); setTotalSchemas(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load schemas");
-    }
+    } finally { setLoading(false); }
   }, [push]);
 
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function SchemasPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Versions for this tenant (${schemas.length})`} />
-        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." serverSide onQueryChange={(query) => void loadSchemas(tenantId, query)} totalRows={totalSchemas} />
+        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." loading={loading} serverSide onQueryChange={(query) => void loadSchemas(tenantId, query)} totalRows={totalSchemas} />
       </Card>
     </div>
   );
