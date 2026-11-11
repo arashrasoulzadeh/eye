@@ -41,5 +41,6 @@ func Observability(next http.Handler) http.Handler {
 			status = http.StatusOK
 		}
 		metrics.HTTPRequestDuration.WithLabelValues(r.Method, fmt.Sprint(status)).Observe(time.Since(started).Seconds())
+		metrics.RecordHTTPRequest(status)
 	})
 }

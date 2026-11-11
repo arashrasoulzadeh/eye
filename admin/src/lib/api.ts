@@ -164,6 +164,7 @@ export const api = {
     listPage: (filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number; sort?: "desc" | "asc"; limit?: number; offset?: number } = {}) => { const qs = new URLSearchParams(Object.entries({ ...filters, page: "true" }).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])); return req<EventPage>(`query?${qs}`); },
   },
   eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`),
+  slo: () => req<{ target: number; availability: number; requests: number; errors: number; error_budget: number; error_budget_remaining: number; within_slo: boolean }>("slo"),
   analytics: {
     funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ event_name: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }),
     suggestedFunnel: (tenantId: string, fromTs?: number, toTs?: number) => req<Array<{ position: number; event_name: string; title: string; sessions: number }>>(`analytics/funnel/suggested?tenant_id=${encodeURIComponent(tenantId)}${fromTs ? `&from_ts=${fromTs}` : ""}${toTs ? `&to_ts=${toTs}` : ""}`),

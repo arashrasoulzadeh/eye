@@ -29,6 +29,7 @@ const NAV = [
   { href: "/replay", label: "Replay", icon: "↻" },
   { href: "/experiments", label: "Experiments", icon: "◈" },
   { href: "/settings", label: "Settings", icon: "⚙" },
+  { href: "/slo", label: "SLO & Error Budget", icon: "◷" },
 ];
 
 export function Sidebar() {

@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // IngestTotal counts ingest requests by outcome: "accepted"/"rejected" for
 // events that made it through decoding (per-event, from the accepted/rejected
@@ -34,6 +38,18 @@ var StreamQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{Name: "stream_qu
 var IngestSampleRate = prometheus.NewGauge(prometheus.GaugeOpts{Name: "ingest_sample_rate"})
 
 var HTTPRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_request_duration_seconds", Help: "HTTP request duration by method and status."}, []string{"method", "status"})
+
+var httpRequests atomic.Int64
+var httpErrors atomic.Int64
+
+func RecordHTTPRequest(status int) {
+	httpRequests.Add(1)
+	if status >= 500 {
+		httpErrors.Add(1)
+	}
+}
+
+func HTTPRequestSnapshot() (total, errors int64) { return httpRequests.Load(), httpErrors.Load() }
 
 func Init() {
 	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration)

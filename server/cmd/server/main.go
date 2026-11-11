@@ -227,6 +227,7 @@ func main() {
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
+	mux.Handle("/slo", adminAuth(handler.SLOHandler{}))
 	// Dashboard cache: serves pre-computed metrics updated by a background job.
 	dashboardCacheSvc := &service.DashboardCacheService{DB: db}
 	mux.Handle("/dashboard-cache", adminAuth(&handler.DashboardCacheHandler{Svc: dashboardCacheSvc}))
