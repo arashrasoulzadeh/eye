@@ -88,6 +88,7 @@ func main() {
 	// (StreamIngestPipeline) has its own separate ingestion logic and is
 	// not wired to this limiter yet — an honest, documented scope limit.
 	tenantLimiter := service.NewTenantRateLimiter()
+	quotaLimiter := &service.TenantQuotaLimiter{DB: db}
 	// Phase 14: real-time per-tenant event counters, streamed live over
 	// gRPC (LiveCounters below). liveCounters is bumped synchronously by
 	// IngestService on every accepted event.
@@ -96,7 +97,7 @@ func main() {
 	// streamed live via SSE. liveSessions is updated by both IngestService
 	// (sync path) and StreamIngestPipeline (async path) on every accepted event.
 	liveSessions := service.NewLiveSessionHub()
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, Counters: liveCounters, Sessions: liveSessions}
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, Counters: liveCounters, Sessions: liveSessions}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		svc.SetTenantContext = storage.SetTenantContext
 	}
@@ -198,7 +199,7 @@ func main() {
 		stream, streamConsumer = channelStream, channelStream
 		queueDepth = channelStream.QueueDepth
 	}
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		streamPipeline.SetTenantContext = storage.SetTenantContext
 	}

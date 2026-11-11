@@ -27,7 +27,8 @@ type StreamIngestPipeline struct {
 	Producer         StreamProducer
 	// TierLimiter, if set, applies the same per-tenant tier limit as the
 	// synchronous ingest path after the session resolves the tenant.
-	TierLimiter TenantLimiter
+	TierLimiter  TenantLimiter
+	QuotaLimiter QuotaLimiter
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
@@ -81,6 +82,10 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 			EventID: eid, SessionID: sid, TenantID: sess.TenantID,
 			EventName: name, ClientTS: int64(ts), EventVersion: eventVersion, IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims), Source: source,
+		}
+		if p.QuotaLimiter != nil && !p.QuotaLimiter.Allow(ev.TenantID, int64(len(payload)+len(dims))) {
+			rejected++
+			continue
 		}
 		ev.ContentHash = eventContentHash(ev.TenantID, ev.SessionID, ev.EventName, ev.ClientTS, payload, dims)
 		if source != "replay" && p.Repo.EventContentExists(ev.ContentHash) {

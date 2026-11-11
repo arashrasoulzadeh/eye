@@ -46,7 +46,8 @@ type IngestService struct {
 	// TierLimiter, if set, is consulted once per event after its tenant is
 	// resolved from the session, gating ingestion by the tenant's Tier
 	// (see TenantRateLimiter). A denied event counts toward "rejected".
-	TierLimiter TenantLimiter
+	TierLimiter  TenantLimiter
+	QuotaLimiter QuotaLimiter
 	// Counters, if set, is bumped once per accepted event for the event's
 	// tenant, feeding the LiveCounters real-time gRPC stream (see
 	// live_counters.go). Nil means no live-counter tracking, so existing
@@ -105,6 +106,10 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			continue
 		}
 		ev.TenantID = sess.TenantID
+		if s.QuotaLimiter != nil && !s.QuotaLimiter.Allow(ev.TenantID, int64(len(payload)+len(dims))) {
+			rejected++
+			continue
+		}
 		ev.ContentHash = eventContentHash(ev.TenantID, ev.SessionID, ev.EventName, ev.ClientTS, payload, dims)
 		if source != "replay" && s.Repo.EventContentExists(ev.ContentHash) {
 			rejected++

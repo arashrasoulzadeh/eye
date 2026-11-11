@@ -22,6 +22,26 @@ type UsageSnapshot struct {
 
 type UsageService struct{ DB *gorm.DB }
 
+// QuotaLimiter checks a tenant's current calendar-month usage before an event
+// is persisted. Implementations must treat zero limits as unlimited.
+type QuotaLimiter interface {
+	Allow(tenantID string, additionalStorage int64) bool
+}
+
+type TenantQuotaLimiter struct{ DB *gorm.DB }
+
+func (l *TenantQuotaLimiter) Allow(tenantID string, additionalStorage int64) bool {
+	var tenant model.Tenant
+	if l.DB.First(&tenant, "id = ?", tenantID).Error != nil {
+		return false
+	}
+	usage, err := (&UsageService{DB: l.DB}).Current(tenantID, time.Now())
+	if err != nil {
+		return false
+	}
+	return (&UsageService{}).Check(usage, tenant.MonthlyEventLimit, tenant.MonthlyStorageLimit, additionalStorage).Allowed
+}
+
 type QuotaDecision struct {
 	Allowed      bool  `json:"allowed"`
 	EventLimit   int64 `json:"event_limit"`
