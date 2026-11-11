@@ -18,8 +18,9 @@ import (
 // materialized aggregate update — decoupling the ingest request path from
 // storage, which is Phase 7's goal.
 type StreamIngestPipeline struct {
-	Repo *repository.Repo
-	DB   *gorm.DB
+	Repo    *repository.Repo
+	DB      *gorm.DB
+	QueueDB *gorm.DB
 	// SetTenantContext scopes the consumer transaction for PostgreSQL RLS.
 	// It is nil for SQLite/dev deployments.
 	SetTenantContext func(*gorm.DB, string) error
@@ -86,6 +87,13 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 			rejected++
 			continue
 		}
+		if p.QueueDB != nil {
+			encoded, _ := json.Marshal(ev)
+			if err := p.QueueDB.Where("event_id = ?", ev.EventID).FirstOrCreate(&model.PendingStreamEvent{EventID: ev.EventID, Payload: string(encoded), CreatedAt: time.Now()}).Error; err != nil {
+				rejected++
+				continue
+			}
+		}
 		if err := p.Producer.Publish(StreamMessage{Event: ev}); err != nil {
 			rejected++
 			continue
@@ -113,7 +121,11 @@ func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 				p.Sessions.AddEvent(ev.SessionID, ev)
 			}
 		}
-		return UpsertAggregateCount(p.DB, ev.TenantID, ev.EventName, ev.Dims)
+		err := UpsertAggregateCount(p.DB, ev.TenantID, ev.EventName, ev.Dims)
+		if err == nil && p.QueueDB != nil {
+			p.QueueDB.Delete(&model.PendingStreamEvent{}, "event_id = ?", ev.EventID)
+		}
+		return err
 	}
 
 	tx := p.DB.Begin()
@@ -149,6 +161,29 @@ func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 	if p.Sessions != nil && session != nil {
 		p.Sessions.Update(session)
 		p.Sessions.AddEvent(ev.SessionID, ev)
+	}
+	if p.QueueDB != nil {
+		p.QueueDB.Delete(&model.PendingStreamEvent{}, "event_id = ?", ev.EventID)
+	}
+	return nil
+}
+
+func (p *StreamIngestPipeline) ReplayPending(producer StreamProducer) error {
+	if p.QueueDB == nil {
+		return nil
+	}
+	var pending []model.PendingStreamEvent
+	if err := p.QueueDB.Order("created_at asc").Find(&pending).Error; err != nil {
+		return err
+	}
+	for _, item := range pending {
+		var ev model.Event
+		if err := json.Unmarshal([]byte(item.Payload), &ev); err != nil {
+			continue
+		}
+		if err := producer.Publish(StreamMessage{Event: &ev}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -174,13 +174,16 @@ func main() {
 	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
 	// consumer inserts events and maintains materialized aggregate counts.
 	stream := service.NewChannelStream(256)
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		streamPipeline.SetTenantContext = storage.SetTenantContext
 	}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)
+	if err := streamPipeline.ReplayPending(stream); err != nil {
+		logger.Error("pending stream replay failed", "err", err)
+	}
 	mux.Handle("/ingest/stream", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter}))
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 

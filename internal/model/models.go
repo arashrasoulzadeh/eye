@@ -65,6 +65,12 @@ type Event struct {
 	Variant       string
 }
 
+type PendingStreamEvent struct {
+	EventID   string `gorm:"primaryKey"`
+	Payload   string
+	CreatedAt time.Time
+}
+
 type Aggregation struct {
 	ID          string `gorm:"primaryKey"`
 	TenantID    string

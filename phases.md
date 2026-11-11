@@ -5,7 +5,7 @@
 
 ## Production hardening
 - [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations — driver selection, Timescale hypertable/index migrations, RLS policy generation, and transaction-local tenant context helper are implemented; request transaction wiring remains before enabling RLS
-- [ ] Durable collector transport and persisted ingestion queue
+- [ ] Durable collector transport and persisted ingestion queue — database-backed pending stream events and restart replay are implemented; external broker/collector durability remains
 - [ ] Prometheus/Grafana dashboards, structured logs, and alerting
 - [ ] Automated database backups and restore-drill verification
 - [ ] End-to-end Docker deployment test: tenant → key → session → ingest → query
