@@ -56,8 +56,8 @@ export default function TestEventPage() {
 
   useEffect(() => {
     if (!tenantId) return;
-    api.sessions.list().then((all) => {
-      const mine = all.filter((s) => s.TenantID === tenantId);
+    api.sessions.list().then((page) => {
+      const mine = page.items.filter((s) => s.TenantID === tenantId);
       setSessions(mine);
       setSessionId(mine[0]?.ID || "");
     });

@@ -110,7 +110,7 @@ export const api = {
   },
 
   sessions: {
-    list: (params: { limit?: number; offset?: number; filter?: string; sort?: string; dir?: string } = {}) => req<SessionPage>(`sessions?${new URLSearchParams(Object.entries({ limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc" }))}`),
+    list: (params: { limit?: number; offset?: number; filter?: string; sort?: string; dir?: string } = {}) => req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc" }).map(([key, value]) => [key, String(value)])))}`),
     get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
     create: (tenantId: string) =>
       req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }),

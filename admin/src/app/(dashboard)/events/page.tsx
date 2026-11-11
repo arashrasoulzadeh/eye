@@ -67,7 +67,7 @@ export default function EventsPage() {
   useEffect(() => {
     void load();
     api.tenants.list().then(setTenants).catch(() => {});
-    api.sessions.list().then(setSessions).catch(() => {});
+    api.sessions.list().then((page) => setSessions(page.items)).catch(() => {});
     // Preload the most frequent event names across recent events so the
     // combobox has sensible top suggestions before the user types anything.
     api.events

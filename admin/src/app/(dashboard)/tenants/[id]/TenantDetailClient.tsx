@@ -62,7 +62,8 @@ export default function TenantDetailClient() {
           setEventLimit(t.MonthlyEventLimit || 0);
           setStorageLimit(t.MonthlyStorageLimit || 0);
         }
-        setSessions(allSessions.filter((s) => s.TenantID === tenantId));
+        const sessionRows = Array.isArray(allSessions) ? allSessions : allSessions.items;
+        setSessions(sessionRows.filter((s) => s.TenantID === tenantId));
         setEvents(tenantEvents);
         const currentUsage = await api.tenants.usage(tenantId);
         if (!cancelled) setUsage(currentUsage);
