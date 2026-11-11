@@ -1,0 +1,8 @@
+[project]
+name = "eye-sdk"
+version = "0.1.0"
+description = "Eye analytics SDK for Python with a durable offline queue"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
