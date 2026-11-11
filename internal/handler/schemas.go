@@ -46,8 +46,42 @@ func (h *SchemasHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		filter := strings.ToLower(r.URL.Query().Get("filter")); if filter != "" { filtered := list[:0]; for _, item := range list { if strings.Contains(strings.ToLower(item.Name), filter) { filtered = append(filtered, item) } }; list = filtered }
-		sort.SliceStable(list, func(i, j int) bool { if r.URL.Query().Get("dir") == "asc" { return list[i].Version < list[j].Version }; return list[i].Version > list[j].Version })
+		filter := strings.ToLower(r.URL.Query().Get("filter"))
+		if filter != "" {
+			filtered := list[:0]
+			for _, item := range list {
+				if strings.Contains(strings.ToLower(item.Name), filter) {
+					filtered = append(filtered, item)
+				}
+			}
+			list = filtered
+		}
+		sort.SliceStable(list, func(i, j int) bool {
+			if r.URL.Query().Get("dir") == "asc" {
+				return list[i].Version < list[j].Version
+			}
+			return list[i].Version > list[j].Version
+		})
+		if r.URL.Query().Get("page") == "true" {
+			total := len(list)
+			limit := queryInt(r, "limit", 10)
+			offset := queryInt(r, "offset", 0)
+			if limit < 1 {
+				limit = 10
+			}
+			if offset < 0 {
+				offset = 0
+			}
+			end := offset + limit
+			if offset > total {
+				offset = total
+			}
+			if end > total {
+				end = total
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": list[offset:end], "total": total, "limit": limit, "offset": offset})
+			return
+		}
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b struct {

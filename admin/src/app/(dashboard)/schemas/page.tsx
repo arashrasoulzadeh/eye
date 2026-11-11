@@ -12,6 +12,7 @@ export default function SchemasPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
   const [schemas, setSchemas] = useState<Schema[]>([]);
+  const [totalSchemas, setTotalSchemas] = useState(0);
   const [name, setName] = useState("");
   const [definition, setDefinition] = useState('{\n  "type": "object",\n  "properties": {}\n}');
   const [jsonError, setJsonError] = useState("");
@@ -28,7 +29,7 @@ export default function SchemasPage() {
   const loadSchemas = useCallback(async (id: string, query: TableQuery = { filter: "", sortKey: "version", sortDir: "desc", page: 0 }) => {
     if (!id) return;
     try {
-      setSchemas(await api.schemas.list(id, { filter: query.filter, dir: query.sortDir }));
+      const page = await api.schemas.listPage(id, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setSchemas(page.items); setTotalSchemas(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load schemas");
     }
@@ -102,7 +103,7 @@ export default function SchemasPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Versions for this tenant (${schemas.length})`} />
-        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." serverSide totalRows={schemas.length} onQueryChange={(query) => void loadSchemas(tenantId, query)} />
+        <DataTable columns={columns} rows={schemas} rowKey={(s) => s.ID} emptyMessage="No schemas registered for this tenant yet." serverSide onQueryChange={(query) => void loadSchemas(tenantId, query)} totalRows={totalSchemas} />
       </Card>
     </div>
   );

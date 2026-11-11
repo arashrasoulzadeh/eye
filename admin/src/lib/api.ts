@@ -24,6 +24,7 @@ export type Event = {
   AggregationID: string;
 };
 export type Schema = { ID: string; TenantID: string; Name: string; Version: number; Definition: string; CreatedAt: number };
+export type SchemaPage = { items: Schema[]; total: number; limit: number; offset: number };
 export type Metrics = { events: number; sessions: number; tenants: number };
 export type DashboardCache = {
   events: number;
@@ -149,6 +150,7 @@ export const api = {
 
   schemas: {
     list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<Schema[]>(`schemas?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
+    listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<SchemaPage>(`schemas?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     register: (tenantId: string, name: string, definition: string) =>
       req<Schema>("schemas", {
         method: "POST",
