@@ -35,7 +35,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./tests/... -v
+        run: go test ./... -v
 
       - name: Test with coverage
         run: |
