@@ -97,7 +97,11 @@ export default function TenantsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Tenants</h1>
-      <p className="mt-1 text-sm text-fg-muted">Create, rotate keys for, and remove tenants.</p>
+      <p className="mt-1 text-sm text-fg-muted">Create tenants, rotate API keys, configure quotas, and remove tenant records.</p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-fg">Tenant management help</summary>
+        <p className="mt-2 text-fg-muted">API keys are shown only when created or rotated. Open a tenant to review usage, set monthly quotas, inspect sessions, and view event activity.</p>
+      </details>
 
       <Card className="mt-6">
         <CardHeader title="New tenant" />

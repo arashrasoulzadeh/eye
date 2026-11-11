@@ -52,6 +52,10 @@ export default function SettingsPage() {
         Retention and the ingest rate limit are DB-backed and live: a save here takes effect on the retention job&apos;s
         next tick and the very next ingest request, not just on the next server restart.
       </p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-fg">Settings help</summary>
+        <p className="mt-2 text-fg-muted">Changes are persisted by the API and picked up by the retention worker and ingest limiter without restarting the server.</p>
+      </details>
 
       <Card className="mt-6">
         <CardHeader title="Retention &amp; rate limit" />

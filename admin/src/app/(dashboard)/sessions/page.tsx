@@ -42,6 +42,10 @@ export default function SessionsPage() {
     <div>
       <h1 className="text-xl font-semibold text-fg">Sessions</h1>
       <p className="mt-1 text-sm text-fg-muted">Latest 100 sessions, ordered by last activity. Open a session for its full journey and event details.</p>
+      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-medium text-fg">Session data help</summary>
+        <p className="mt-2 text-fg-muted">The list is intentionally bounded to the latest 100 sessions. Select a session ID to inspect its tenant, device metadata, aggregated journey, and live events.</p>
+      </details>
 
       <Card className="mt-6">
         <CardHeader title={`All sessions (${sessions.length})`} />
