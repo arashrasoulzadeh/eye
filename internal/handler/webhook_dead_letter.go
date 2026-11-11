@@ -50,7 +50,23 @@ func (h *WebhookDeadLetterHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			limit = parsed
 		}
 	}
-	list, err := h.Svc.ListFiltered(limit, r.URL.Query().Get("filter"), r.URL.Query().Get("dir"))
+	filter, direction := r.URL.Query().Get("filter"), r.URL.Query().Get("dir")
+	if r.URL.Query().Get("page") == "true" {
+		offset := 0
+		if raw := r.URL.Query().Get("offset"); raw != "" {
+			if parsed, parseErr := strconv.Atoi(raw); parseErr == nil {
+				offset = parsed
+			}
+		}
+		list, total, err := h.Svc.ListFilteredPage(limit, offset, filter, direction)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
+		return
+	}
+	list, err := h.Svc.ListFiltered(limit, filter, direction)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -77,6 +77,11 @@ func (s *WebhookDeadLetterService) List(limit int) ([]model.WebhookDeadLetter, e
 }
 
 func (s *WebhookDeadLetterService) ListFiltered(limit int, filter, direction string) ([]model.WebhookDeadLetter, error) {
+	list, _, err := s.ListFilteredPage(limit, 0, filter, direction)
+	return list, err
+}
+
+func (s *WebhookDeadLetterService) ListFilteredPage(limit, offset int, filter, direction string) ([]model.WebhookDeadLetter, int64, error) {
 	var list []model.WebhookDeadLetter
 	if limit <= 0 {
 		limit = 100
@@ -86,14 +91,24 @@ func (s *WebhookDeadLetterService) ListFiltered(limit int, filter, direction str
 		order = "failed_at asc"
 	}
 	q := s.DB.Order(order).Limit(limit)
-	if filter = strings.TrimSpace(filter); filter != "" {
+	filter = strings.TrimSpace(filter)
+	var total int64
+	countQuery := s.DB.Model(&model.WebhookDeadLetter{})
+	if filter != "" {
 		like := "%" + filter + "%"
+		countQuery = countQuery.Where("url LIKE ? OR last_error LIKE ? OR id LIKE ?", like, like, like)
 		q = q.Where("url LIKE ? OR last_error LIKE ? OR id LIKE ?", like, like, like)
 	}
-	if err := q.Find(&list).Error; err != nil {
-		return nil, err
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return list, nil
+	if offset < 0 {
+		offset = 0
+	}
+	if err := q.Offset(offset).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
 }
 
 func (s *WebhookDeadLetterService) Delete(id string) error {
