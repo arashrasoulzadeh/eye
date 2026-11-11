@@ -20,6 +20,7 @@ spec:
             - { name: OIDC_CLIENT_SECRET, valueFrom: { secretKeyRef: { name: eye-oidc-secrets, key: CLIENT_SECRET, optional: true } } }
             - { name: OIDC_REDIRECT_URI, valueFrom: { secretKeyRef: { name: eye-oidc-secrets, key: REDIRECT_URI, optional: true } } }
             - { name: OIDC_ALLOWED_EMAILS, valueFrom: { secretKeyRef: { name: eye-oidc-secrets, key: ALLOWED_EMAILS, optional: true } } }
+            - { name: OIDC_ALLOWED_GROUPS, valueFrom: { secretKeyRef: { name: eye-oidc-secrets, key: ALLOWED_GROUPS, optional: true } } }
             - { name: NEXT_PUBLIC_OIDC_ENABLED, valueFrom: { configMapKeyRef: { name: eye-admin-config, key: OIDC_ENABLED, optional: true } } }
           livenessProbe:
             httpGet: { path: /login, port: http }

@@ -22,6 +22,9 @@ export async function GET(req: Request) {
   const email = String(verified.payload.email || "");
   const allowed = (process.env.OIDC_ALLOWED_EMAILS || "").split(",").map((x) => x.trim()).filter(Boolean);
   if (allowed.length && !allowed.includes(email)) return NextResponse.redirect(new URL("/login?error=forbidden", req.url));
+  const allowedGroups = (process.env.OIDC_ALLOWED_GROUPS || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const groups = Array.isArray(verified.payload.groups) ? verified.payload.groups.map(String) : [];
+  if (allowedGroups.length && !allowedGroups.some((group) => groups.includes(group))) return NextResponse.redirect(new URL("/login?error=forbidden", req.url));
   const res = NextResponse.redirect(new URL("/dashboard", req.url));
   res.cookies.delete("oidc_state"); res.cookies.delete("oidc_nonce");
   res.cookies.set("admin_key", process.env.ADMIN_API_KEY!, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/" });
