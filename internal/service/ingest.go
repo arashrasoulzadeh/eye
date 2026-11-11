@@ -58,6 +58,7 @@ type IngestService struct {
 	// tracking, so existing callers/tests that don't set it are unaffected.
 	Sessions   *LiveSessionHub
 	PIIFields  []string
+	DetectPII  bool
 	SchemaMode string // off, warn, or reject
 }
 
@@ -83,7 +84,11 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			rejected++
 			continue
 		}
-		payload, _ := json.Marshal(RedactPII(e["payload"], s.PIIFields))
+		piiFields := s.PIIFields
+		if s.DetectPII {
+			piiFields = append(append([]string{}, piiFields...), DetectPIIFields(e["payload"])...)
+		}
+		payload, _ := json.Marshal(RedactPII(e["payload"], piiFields))
 		dims, _ := json.Marshal(e["dims"])
 		source, _ := e["source"].(string)
 		if source == "" {
@@ -116,7 +121,11 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 					rejected++
 					continue
 				}
-				redactedPayload, _ := RedactPII(payloadMap, s.PIIFields).(map[string]any)
+				piiFields := s.PIIFields
+				if s.DetectPII {
+					piiFields = append(append([]string{}, piiFields...), DetectPIIFields(payloadMap)...)
+				}
+				redactedPayload, _ := RedactPII(payloadMap, piiFields).(map[string]any)
 				if errs, validationErr := ValidateEventAgainstSchema(redactedPayload, &schema); validationErr != nil || len(errs) > 0 {
 					rejected++
 					continue

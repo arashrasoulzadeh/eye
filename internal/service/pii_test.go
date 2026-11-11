@@ -17,3 +17,14 @@ func TestRedactPIIRecursesThroughObjectsAndArrays(t *testing.T) {
 		t.Fatalf("array field was not redacted: %+v", items)
 	}
 }
+
+func TestDetectPIIFieldsNested(t *testing.T) {
+	fields := DetectPIIFields(map[string]any{"profile": map[string]any{"emailAddress": "a@example.com"}, "items": []any{map[string]any{"access_token": "secret"}}, "city": "Tehran"})
+	got := map[string]bool{}
+	for _, field := range fields {
+		got[field] = true
+	}
+	if !got["emailAddress"] || !got["access_token"] || len(got) != 2 {
+		t.Fatalf("detected fields = %#v", fields)
+	}
+}

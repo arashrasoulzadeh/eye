@@ -26,6 +26,7 @@ type Config struct {
 	RetentionHours      int    `mapstructure:"retention_hours"`
 	SnapshotDir         string `mapstructure:"snapshot_dir"`
 	PIIFields           string `mapstructure:"pii_fields"`
+	PIIDetection        bool   `mapstructure:"pii_detection"`
 	SchemaMode          string `mapstructure:"schema_mode"`
 	DeadLetterNotifyURL string `mapstructure:"dead_letter_notify_url"`
 }
