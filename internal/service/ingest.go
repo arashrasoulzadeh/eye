@@ -56,7 +56,8 @@ type IngestService struct {
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
-	Sessions *LiveSessionHub
+	Sessions  *LiveSessionHub
+	PIIFields []string
 }
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
@@ -81,7 +82,7 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			rejected++
 			continue
 		}
-		payload, _ := json.Marshal(e["payload"])
+		payload, _ := json.Marshal(RedactPII(e["payload"], s.PIIFields))
 		dims, _ := json.Marshal(e["dims"])
 		source, _ := e["source"].(string)
 		if source == "" {

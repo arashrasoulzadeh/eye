@@ -97,7 +97,8 @@ func main() {
 	// streamed live via SSE. liveSessions is updated by both IngestService
 	// (sync path) and StreamIngestPipeline (async path) on every accepted event.
 	liveSessions := service.NewLiveSessionHub()
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, Counters: liveCounters, Sessions: liveSessions}
+	piiFields := strings.Split(cfg.PIIFields, ",")
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, Counters: liveCounters, Sessions: liveSessions, PIIFields: piiFields}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		svc.SetTenantContext = storage.SetTenantContext
 	}

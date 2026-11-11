@@ -25,6 +25,7 @@ type Config struct {
 	APIKeySalt        string `mapstructure:"api_key_salt"`
 	RetentionHours    int    `mapstructure:"retention_hours"`
 	SnapshotDir       string `mapstructure:"snapshot_dir"`
+	PIIFields         string `mapstructure:"pii_fields"`
 }
 
 var envFiles []string

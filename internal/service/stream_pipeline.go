@@ -32,7 +32,8 @@ type StreamIngestPipeline struct {
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
-	Sessions *LiveSessionHub
+	Sessions  *LiveSessionHub
+	PIIFields []string
 }
 
 // Ingest has the same accepted/rejected contract as IngestService.Ingest,
@@ -72,7 +73,7 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 				continue
 			}
 		}
-		payload, _ := json.Marshal(e["payload"])
+		payload, _ := json.Marshal(RedactPII(e["payload"], p.PIIFields))
 		dims, _ := json.Marshal(e["dims"])
 		source, _ := e["source"].(string)
 		if source == "" {
