@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV = [
@@ -35,14 +35,10 @@ const PRIMARY_HREFS = new Set(["/dashboard", "/stream", "/analytics", "/tenants"
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [moreOpen, setMoreOpen] = useState(() => NAV.some((item) => !PRIMARY_HREFS.has(item.href) && pathname?.startsWith(item.href)));
+  const [moreOpen, setMoreOpen] = useState(false);
   const primary = NAV.filter((item) => PRIMARY_HREFS.has(item.href));
   const secondary = NAV.filter((item) => !PRIMARY_HREFS.has(item.href));
   const secondaryActive = secondary.some((item) => pathname === item.href || pathname?.startsWith(item.href + "/"));
-
-  useEffect(() => {
-    if (secondaryActive) setMoreOpen(true);
-  }, [secondaryActive]);
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
