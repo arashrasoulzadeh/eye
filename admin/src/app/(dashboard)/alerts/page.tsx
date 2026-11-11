@@ -18,8 +18,10 @@ export default function AlertsPage() {
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
 
   const [eventName, setEventName] = useState("");
+  const [dimsKey, setDimsKey] = useState("");
   const [threshold, setThreshold] = useState(10);
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [editing, setEditing] = useState<AlertRule | null>(null);
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toDelete, setToDelete] = useState<AlertRule | null>(null);
@@ -54,6 +56,7 @@ export default function AlertsPage() {
     try {
       await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), threshold, webhook_url: webhookUrl.trim() });
       setEventName("");
+      setDimsKey("");
       setThreshold(10);
       setWebhookUrl("");
       push("success", "Alert rule created");
@@ -63,6 +66,24 @@ export default function AlertsPage() {
     } finally {
       setCreating(false);
     }
+  }
+
+  function beginEdit(rule: AlertRule) {
+    setEditing(rule); setEventName(rule.EventName); setDimsKey(rule.DimsKey); setThreshold(rule.Threshold); setWebhookUrl(rule.WebhookURL);
+  }
+
+  function cancelEdit() {
+    setEditing(null); setEventName(""); setDimsKey(""); setThreshold(10); setWebhookUrl("");
+  }
+
+  async function saveEdit() {
+    if (!editing || !eventName.trim() || !webhookUrl.trim()) return;
+    setCreating(true);
+    try {
+      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric: editing.Metric, threshold, webhook_url: webhookUrl.trim() });
+      push("success", "Alert rule updated"); cancelEdit(); await refresh();
+    } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to update alert rule"); }
+    finally { setCreating(false); }
   }
 
   async function toggle(r: AlertRule) {
@@ -107,6 +128,9 @@ export default function AlertsPage() {
       header: "",
       render: (r) => (
         <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => beginEdit(r)}>
+            Edit
+          </Button>
           <Button variant="secondary" onClick={() => toggle(r)}>
             {r.Enabled ? "Disable" : "Enable"}
           </Button>
@@ -149,13 +173,15 @@ export default function AlertsPage() {
             <Label>Threshold (count)</Label>
             <Input type="number" min={1} value={threshold} onChange={(e) => setThreshold(Math.max(1, Number(e.target.value) || 1))} />
           </div>
+          <div className="min-w-[180px]">
+            <Label>Dimensions key (optional)</Label>
+            <Input value={dimsKey} onChange={(e) => setDimsKey(e.target.value)} placeholder="country=ir" />
+          </div>
           <div className="min-w-[220px] flex-1">
             <Label>Webhook URL</Label>
             <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://example.com/hook" />
           </div>
-          <Button onClick={create} loading={creating} disabled={!eventName.trim() || !webhookUrl.trim() || !tenantId}>
-            Create rule
-          </Button>
+          {editing ? <><Button onClick={saveEdit} loading={creating} disabled={!eventName.trim() || !webhookUrl.trim() || !tenantId}>Save rule</Button><Button variant="secondary" onClick={cancelEdit}>Cancel</Button></> : <Button onClick={create} loading={creating} disabled={!eventName.trim() || !webhookUrl.trim() || !tenantId}>Create rule</Button>}
         </div>
       </Card>
 

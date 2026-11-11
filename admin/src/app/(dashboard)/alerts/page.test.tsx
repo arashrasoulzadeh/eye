@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       tenants: { list: vi.fn() },
       events: { list: vi.fn() },
-      alerts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), remove: vi.fn(), setEnabled: vi.fn() },
+      alerts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), setEnabled: vi.fn() },
     },
   };
 });
@@ -84,5 +84,15 @@ describe("AlertsPage", () => {
     await waitFor(() =>
       expect(api.alerts.create).toHaveBeenCalledWith({ tenant_id: "t1", event_name: "purchase", threshold: 10, webhook_url: "https://example.com/wh" })
     );
+  });
+
+  it("edits an existing rule", async () => {
+    vi.mocked(api.alerts.update).mockResolvedValue({ ...baseRule, Threshold: 25 });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("error")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getByDisplayValue("10"), { target: { value: "25" } });
+    fireEvent.click(screen.getByText("Save rule"));
+    await waitFor(() => expect(api.alerts.update).toHaveBeenCalledWith("r1", { event_name: "error", dims_key: "", metric: "count", threshold: 25, webhook_url: "https://example.com/hook" }));
   });
 });
