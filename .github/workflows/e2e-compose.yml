@@ -1,0 +1,51 @@
+name: Docker Compose E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "server/**"
+      - "internal/**"
+
+permissions:
+  contents: read
+
+jobs:
+  compose-e2e:
+    runs-on: ubuntu-latest
+    env:
+      ADMIN_KEY: e2e-admin-key
+      API_KEY_SALT: e2e-api-salt
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start API
+        run: docker compose up -d --build server
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do curl --fail --silent http://127.0.0.1:8080/healthz && exit 0; sleep 2; done
+          docker compose logs server
+          exit 1
+      - name: Exercise tenant session ingest flow
+        run: |
+          tenant=$(curl --fail --silent -X POST http://127.0.0.1:8080/tenants \
+            -H "x-admin-key: $ADMIN_KEY" -H 'content-type: application/json' \
+            -d '{"Name":"e2e","APIKey":"e2e-client-key"}')
+          tenant_id=$(echo "$tenant" | jq -r .ID)
+          test -n "$tenant_id" && test "$tenant_id" != null
+          session=$(curl --fail --silent -X POST http://127.0.0.1:8080/sessions \
+            -H 'content-type: application/json' -H 'x-api-key: e2e-client-key' \
+            -d "{\"tenant_id\":\"$tenant_id\"}")
+          session_id=$(echo "$session" | jq -r .ID)
+          test -n "$session_id" && test "$session_id" != null
+          curl --fail --silent -X POST http://127.0.0.1:8080/ingest \
+            -H 'content-type: application/json' -H 'x-api-key: e2e-client-key' \
+            -d "{\"events\":[{\"event_id\":\"e2e-event-1\",\"session_id\":\"$session_id\",\"event_name\":\"e2e_test\",\"client_ts\":$(date +%s000),\"payload\":{}}]}"
+          curl --fail --silent http://127.0.0.1:8080/metrics -H "x-admin-key: $ADMIN_KEY" | jq -e '.events >= 1'
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
