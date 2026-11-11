@@ -1,0 +1,39 @@
+name: PostgreSQL Restore Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_file:
+        description: S3 URI of the dump file to verify
+        required: true
+        type: string
+  schedule:
+    - cron: "0 4 1 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.EYE_DATABASE_URL }}
+      DRILL_DATABASE_URL: ${{ secrets.EYE_DRILL_DATABASE_URL }}
+      BACKUP_URI: ${{ inputs.backup_file || vars.EYE_LATEST_BACKUP_URI }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.BACKUP_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.BACKUP_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION || 'us-east-1' }}
+      - name: Download backup and checksum
+        run: |
+          test -n "$BACKUP_URI"
+          mkdir -p /tmp/eye-backup
+          aws s3 cp "$BACKUP_URI" /tmp/eye-backup/eye.dump
+          aws s3 cp "${BACKUP_URI}.sha256" /tmp/eye-backup/eye.dump.sha256 || true
+      - name: Run isolated restore drill
+        env:
+          BACKUP_FILE: /tmp/eye-backup/eye.dump
+        run: deploy/backup/restore-drill.sh

@@ -7,3 +7,5 @@ Set `BACKUP_S3_URI=s3://bucket/eye-backups` to upload both files using the AWS C
 `restore-drill.sh` verifies the checksum, restores into the separate `DRILL_DATABASE_URL`, checks that the schema is readable, and drops only that drill database on exit.
 
 Required tools: `pg_dump`, `pg_restore`, `createdb`, `dropdb`, and `psql`.
+
+The monthly `.github/workflows/restore-drill.yml` workflow uses the same script against `EYE_DRILL_DATABASE_URL`; configure the database and object-storage secrets before enabling it.
