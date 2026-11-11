@@ -14,6 +14,7 @@ export default function CohortsPage() {
   const [tenantId, setTenantId] = useState("");
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [totalCohorts, setTotalCohorts] = useState(0);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
 
   const [name, setName] = useState("");
@@ -81,6 +82,7 @@ export default function CohortsPage() {
       setMaterializing(null);
     }
   }
+  async function remove(c: Cohort) { if (!globalThis.window.confirm(`Delete cohort "${c.Name}" and its membership snapshot?`)) return; setDeleting(c.ID); try { await api.cohorts.remove(c.ID); await refresh(); } finally { setDeleting(null); } }
 
   const columns: Column<Cohort>[] = [
     { key: "name", header: "Name", render: (c) => <span className="font-medium text-fg">{c.Name}</span>, sortValue: (c) => c.Name },
@@ -98,6 +100,7 @@ export default function CohortsPage() {
           <Button variant="secondary" onClick={() => materialize(c)} loading={materializing === c.ID}>
             Materialize
           </Button>
+          <Button variant="danger" onClick={() => void remove(c)} loading={deleting === c.ID}>Delete</Button>
         </div>
       ),
     },

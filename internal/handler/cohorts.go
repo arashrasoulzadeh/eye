@@ -34,6 +34,14 @@ func (h *CohortsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(members)
 		return
 	}
+	if path != "" && r.Method == http.MethodDelete {
+		if err := h.Svc.Delete(path); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
 	switch r.Method {
 	case http.MethodGet:

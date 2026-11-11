@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       tenants: { list: vi.fn() },
       events: { list: vi.fn() },
-      cohorts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), materialize: vi.fn() },
+      cohorts: { list: vi.fn(), listPage: vi.fn(), create: vi.fn(), materialize: vi.fn(), remove: vi.fn() },
     },
   };
 });

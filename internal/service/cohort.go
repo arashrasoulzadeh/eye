@@ -39,6 +39,15 @@ func (c *CohortService) List(tenantID string) ([]model.Cohort, error) {
 	return list, nil
 }
 
+func (c *CohortService) Delete(id string) error {
+	return c.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("cohort_id = ?", id).Delete(&model.CohortMembership{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Cohort{}, "id = ?", id).Error
+	})
+}
+
 // Materialize (re)computes which sessions belong to the cohort — those with
 // at least MinCount events named EventName, scoped to the cohort's tenant —
 // and replaces its stored membership with the result. It returns the

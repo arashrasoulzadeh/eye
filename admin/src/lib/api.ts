@@ -173,6 +173,7 @@ export const api = {
         body: JSON.stringify({ tenant_id: tenantId, name, event_name: eventName, min_count: minCount }),
       }),
     materialize: (id: string) => req<{ members: number }>(`cohorts/${id}/materialize`, { method: "POST" }),
+    remove: (id: string) => req<void>(`cohorts/${id}`, { method: "DELETE" }),
     members: (id: string) => req<string[]>(`cohorts/${id}/members`),
   },
 
