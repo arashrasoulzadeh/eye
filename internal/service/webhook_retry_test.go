@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,6 +27,16 @@ func newTestDB_webhook_test(t *testing.T) *gorm.DB {
 
 type fakeWebhookClient struct {
 	fn func(url string, payload map[string]any) error
+}
+
+type recordingWebhookClient struct {
+	calls []WebhookCall
+	err   error
+}
+
+func (r *recordingWebhookClient) PostJSON(url string, payload map[string]any) error {
+	r.calls = append(r.calls, WebhookCall{URL: url, Payload: payload})
+	return r.err
 }
 
 func (f *fakeWebhookClient) PostJSON(url string, payload map[string]any) error {
@@ -138,5 +149,24 @@ func TestDispatchWithRetry(t *testing.T) {
 	}
 	if attempts != 2 {
 		t.Errorf("attempts = %d, want 2", attempts)
+	}
+}
+
+func TestDispatchWithRetryAndNotifyDeadLetter(t *testing.T) {
+	db := newTestDB_webhook_test(t)
+	client := &recordingWebhookClient{err: errors.New("unavailable")}
+	err := DispatchWithRetryAndNotify(db, client, "https://ops.example/dead-letters", "rule-notify", "https://target.example/hook", map[string]any{"event": "x"}, 2, func(int) {})
+	if err == nil {
+		t.Fatal("expected delivery error")
+	}
+	if len(client.calls) != 3 {
+		t.Fatalf("expected 2 delivery attempts plus notification, got %d", len(client.calls))
+	}
+	notification := client.calls[2]
+	if notification.URL != "https://ops.example/dead-letters" {
+		t.Fatalf("notification URL = %q", notification.URL)
+	}
+	if notification.Payload["type"] != "webhook_dead_letter" || notification.Payload["alert_rule_id"] != "rule-notify" {
+		t.Fatalf("unexpected notification payload: %#v", notification.Payload)
 	}
 }

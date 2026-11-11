@@ -278,7 +278,7 @@ func main() {
 	defer cancelAgg()
 	go service.RunAggregationJob(aggCtx, aggSvc, 5*time.Minute, logger)
 
-	alertSvc := &service.AlertService{DB: db}
+	alertSvc := &service.AlertService{DB: db, DeadLetterNotifyURL: cfg.DeadLetterNotifyURL}
 	mux.Handle("/alerts", adminAuth(&handler.AlertsHandler{Svc: alertSvc}))
 	mux.Handle("/alerts/", adminAuth(&handler.AlertsHandler{Svc: alertSvc}))
 	alertCtx, cancelAlert := context.WithCancel(context.Background())

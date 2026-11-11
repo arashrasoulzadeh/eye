@@ -20,7 +20,10 @@ import (
 
 // AlertService provides CRUD for AlertRule and the threshold-evaluation logic
 // that reads it against the Phase 7 materialized AggregateCount read model.
-type AlertService struct{ DB *gorm.DB }
+type AlertService struct {
+	DB                  *gorm.DB
+	DeadLetterNotifyURL string
+}
 
 func randomAlertID() string {
 	b := make([]byte, 16)
@@ -306,7 +309,7 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 		// few attempts with a short backoff before giving up; if every
 		// attempt fails, DispatchWithRetry persists the delivery to
 		// WebhookDeadLetter instead of this just silently dropping it.
-		if err := DispatchWithRetry(svc.DB, client, rule.ID, rule.WebhookURL, payload, 3, func(attempt int) {
+		if err := DispatchWithRetryAndNotify(svc.DB, client, svc.DeadLetterNotifyURL, rule.ID, rule.WebhookURL, payload, 3, func(attempt int) {
 			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
 		}); err != nil {
 			if logger != nil {

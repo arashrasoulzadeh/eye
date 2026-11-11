@@ -10,23 +10,24 @@ import (
 )
 
 type Config struct {
-	Port              int    `mapstructure:"port"`
-	DBPath            string `mapstructure:"db_path"`
-	DBDriver          string `mapstructure:"db_driver"`
-	DatabaseURL       string `mapstructure:"database_url"`
-	CORSOrigins       string `mapstructure:"cors_origins"`
-	APIKeyTTLHours    int    `mapstructure:"api_key_ttl_hours"`
-	BrokerURL         string `mapstructure:"broker_url"`
-	BrokerStream      string `mapstructure:"broker_stream"`
-	BrokerGroup       string `mapstructure:"broker_group"`
-	BrokerConsumer    string `mapstructure:"broker_consumer"`
-	EnablePostgresRLS bool   `mapstructure:"enable_postgres_rls"`
-	AdminKey          string `mapstructure:"admin_key"`
-	APIKeySalt        string `mapstructure:"api_key_salt"`
-	RetentionHours    int    `mapstructure:"retention_hours"`
-	SnapshotDir       string `mapstructure:"snapshot_dir"`
-	PIIFields         string `mapstructure:"pii_fields"`
-	SchemaMode        string `mapstructure:"schema_mode"`
+	Port                int    `mapstructure:"port"`
+	DBPath              string `mapstructure:"db_path"`
+	DBDriver            string `mapstructure:"db_driver"`
+	DatabaseURL         string `mapstructure:"database_url"`
+	CORSOrigins         string `mapstructure:"cors_origins"`
+	APIKeyTTLHours      int    `mapstructure:"api_key_ttl_hours"`
+	BrokerURL           string `mapstructure:"broker_url"`
+	BrokerStream        string `mapstructure:"broker_stream"`
+	BrokerGroup         string `mapstructure:"broker_group"`
+	BrokerConsumer      string `mapstructure:"broker_consumer"`
+	EnablePostgresRLS   bool   `mapstructure:"enable_postgres_rls"`
+	AdminKey            string `mapstructure:"admin_key"`
+	APIKeySalt          string `mapstructure:"api_key_salt"`
+	RetentionHours      int    `mapstructure:"retention_hours"`
+	SnapshotDir         string `mapstructure:"snapshot_dir"`
+	PIIFields           string `mapstructure:"pii_fields"`
+	SchemaMode          string `mapstructure:"schema_mode"`
+	DeadLetterNotifyURL string `mapstructure:"dead_letter_notify_url"`
 }
 
 var envFiles []string

@@ -27,12 +27,15 @@ func randomDeadLetterID() string {
 // stay instant and deterministic. If every attempt fails, the delivery is
 // persisted to WebhookDeadLetter instead of being silently dropped, and the
 // final error is returned so the caller can log it.
-func DispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url string, payload map[string]any, maxAttempts int, backoff func(attempt int)) error {
+func dispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url string, payload map[string]any, maxAttempts int, backoff func(attempt int)) (*model.WebhookDeadLetter, error) {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		lastErr = client.PostJSON(url, payload)
 		if lastErr == nil {
-			return nil
+			return nil, nil
 		}
 		if attempt < maxAttempts {
 			backoff(attempt)
@@ -50,7 +53,32 @@ func DispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url strin
 		FailedAt:    time.Now().Unix(),
 	}
 	_ = db.Create(dl).Error
-	return lastErr
+	return dl, lastErr
+}
+
+func DispatchWithRetry(db *gorm.DB, client WebhookClient, alertRuleID, url string, payload map[string]any, maxAttempts int, backoff func(attempt int)) error {
+	_, err := dispatchWithRetry(db, client, alertRuleID, url, payload, maxAttempts, backoff)
+	return err
+}
+
+// DispatchWithRetryAndNotify behaves like DispatchWithRetry and additionally
+// sends a compact operator notification after a delivery is persisted as a
+// dead letter. Notification failures are deliberately ignored: the original
+// dead letter is already durable and must not be lost or retried recursively.
+func DispatchWithRetryAndNotify(db *gorm.DB, client WebhookClient, notifyURL, alertRuleID, url string, payload map[string]any, maxAttempts int, backoff func(attempt int)) error {
+	dl, err := dispatchWithRetry(db, client, alertRuleID, url, payload, maxAttempts, backoff)
+	if dl != nil && strings.TrimSpace(notifyURL) != "" {
+		_ = client.PostJSON(notifyURL, map[string]any{
+			"type":          "webhook_dead_letter",
+			"id":            dl.ID,
+			"alert_rule_id": dl.AlertRuleID,
+			"url":           dl.URL,
+			"last_error":    dl.LastError,
+			"attempts":      dl.Attempts,
+			"failed_at":     dl.FailedAt,
+		})
+	}
+	return err
 }
 
 // WebhookDeadLetterService lists exhausted webhook deliveries so an operator
