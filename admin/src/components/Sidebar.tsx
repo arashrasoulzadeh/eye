@@ -9,17 +9,17 @@ const NAV = [
   { href: "/analytics", label: "Analytics", icon: "▥" },
   { href: "/analytics/funnel", label: "Funnels", icon: "↘" },
   { href: "/analytics/retention", label: "Retention", icon: "↺" },
-  { href: "/graphs", label: "Graphs", icon: "◒" },
-  { href: "/questions", label: "Questions", icon: "?" },
   { href: "/tenants", label: "Tenants", icon: "◆" },
   { href: "/sessions", label: "Sessions", icon: "⎘" },
   { href: "/events", label: "Events", icon: "▤" },
+  { href: "/alerts", label: "Alerts", icon: "!" },
+  { href: "/operations", label: "Operations", icon: "⚑" },
+  { href: "/graphs", label: "Graphs", icon: "◒" },
+  { href: "/questions", label: "Questions", icon: "?" },
   { href: "/test-event", label: "Test Event", icon: "▶" },
   { href: "/cdn-test", label: "CDN Test", icon: "⧉" },
   { href: "/schemas", label: "Schemas", icon: "{ }" },
   { href: "/cohorts", label: "Cohorts", icon: "◔" },
-  { href: "/alerts", label: "Alerts", icon: "!" },
-  { href: "/operations", label: "Operations", icon: "⚑" },
   { href: "/feature-flags", label: "Feature Flags", icon: "⚙" },
   { href: "/aggregations", label: "Aggregations", icon: "Σ" },
   { href: "/anomalies", label: "Anomalies", icon: "△" },
@@ -69,10 +69,10 @@ export function Sidebar() {
           );
         })}
         <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm ${secondaryActive ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}>
-          <span className="flex items-center gap-3"><span className="w-4 text-center text-xs">⋯</span>More</span>
+          <span className="flex items-center gap-3"><span className="w-4 text-center text-xs">⋯</span>More <span className="text-xs text-fg-muted">({secondary.length})</span></span>
           <span className="text-xs">{moreOpen ? "▴" : "▾"}</span>
         </button>
-        {moreOpen && <div className="mt-1 border-l border-border pl-2">{secondary.map((item) => {
+        {moreOpen && <div data-testid="sidebar-more-items" className="mt-1 border-l border-border pl-2">{secondary.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/");
           return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{item.label}</Link>;
         })}</div>}
