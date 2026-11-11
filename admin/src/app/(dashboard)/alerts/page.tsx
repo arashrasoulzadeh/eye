@@ -113,6 +113,7 @@ export default function AlertsPage() {
   const columns: Column<AlertRule>[] = [
     { key: "event", header: "Event", render: (r) => <span className="font-medium text-fg">{r.EventName}</span>, sortValue: (r) => r.EventName },
     { key: "threshold", header: "Threshold", render: (r) => <span className="text-fg-muted">{r.Metric} &ge; {r.Threshold}</span> },
+    { key: "window", header: "Window", render: (r) => r.Metric === "count" ? <span className="text-xs text-fg-muted">lifetime</span> : <span className="text-xs text-fg-muted">{Math.round((r.WindowSeconds || 300) / 60)} min</span>, sortValue: (r) => r.WindowSeconds || 0 },
     { key: "dimensions", header: "Dimensions", render: (r) => <span className="text-xs text-fg-muted">{r.DimsKey || "all dimensions"}</span>, sortValue: (r) => r.DimsKey },
     { key: "webhook", header: "Webhook", render: (r) => <span className="truncate text-xs text-fg-muted">{r.WebhookURL}</span> },
     {
