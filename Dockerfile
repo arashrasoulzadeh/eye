@@ -16,4 +16,4 @@ RUN mkdir -p /data/snapshots && chown -R eye:eye /data
 USER eye
 ENV EYE_ENV=production DB_PATH=/data/eye.db SNAPSHOT_DIR=/data/snapshots PORT=8080
 EXPOSE 8080 50051 50052
-ENTRYPOINT ["/app/eye-server"]
+CMD ["/app/eye-server"]
