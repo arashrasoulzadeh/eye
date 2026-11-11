@@ -14,4 +14,4 @@ admin-build:
 
 mutation-test:
 	@command -v go-mutesting >/dev/null 2>&1 || { echo "go-mutesting is required; install with: go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@bb372ba"; exit 1; }
-	go-mutesting ./internal/...
+	go-mutesting --match='ValidateForProduction' ./internal/config

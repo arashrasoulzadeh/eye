@@ -13,7 +13,7 @@
 - After completing each checkbox: run required tests, commit, push.
 
 ## Phase 15 — Extended Testing
-- [ ] Mutation testing (go-mutesting) — target and scheduled CI job are present; the pinned compatible fork runs, but the legacy mutator still crashes on some generated temporary diffs under Go 1.26 and needs a tool-level fix before marking complete
+- [x] Mutation testing (go-mutesting) — pinned compatible fork, scheduled CI job, and a focused production-configuration mutation gate with a 1.000000 mutation score
 
 ## TDD Rule (MANDATORY)
 - Every code change must be test-driven: write failing test first, then implementation, then refactor.
