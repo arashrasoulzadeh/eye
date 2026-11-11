@@ -32,8 +32,9 @@ type StreamIngestPipeline struct {
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
-	Sessions  *LiveSessionHub
-	PIIFields []string
+	Sessions   *LiveSessionHub
+	PIIFields  []string
+	SchemaMode string
 }
 
 // Ingest has the same accepted/rejected contract as IngestService.Ingest,
@@ -71,6 +72,21 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 			if !p.TierLimiter.Allow(sess.TenantID, tier) {
 				rejected++
 				continue
+			}
+		}
+		if p.SchemaMode == "reject" {
+			var schema model.Schema
+			if err := p.Repo.DB.Where("tenant_id = ? AND name = ?", sess.TenantID, name).Order("version desc").First(&schema).Error; err == nil {
+				payloadMap, ok := e["payload"].(map[string]any)
+				if !ok {
+					rejected++
+					continue
+				}
+				redactedPayload, _ := RedactPII(payloadMap, p.PIIFields).(map[string]any)
+				if errs, validationErr := ValidateEventAgainstSchema(redactedPayload, &schema); validationErr != nil || len(errs) > 0 {
+					rejected++
+					continue
+				}
 			}
 		}
 		payload, _ := json.Marshal(RedactPII(e["payload"], p.PIIFields))

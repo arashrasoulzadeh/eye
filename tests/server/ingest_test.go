@@ -19,9 +19,13 @@ func TestIngestDedup(t *testing.T) {
 	svc := &service.IngestService{Repo: r}
 	ev := []map[string]any{{"event_id": "e1", "event_name": "x", "client_ts": float64(1), "payload": map[string]any{}, "dims": map[string]any{}, "session_id": "s1"}}
 	a, _ := svc.Ingest(ev)
-	if a != 1 { t.Fatalf("expected 1 accepted got %d", a) }
+	if a != 1 {
+		t.Fatalf("expected 1 accepted got %d", a)
+	}
 	a2, _ := svc.Ingest(ev)
-	if a2 != 0 { t.Fatalf("expected 0 on dup got %d", a2) }
+	if a2 != 0 {
+		t.Fatalf("expected 0 on dup got %d", a2)
+	}
 }
 
 // Malformed events (missing/wrong-typed required fields) must be rejected,
@@ -48,6 +52,23 @@ func TestIngestRejectsMalformedEventsWithoutPanicking(t *testing.T) {
 		if a != 0 || rej != 1 {
 			t.Fatalf("expected malformed event %+v to be rejected (0 accepted, 1 rejected), got accepted=%d rejected=%d", ev, a, rej)
 		}
+	}
+}
+
+func TestIngestRejectsPayloadThatViolatesEnforcedSchema(t *testing.T) {
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	r := repository.New(db)
+	r.Migrate()
+	db.Create(&model.Session{ID: "schema-session", TenantID: "schema-tenant"})
+	db.Create(&model.Schema{ID: "schema-1", TenantID: "schema-tenant", Name: "purchase", Version: 1, Definition: `{"type":"object","required":["order_id"]}`})
+	svc := &service.IngestService{Repo: r, SchemaMode: "reject"}
+	a, rejected := svc.Ingest([]map[string]any{{"event_id": "schema-event", "event_name": "purchase", "client_ts": float64(1), "payload": map[string]any{"amount": 12}, "dims": map[string]any{}, "session_id": "schema-session"}})
+	if a != 0 || rejected != 1 {
+		t.Fatalf("expected schema violation rejection, accepted=%d rejected=%d", a, rejected)
+	}
+	a, rejected = svc.Ingest([]map[string]any{{"event_id": "schema-event-ok", "event_name": "purchase", "client_ts": float64(1), "payload": map[string]any{"order_id": "o1"}, "dims": map[string]any{}, "session_id": "schema-session"}})
+	if a != 1 || rejected != 0 {
+		t.Fatalf("expected schema-compliant event acceptance, accepted=%d rejected=%d", a, rejected)
 	}
 }
 

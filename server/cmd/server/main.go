@@ -98,7 +98,7 @@ func main() {
 	// (sync path) and StreamIngestPipeline (async path) on every accepted event.
 	liveSessions := service.NewLiveSessionHub()
 	piiFields := strings.Split(cfg.PIIFields, ",")
-	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, Counters: liveCounters, Sessions: liveSessions, PIIFields: piiFields}
+	svc := &service.IngestService{Repo: repo, ExpSvc: expSvc, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, Counters: liveCounters, Sessions: liveSessions, PIIFields: piiFields, SchemaMode: cfg.SchemaMode}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		svc.SetTenantContext = storage.SetTenantContext
 	}
@@ -212,7 +212,7 @@ func main() {
 		stream, streamConsumer = channelStream, channelStream
 		queueDepth = channelStream.QueueDepth
 	}
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, PIIFields: piiFields, SchemaMode: cfg.SchemaMode}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		streamPipeline.SetTenantContext = storage.SetTenantContext
 	}

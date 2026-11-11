@@ -56,8 +56,9 @@ type IngestService struct {
 	// Sessions, if set, broadcasts per-session updates (EventCount, LastSeen)
 	// to subscribers via the LiveSessionHub. Nil means no live-session
 	// tracking, so existing callers/tests that don't set it are unaffected.
-	Sessions  *LiveSessionHub
-	PIIFields []string
+	Sessions   *LiveSessionHub
+	PIIFields  []string
+	SchemaMode string // off, warn, or reject
 }
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
@@ -107,6 +108,21 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			continue
 		}
 		ev.TenantID = sess.TenantID
+		if s.SchemaMode == "reject" {
+			var schema model.Schema
+			if err := s.Repo.DB.Where("tenant_id = ? AND name = ?", ev.TenantID, eventName).Order("version desc").First(&schema).Error; err == nil {
+				payloadMap, ok := e["payload"].(map[string]any)
+				if !ok {
+					rejected++
+					continue
+				}
+				redactedPayload, _ := RedactPII(payloadMap, s.PIIFields).(map[string]any)
+				if errs, validationErr := ValidateEventAgainstSchema(redactedPayload, &schema); validationErr != nil || len(errs) > 0 {
+					rejected++
+					continue
+				}
+			}
+		}
 		if s.QuotaLimiter != nil && !s.QuotaLimiter.Allow(ev.TenantID, int64(len(payload)+len(dims))) {
 			rejected++
 			continue

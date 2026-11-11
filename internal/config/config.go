@@ -26,6 +26,7 @@ type Config struct {
 	RetentionHours    int    `mapstructure:"retention_hours"`
 	SnapshotDir       string `mapstructure:"snapshot_dir"`
 	PIIFields         string `mapstructure:"pii_fields"`
+	SchemaMode        string `mapstructure:"schema_mode"`
 }
 
 var envFiles []string
