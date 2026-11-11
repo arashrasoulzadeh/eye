@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Secret
+metadata: { name: eye-alertmanager-config, namespace: eye }
+type: Opaque
+stringData:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: eye-webhook
+      group_by: [alertname, namespace]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: eye-webhook
+        webhook_configs:
+          - url: https://alerts.example.invalid/eye
+            send_resolved: true
+    # Replace the example URL with an internal relay, Slack bridge, PagerDuty
+    # integration, or another receiver managed by the deployment team.

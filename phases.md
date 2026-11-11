@@ -6,7 +6,7 @@
 ## Production hardening
 - [ ] PostgreSQL/TimescaleDB production backend with tenant RLS and time-series migrations — driver selection, Timescale hypertable/index migrations, RLS policy generation, and transaction-local tenant context helper are implemented; request transaction wiring remains before enabling RLS
 - [ ] Durable collector transport and persisted ingestion queue — database-backed pending stream events and restart replay are implemented; external broker/collector durability remains
-- [ ] Prometheus/Grafana dashboards, structured logs, and alerting — metrics, Grafana dashboard, JSON logs, and Kubernetes Prometheus alert rules are implemented; alert routing remains deployment-specific
+- [x] Prometheus/Grafana dashboards, structured logs, and alerting — metrics, Grafana dashboard, JSON logs, Prometheus rules, and an Alertmanager routing template are implemented
 - [ ] Automated database backups and restore-drill verification — scripts and a Kubernetes CronJob template are implemented; production object storage and scheduled restore execution remain
 - [x] End-to-end Docker deployment test: tenant → key → session → ingest → query — GitHub Actions Compose workflow added for the complete authenticated flow
 - [x] Security hardening: secret manager, CORS allowlist, key expiration/revocation, and OIDC roles — CORS allowlist, expiration, explicit tenant-key revocation, optional OIDC email/group allowlists, and `*_FILE` secret mounts are implemented
