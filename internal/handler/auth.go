@@ -68,3 +68,49 @@ func TenantOrAdminAuth(adminKey string, verify func(tenantID, apiKey string) boo
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	})
 }
+
+// TenantIngestAuth authenticates a batch by resolving its session IDs to one
+// tenant and verifying the caller's tenant API key. Admin callers remain
+// allowed for replay/internal workflows. The body is restored before the
+// wrapped handler runs.
+func TenantIngestAuth(adminKey string, verify func(tenantID, apiKey string) bool, lookup func(sessionID string) (string, bool), next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if secureKeyEqual(adminKey, r.Header.Get("x-admin-key")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Method != http.MethodPost || r.Header.Get("x-api-key") == "" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		var envelope struct {
+			Events []struct {
+				SessionID string `json:"session_id"`
+			} `json:"events"`
+		}
+		if json.Unmarshal(body, &envelope) != nil || len(envelope.Events) == 0 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		tenantID := ""
+		for _, event := range envelope.Events {
+			resolved, ok := lookup(event.SessionID)
+			if !ok || resolved == "" || (tenantID != "" && tenantID != resolved) {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			tenantID = resolved
+		}
+		if !verify(tenantID, r.Header.Get("x-api-key")) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		next.ServeHTTP(w, r)
+	})
+}

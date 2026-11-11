@@ -12,6 +12,7 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/config"
 	"github.com/arashrasoulzadeh/eye/internal/handler"
 	"github.com/arashrasoulzadeh/eye/internal/metrics"
+	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/repository"
 	"github.com/arashrasoulzadeh/eye/internal/service"
 	"github.com/arashrasoulzadeh/eye/internal/storage"
@@ -148,7 +149,14 @@ func main() {
 	liveLimiter := &service.LiveRateLimiter{Provider: settingsSvc}
 
 	ih := &handler.IngestHandler{Svc: svc, Sampler: sampler, Limiter: liveLimiter}
-	mux.Handle("/ingest", ih)
+	lookupSessionTenant := func(sessionID string) (string, bool) {
+		var session model.Session
+		if err := db.First(&session, "id = ?", sessionID).Error; err != nil {
+			return "", false
+		}
+		return session.TenantID, true
+	}
+	mux.Handle("/ingest", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, ih))
 
 	// Phase 7: an async ingest path backed by an in-process stream
 	// (ChannelStream — see internal/service/stream.go for why this is an
@@ -162,7 +170,7 @@ func main() {
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
 	stream.Start(streamCtx, streamPipeline.Consume)
-	mux.Handle("/ingest/stream", &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter})
+	mux.Handle("/ingest/stream", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter}))
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
