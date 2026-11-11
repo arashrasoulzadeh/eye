@@ -134,6 +134,7 @@ func main() {
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/views", adminAuth(&handler.AnalyticsViewsHandler{DB: db}))
 	mux.Handle("/analytics/session-events", adminAuth(&handler.SessionEventsHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/devices", adminAuth(&handler.DeviceBreakdownHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/top-n", adminAuth(&handler.TopNHandler{Svc: analyticsSvc}))
@@ -290,7 +291,7 @@ func main() {
 	// detection, sampled from the same materialized AggregateCount read
 	// model as the alert job — see anomaly.go's doc comments for why this is
 	// a named simple method, not "ML".
-	if err := db.AutoMigrate(&service.MetricSample{}); err != nil {
+	if err := db.AutoMigrate(&service.MetricSample{}, &model.AnalyticsView{}); err != nil {
 		logger.Error("migrate failed", "err", err)
 		os.Exit(1)
 	}

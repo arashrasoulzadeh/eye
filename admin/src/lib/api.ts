@@ -164,6 +164,9 @@ export const api = {
   analytics: {
     funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ step: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }),
     retention: (tenantId: string, granularity: "daily" | "weekly" = "daily") => req<Array<{ cohort_period: string; cohort_size: number; active_by_n: number[]; retained_pct: number[] }>>(`analytics/retention?tenant_id=${encodeURIComponent(tenantId)}&granularity=${granularity}`),
+    views: (tenantId: string) => req<Array<{ id: string; tenant_id: string; name: string; query: string; created_at: number; updated_at: number }>>(`analytics/views?tenant_id=${encodeURIComponent(tenantId)}`),
+    saveView: (tenantId: string, name: string, query: string) => req<unknown>(`analytics/views?tenant_id=${encodeURIComponent(tenantId)}`, { method: "POST", body: JSON.stringify({ name, query }) }),
+    deleteView: (tenantId: string, id: string) => req<void>(`analytics/views/${encodeURIComponent(id)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: "DELETE" }),
   },
 
   schemas: {

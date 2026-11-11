@@ -244,3 +244,13 @@ type Question struct {
 	CreatedAt    int64
 	UpdatedAt    int64
 }
+
+// AnalyticsView stores a shareable analytics query configuration.
+type AnalyticsView struct {
+	ID        string `gorm:"primaryKey" json:"id"`
+	TenantID  string `gorm:"index" json:"tenant_id"`
+	Name      string `json:"name"`
+	Query     string `json:"query"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}
