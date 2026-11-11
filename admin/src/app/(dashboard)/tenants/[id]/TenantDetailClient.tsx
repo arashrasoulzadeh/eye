@@ -33,6 +33,7 @@ export default function TenantDetailClient() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [rotated, setRotated] = useState<string | null>(null);
   const [confirmingRotate, setConfirmingRotate] = useState(false);
   const [usage, setUsage] = useState<TenantUsage | null>(null);
@@ -44,6 +45,7 @@ export default function TenantDetailClient() {
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLoadError("");
       try {
         // There is no GET /tenants/{id} endpoint — the admin API only
         // supports listing all tenants, so the detail page finds this one
@@ -51,8 +53,8 @@ export default function TenantDetailClient() {
         // exist.
         const [tenants, allSessions, tenantEvents] = await Promise.all([
           api.tenants.list(),
-          api.sessions.list(),
-          api.events.list({ tenant_id: tenantId }),
+          api.sessions.list({ limit: 100, offset: 0, filter: tenantId, sort: "last_seen", dir: "desc" }),
+          api.events.list({ tenant_id: tenantId, limit: 100, offset: 0, sort: "desc" }),
         ]);
         if (cancelled) return;
         const t = tenants.find((t) => t.ID === tenantId) || null;
@@ -65,10 +67,12 @@ export default function TenantDetailClient() {
         const sessionRows = Array.isArray(allSessions) ? allSessions : allSessions.items;
         setSessions(sessionRows.filter((s) => s.TenantID === tenantId));
         setEvents(tenantEvents);
-        const currentUsage = await api.tenants.usage(tenantId);
-        if (!cancelled) setUsage(currentUsage);
+        if (typeof api.tenants.usage === "function") {
+          const currentUsage = await api.tenants.usage(tenantId);
+          if (!cancelled) setUsage(currentUsage);
+        }
       } catch (e) {
-        if (!cancelled) push("error", e instanceof ApiError ? e.message : "Failed to load tenant");
+        if (!cancelled) { const message = e instanceof ApiError ? e.message : "Failed to load tenant"; setLoadError(message); push("error", message); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -116,6 +120,10 @@ export default function TenantDetailClient() {
 
   if (loading) {
     return <p className="text-sm text-fg-muted">Loading tenant…</p>;
+  }
+
+  if (loadError) {
+    return <div><h1 className="text-xl font-semibold text-fg">Unable to load tenant</h1><p className="mt-2 text-sm text-danger">{loadError}</p><Link href="/tenants" className="mt-4 inline-block text-sm text-accent hover:underline">Back to tenants</Link></div>;
   }
 
   if (notFound || !tenant) {
