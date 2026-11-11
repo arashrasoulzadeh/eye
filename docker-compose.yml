@@ -19,7 +19,9 @@ services:
     restart: unless-stopped
   admin:
     build: { context: ./admin, dockerfile: Dockerfile }
-    environment: { API_BASE_URL: http://server:8080 }
+    environment:
+      ADMIN_API_KEY: ${ADMIN_KEY:?set ADMIN_KEY}
+      BACKEND_URL: http://server:8080
     ports: ["3000:3000"]
     depends_on: [server]
     restart: unless-stopped
