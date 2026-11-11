@@ -46,6 +46,7 @@ export type AlertRule = {
   DimsKey: string;
   Metric: string;
   Threshold: number;
+  WindowSeconds: number;
   WebhookURL: string;
   Enabled: boolean;
   LastFiredAt: number;
@@ -195,7 +196,7 @@ export const api = {
   alerts: {
     list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<AlertRule[]>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<AlertRulePage>(`alerts?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
-    create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
+    create: (rule: { tenant_id: string; event_name: string; dims_key?: string; metric?: string; threshold: number; window_seconds?: number; webhook_url: string }) =>
       req<AlertRule>("alerts", { method: "POST", body: JSON.stringify(rule) }),
     update: (id: string, rule: { event_name: string; dims_key?: string; metric?: string; threshold: number; webhook_url: string }) =>
       req<AlertRule>(`alerts/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(rule) }),

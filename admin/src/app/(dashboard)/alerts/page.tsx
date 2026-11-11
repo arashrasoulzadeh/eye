@@ -19,6 +19,8 @@ export default function AlertsPage() {
 
   const [eventName, setEventName] = useState("");
   const [dimsKey, setDimsKey] = useState("");
+  const [metric, setMetric] = useState("count");
+  const [windowSeconds, setWindowSeconds] = useState(300);
   const [threshold, setThreshold] = useState(10);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [editing, setEditing] = useState<AlertRule | null>(null);
@@ -54,9 +56,10 @@ export default function AlertsPage() {
     if (!eventName.trim() || !webhookUrl.trim() || !tenantId) return;
     setCreating(true);
     try {
-      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), ...(dimsKey.trim() ? { dims_key: dimsKey.trim() } : {}), threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.create({ tenant_id: tenantId, event_name: eventName.trim(), ...(dimsKey.trim() ? { dims_key: dimsKey.trim() } : {}), ...(metric === "absence" ? { metric, window_seconds: windowSeconds } : {}), threshold, webhook_url: webhookUrl.trim() });
       setEventName("");
       setDimsKey("");
+      setMetric("count"); setWindowSeconds(300);
       setThreshold(10);
       setWebhookUrl("");
       push("success", "Alert rule created");
@@ -69,18 +72,18 @@ export default function AlertsPage() {
   }
 
   function beginEdit(rule: AlertRule) {
-    setEditing(rule); setEventName(rule.EventName); setDimsKey(rule.DimsKey); setThreshold(rule.Threshold); setWebhookUrl(rule.WebhookURL);
+    setEditing(rule); setEventName(rule.EventName); setDimsKey(rule.DimsKey); setMetric(rule.Metric); setWindowSeconds(rule.WindowSeconds || 300); setThreshold(rule.Threshold); setWebhookUrl(rule.WebhookURL);
   }
 
   function cancelEdit() {
-    setEditing(null); setEventName(""); setDimsKey(""); setThreshold(10); setWebhookUrl("");
+    setEditing(null); setEventName(""); setDimsKey(""); setMetric("count"); setWindowSeconds(300); setThreshold(10); setWebhookUrl("");
   }
 
   async function saveEdit() {
     if (!editing || !eventName.trim() || !webhookUrl.trim()) return;
     setCreating(true);
     try {
-      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric: editing.Metric, threshold, webhook_url: webhookUrl.trim() });
+      await api.alerts.update(editing.ID, { event_name: eventName.trim(), dims_key: dimsKey.trim(), metric, threshold, webhook_url: webhookUrl.trim() });
       push("success", "Alert rule updated"); cancelEdit(); await refresh();
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to update alert rule"); }
     finally { setCreating(false); }
@@ -170,6 +173,11 @@ export default function AlertsPage() {
             <Label>Event name</Label>
             <Combobox value={eventName} onChange={setEventName} options={eventNameOptions} placeholder="error" />
           </div>
+          <div className="w-36">
+            <Label>Rule type</Label>
+            <Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="count">Count</option><option value="absence">Absence</option></Select>
+          </div>
+          {metric === "absence" && <div className="w-36"><Label>Window (seconds)</Label><Input type="number" min={30} value={windowSeconds} onChange={(e) => setWindowSeconds(Math.max(30, Number(e.target.value) || 30))} /></div>}
           <div className="w-28">
             <Label>Threshold (count)</Label>
             <Input type="number" min={1} value={threshold} onChange={(e) => setThreshold(Math.max(1, Number(e.target.value) || 1))} />

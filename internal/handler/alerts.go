@@ -17,6 +17,7 @@ type alertRuleBody struct {
 	DimsKey    string `json:"dims_key"`
 	Metric     string `json:"metric"`
 	Threshold  int64  `json:"threshold"`
+	WindowSeconds int64 `json:"window_seconds"`
 	WebhookURL string `json:"webhook_url"`
 }
 
@@ -118,7 +119,7 @@ func (h *AlertsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		rule, err := h.Svc.Create(b.TenantID, b.EventName, b.DimsKey, b.Metric, b.Threshold, b.WebhookURL)
+		rule, err := h.Svc.CreateWithWindow(b.TenantID, b.EventName, b.DimsKey, b.Metric, b.Threshold, b.WindowSeconds, b.WebhookURL)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

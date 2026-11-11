@@ -32,6 +32,7 @@ const baseRule = {
   DimsKey: "",
   Metric: "count",
   Threshold: 10,
+  WindowSeconds: 0,
   WebhookURL: "https://example.com/hook",
   Enabled: true,
   LastFiredAt: 0,

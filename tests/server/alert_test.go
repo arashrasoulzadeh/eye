@@ -2,6 +2,7 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -17,10 +18,24 @@ func newAlertTestDB(t *testing.T) *gorm.DB {
 	if sqlDB, err := db.DB(); err == nil {
 		sqlDB.SetMaxOpenConns(1)
 	}
-	if err := db.AutoMigrate(&model.AlertRule{}, &model.AggregateCount{}); err != nil {
+	if err := db.AutoMigrate(&model.AlertRule{}, &model.AggregateCount{}, &model.Event{}); err != nil {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func TestAlertServiceAbsenceRule(t *testing.T) {
+	db := newAlertTestDB(t)
+	svc := &service.AlertService{DB: db}
+	rule, err := svc.CreateWithWindow("t1", "heartbeat", "", "absence", 0, 60, "https://example.com/hook")
+	if err != nil { t.Fatal(err) }
+	met, count, err := svc.Evaluate(rule)
+	if err != nil { t.Fatal(err) }
+	if !met || count != 0 { t.Fatalf("expected absence to be met with zero events, met=%v count=%d", met, count) }
+	db.Create(&model.Event{EventID: "e1", TenantID: "t1", EventName: "heartbeat", IngestTS: time.Now()})
+	met, count, err = svc.Evaluate(rule)
+	if err != nil { t.Fatal(err) }
+	if met || count != 1 { t.Fatalf("expected recent event to clear absence, met=%v count=%d", met, count) }
 }
 
 func TestAlertServiceCRUD(t *testing.T) {

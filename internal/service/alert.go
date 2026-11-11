@@ -26,13 +26,17 @@ func randomAlertID() string {
 }
 
 func (a *AlertService) Create(tenantID, eventName, dimsKey, metric string, threshold int64, webhookURL string) (*model.AlertRule, error) {
+	return a.CreateWithWindow(tenantID, eventName, dimsKey, metric, threshold, 0, webhookURL)
+}
+
+func (a *AlertService) CreateWithWindow(tenantID, eventName, dimsKey, metric string, threshold, windowSeconds int64, webhookURL string) (*model.AlertRule, error) {
 	if metric == "" {
 		metric = "count"
 	}
 	now := time.Now().Unix()
 	rule := &model.AlertRule{
 		ID: randomAlertID(), TenantID: tenantID, EventName: eventName, DimsKey: dimsKey,
-		Metric: metric, Threshold: threshold, WebhookURL: webhookURL, Enabled: true,
+		Metric: metric, Threshold: threshold, WindowSeconds: windowSeconds, WebhookURL: webhookURL, Enabled: true,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if err := a.DB.Create(rule).Error; err != nil {
@@ -100,6 +104,16 @@ func (a *AlertService) SetEnabled(id string, enabled bool) (*model.AlertRule, er
 // dims bucket for (TenantID, EventName); otherwise only the matching dims
 // bucket is used.
 func (a *AlertService) Evaluate(rule *model.AlertRule) (met bool, count int64, err error) {
+	if rule.Metric == "absence" {
+		window := rule.WindowSeconds
+		if window <= 0 { window = 300 }
+		cutoff := time.Now().Add(-time.Duration(window) * time.Second)
+		var total int64
+		q := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND event_name = ? AND ingest_ts >= ?", rule.TenantID, rule.EventName, cutoff)
+		if rule.DimsKey != "" { q = q.Where("dims = ?", rule.DimsKey) }
+		if err := q.Count(&total).Error; err != nil { return false, 0, err }
+		return total == 0, total, nil
+	}
 	q := a.DB.Model(&model.AggregateCount{}).Where("tenant_id = ? AND event_name = ?", rule.TenantID, rule.EventName)
 	if rule.DimsKey != "" {
 		q = q.Where("dims_key = ?", rule.DimsKey)

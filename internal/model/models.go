@@ -166,6 +166,7 @@ type AlertRule struct {
 	DimsKey        string
 	Metric         string // currently only "count" is supported
 	Threshold      int64
+	WindowSeconds  int64 // used by absence rules; zero means the service default
 	WebhookURL     string
 	Enabled        bool
 	LastFiredAt    int64 // 0 if never fired; used to avoid re-firing every tick while still above threshold
