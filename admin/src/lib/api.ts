@@ -201,6 +201,7 @@ export const api = {
     anomalies: () => req<unknown[]>("anomalies"),
     auditLog: () => req<unknown[]>("audit-log?limit=100"),
     deadLetters: () => req<unknown[]>("webhooks/dead-letter?limit=100"),
+    deleteDeadLetter: (id: string) => req<void>(`webhooks/dead-letter?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
     createExperiment: (body: { name: string; tenant_id: string; variants: string; traffic: number }) => req<unknown>("experiments", { method: "POST", body: JSON.stringify(body) }),
     experiments: (tenantId: string) => req<unknown[]>(`experiments?tenant_id=${encodeURIComponent(tenantId)}`),

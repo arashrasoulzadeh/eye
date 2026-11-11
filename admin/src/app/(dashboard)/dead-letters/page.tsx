@@ -1,5 +1,13 @@
 "use client";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { OperationsResourcePage } from "@/components/OperationsResourcePage";
-export default function DeadLettersPage() { const loader = useCallback(() => api.operations.deadLetters(), []); return <OperationsResourcePage title="Webhook Dead Letters" description="Inspect webhook deliveries that exhausted their retries." loader={loader}/>; }
+import { Card, CardHeader } from "@/components/Card";
+import { Button } from "@/components/Button";
+type DeadLetter = { ID: string; URL: string; Payload: string; LastError: string; Attempts: number; FailedAt: number };
+export default function DeadLettersPage() {
+  const [rows, setRows] = useState<DeadLetter[]>([]), [error, setError] = useState(""), [loading, setLoading] = useState(true);
+  const load = useCallback(async () => { setLoading(true); try { setRows(await api.operations.deadLetters() as DeadLetter[]); setError(""); } catch (e) { setError((e as Error).message); } finally { setLoading(false); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  async function remove(id: string) { if (!window.confirm("Delete this dead-letter record? This cannot be undone.")) return; await api.operations.deleteDeadLetter(id); await load(); }
+  return <div><div className="flex items-end justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Webhook Dead Letters</h1><p className="mt-1 text-sm text-fg-muted">Inspect exhausted deliveries and remove records only after confirming the failure is handled.</p></div><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div><details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">How to use this page</summary><p className="mt-2 text-fg-muted">Review the destination, retry count, error, and payload. Delete only after the destination is fixed or the delivery is intentionally discarded.</p></details>{error && <p className="mt-4 text-sm text-danger">{error}</p>}<Card className="mt-6"><CardHeader title={`Dead letters (${rows.length})`} />{loading && !rows.length ? <p className="p-5 text-sm text-fg-muted">Loading dead letters…</p> : !rows.length ? <p className="p-5 text-sm text-fg-muted">No exhausted webhook deliveries.</p> : <div className="divide-y divide-border">{rows.map((row) => <div key={row.ID} className="flex flex-wrap items-start justify-between gap-4 p-5"><div className="min-w-0 space-y-1 text-sm"><p className="font-medium text-fg break-all">{row.URL}</p><p className="text-xs text-fg-muted">ID {row.ID} · {row.Attempts} attempts · {new Date(row.FailedAt * 1000).toLocaleString()}</p><p className="text-xs text-danger">{row.LastError}</p><pre className="max-h-24 overflow-auto rounded bg-surface-2 p-2 text-xs text-fg-muted">{row.Payload}</pre></div><Button variant="danger" onClick={() => void remove(row.ID)}>Delete</Button></div>)}</div>}</Card></div>;
+}

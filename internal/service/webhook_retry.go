@@ -65,3 +65,7 @@ func (s *WebhookDeadLetterService) List(limit int) ([]model.WebhookDeadLetter, e
 	}
 	return list, nil
 }
+
+func (s *WebhookDeadLetterService) Delete(id string) error {
+	return s.DB.Delete(&model.WebhookDeadLetter{}, "id = ?", id).Error
+}
