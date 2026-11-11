@@ -45,13 +45,13 @@ export default function SessionDetailClient() {
         // Same pattern as the tenant detail page: there is no GET
         // /sessions/{id} endpoint, only a list, so this finds the one we
         // want from it rather than inventing a backend call that doesn't exist.
-        const [sessions, tenants, sessionEvents] = await Promise.all([
-          api.sessions.list(),
+        const [session, tenants, sessionEvents] = await Promise.all([
+          api.sessions.get(sessionId),
           api.tenants.list(),
           api.events.list({ session_id: sessionId }),
         ]);
         if (cancelled) return;
-        const s = sessions.find((s) => s.ID === sessionId) || null;
+        const s = session || null;
         setSession(s);
         setNotFound(!s);
         setTenant(s ? tenants.find((t) => t.ID === s.TenantID) || null : null);

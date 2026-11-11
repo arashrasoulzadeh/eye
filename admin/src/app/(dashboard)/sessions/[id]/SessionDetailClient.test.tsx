@@ -13,7 +13,7 @@ vi.mock("@/lib/api", async () => {
     ...actual,
     api: {
       tenants: { list: vi.fn() },
-      sessions: { list: vi.fn() },
+      sessions: { list: vi.fn(), get: vi.fn() },
       events: { list: vi.fn() },
     },
   };
@@ -37,6 +37,7 @@ describe("SessionDetailClient", () => {
       },
       { ID: "s2", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 0, UserAgent: "", IP: "", DeviceInfo: "" },
     ]);
+    vi.mocked(api.sessions.get).mockResolvedValue({ ID: "s1", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 2, UserAgent: "Mozilla/5.0 (test-agent)", IP: "203.0.113.7", DeviceInfo: '{"platform":"MacIntel","timezone":"Asia/Tehran"}' });
     vi.mocked(api.events.list).mockResolvedValue([
       { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
     ]);
@@ -75,6 +76,7 @@ describe("SessionDetailClient", () => {
 
   it("shows a not-found state for an unknown session id", async () => {
     vi.mocked(api.sessions.list).mockResolvedValue([]);
+    vi.mocked(api.sessions.get).mockResolvedValue(undefined as never);
     render(
       <ToastProvider>
         <SessionDetailClient />

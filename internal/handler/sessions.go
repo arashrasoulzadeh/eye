@@ -75,6 +75,15 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(s)
 	case http.MethodGet:
+		if sessionID := r.URL.Query().Get("session_id"); sessionID != "" {
+			var session model.Session
+			if err := h.DB.First(&session, "id = ?", sessionID).Error; err != nil {
+				http.Error(w, "session not found", http.StatusNotFound)
+				return
+			}
+			json.NewEncoder(w).Encode(session)
+			return
+		}
 		var list []model.Session
 		h.DB.Find(&list)
 		json.NewEncoder(w).Encode(list)

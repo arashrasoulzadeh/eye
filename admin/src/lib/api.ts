@@ -110,6 +110,7 @@ export const api = {
 
   sessions: {
     list: () => req<Session[]>("sessions"),
+    get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
     create: (tenantId: string) =>
       req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }),
   },
