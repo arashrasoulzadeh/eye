@@ -1,5 +1,17 @@
 "use client";
-import { useCallback } from "react";
-import { api } from "@/lib/api";
-import { OperationsResourcePage } from "@/components/OperationsResourcePage";
-export default function FeatureFlagsPage() { const loader = useCallback((tenant: string) => api.operations.flags(tenant), []); return <OperationsResourcePage title="Feature Flags" description="Manage tenant-scoped feature switches." tenantScoped loader={loader}/>; }
+import { useCallback, useEffect, useState } from "react";
+import { api, Tenant, ApiError } from "@/lib/api";
+import { Card, CardHeader } from "@/components/Card";
+import { Button } from "@/components/Button";
+import { Combobox } from "@/components/Combobox";
+
+type Flag = { TenantID: string; Key: string; Enabled: boolean; CreatedAt?: number; UpdatedAt?: number };
+export default function FeatureFlagsPage() {
+  const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [flags, setFlags] = useState<Flag[]>([]), [key, setKey] = useState(""), [loading, setLoading] = useState(false), [error, setError] = useState("");
+  const load = useCallback(async () => { if (!tenant) return; setLoading(true); try { setFlags(await api.operations.flags(tenant) as Flag[]); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load flags"); } finally { setLoading(false); } }, [tenant]);
+  useEffect(() => { api.tenants.list().then((x) => { setTenants(x); if (x[0]) setTenant(x[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { void load(); }, [load]);
+  async function save(flagKey: string, enabled: boolean) { try { await api.operations.setFlag(tenant, flagKey, enabled); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to save flag"); } }
+  async function remove(flagKey: string) { if (!window.confirm(`Delete feature flag ${flagKey}?`)) return; try { await api.operations.deleteFlag(tenant, flagKey); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to delete flag"); } }
+  return <div><div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Feature Flags</h1><p className="mt-1 text-sm text-fg-muted">Tenant-scoped switches used to roll out behavior safely. Keys are stable identifiers; enable/disable is immediately persisted.</p></div><div className="flex gap-2"><Combobox value={tenant} onChange={setTenant} options={tenants.map((t) => ({ value: t.ID, label: t.Name }))} placeholder="Select tenant"/><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>{error && <p className="mt-4 text-sm text-danger">{error}</p>}<Card className="mt-6"><CardHeader title="Create or update flag"/><div className="flex flex-wrap gap-3 p-5"><input value={key} onChange={(e) => setKey(e.target.value)} placeholder="checkout.v2" className="rounded border border-border bg-surface px-3 py-2 text-sm"/><Button onClick={() => { if (key.trim()) { void save(key.trim(), true); setKey(""); } }} disabled={!tenant || !key.trim()}>Enable flag</Button></div></Card><Card className="mt-6"><CardHeader title={`Flags (${flags.length})`}/><div className="divide-y divide-border">{flags.length === 0 ? <p className="p-5 text-sm text-fg-muted">No flags for this tenant.</p> : flags.map((flag) => <div key={flag.Key} className="flex items-center justify-between gap-3 px-5 py-3"><div><p className="font-medium text-fg">{flag.Key}</p><p className="text-xs text-fg-muted">{flag.Enabled ? "Enabled" : "Disabled"}</p></div><div className="flex gap-2"><Button variant="secondary" onClick={() => void save(flag.Key, !flag.Enabled)}>{flag.Enabled ? "Disable" : "Enable"}</Button><Button variant="danger" onClick={() => void remove(flag.Key)}>Delete</Button></div></div>)}</div></Card></div>;
+}

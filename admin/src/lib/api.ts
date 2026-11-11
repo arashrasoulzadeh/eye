@@ -188,6 +188,7 @@ export const api = {
   operations: {
     flags: (tenantId: string) => req<unknown[]>(`feature-flags?tenant_id=${encodeURIComponent(tenantId)}`),
     setFlag: (tenantId: string, key: string, enabled: boolean) => req<unknown>("feature-flags", { method: "PUT", body: JSON.stringify({ tenant_id: tenantId, key, enabled }) }),
+    deleteFlag: (tenantId: string, key: string) => req<void>(`feature-flags?tenant_id=${encodeURIComponent(tenantId)}&key=${encodeURIComponent(key)}`, { method: "DELETE" }),
     aggregations: (tenantId: string) => req<unknown[]>(`aggregations?tenant_id=${encodeURIComponent(tenantId)}`),
     refreshAggregations: (tenantId: string) => req<unknown>(`aggregations/refresh?tenant_id=${encodeURIComponent(tenantId)}`, { method: "POST" }),
     anomalies: () => req<unknown[]>("anomalies"),
