@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: eye-aggregation-worker, namespace: eye }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: eye-aggregation-worker } }
+  template:
+    metadata: { labels: { app: eye-aggregation-worker } }
+    spec:
+      containers:
+        - name: aggregation-worker
+          image: ghcr.io/arashrasoulzadeh/eye-server:latest
+          command: ["/app/eye-aggregation-worker"]
+          env:
+            - { name: EYE_ENV, value: production }
+            - { name: DB_DRIVER, value: postgres }
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: eye-server-secrets, key: DATABASE_URL } } }
