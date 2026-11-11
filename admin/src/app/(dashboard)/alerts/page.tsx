@@ -164,7 +164,7 @@ export default function AlertsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Alert rules (${rules.length})`} />
-        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide totalRows={rules.length} onQueryChange={(query) => void refresh(query)} />
+        <DataTable columns={columns} rows={rules} rowKey={(r) => r.ID} emptyMessage="No alert rules yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={rules.length} />
       </Card>
 
       <ConfirmDialog

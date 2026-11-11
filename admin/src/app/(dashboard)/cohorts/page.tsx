@@ -145,7 +145,7 @@ export default function CohortsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`Cohorts (${cohorts.length})`} />
-        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." serverSide totalRows={cohorts.length} onQueryChange={(query) => void refresh(query)} />
+        <DataTable columns={columns} rows={cohorts} rowKey={(c) => c.ID} emptyMessage="No cohorts yet for this tenant." serverSide onQueryChange={(query) => void refresh(query)} totalRows={cohorts.length} />
       </Card>
     </div>
   );
