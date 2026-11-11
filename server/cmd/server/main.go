@@ -93,7 +93,11 @@ func main() {
 	// /sessions accepts the admin key OR a tenant's own API key for POST
 	// (session creation) — a public CDN SDK running in the browser must be
 	// able to call this with only its tenant key, never the admin key.
-	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db})))
+	setTenantContext := storage.SetTenantContext
+	if cfg.DBDriver != "postgres" && cfg.DBDriver != "postgresql" && cfg.DBDriver != "timescale" {
+		setTenantContext = nil
+	}
+	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext})))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})

@@ -14,7 +14,10 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
-type SessionsHandler struct{ DB *gorm.DB }
+type SessionsHandler struct {
+	DB               *gorm.DB
+	SetTenantContext func(*gorm.DB, string) error
+}
 
 // clientIP prefers the leftmost X-Forwarded-For entry (the original client,
 // for requests behind a reverse proxy) and falls back to the raw connection
@@ -58,7 +61,15 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			IP:         clientIP(r),
 			DeviceInfo: string(deviceJSON),
 		}
-		if err := h.DB.Create(s).Error; err != nil {
+		err := h.DB.Transaction(func(tx *gorm.DB) error {
+			if h.SetTenantContext != nil {
+				if err := h.SetTenantContext(tx, b.TenantID); err != nil {
+					return err
+				}
+			}
+			return tx.Create(s).Error
+		})
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -74,9 +85,9 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var b struct {
-			Device   map[string]any `json:"device"`
-			IP       string         `json:"ip"`
-			UserAgent string        `json:"user_agent"`
+			Device    map[string]any `json:"device"`
+			IP        string         `json:"ip"`
+			UserAgent string         `json:"user_agent"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
