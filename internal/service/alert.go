@@ -145,7 +145,7 @@ func validateAlertRule(eventName, metric string, threshold, windowSeconds int64)
 	if strings.TrimSpace(eventName) == "" {
 		return fmt.Errorf("event name is required")
 	}
-	if metric != "count" && metric != "absence" && metric != "conversion" {
+	if metric != "count" && metric != "absence" && metric != "conversion" && metric != "anomaly" {
 		return fmt.Errorf("unsupported alert metric %q", metric)
 	}
 	if metric != "absence" && threshold <= 0 {
@@ -192,6 +192,23 @@ func (a *AlertService) SetEnabled(id string, enabled bool) (*model.AlertRule, er
 // dims bucket for (TenantID, EventName); otherwise only the matching dims
 // bucket is used.
 func (a *AlertService) Evaluate(rule *model.AlertRule) (met bool, count int64, err error) {
+	if rule.Metric == "anomaly" {
+		var samples []MetricSample
+		if err := a.DB.Where("tenant_id = ? AND event_name = ?", rule.TenantID, rule.EventName).Order("bucket DESC").Limit(6).Find(&samples).Error; err != nil {
+			return false, 0, err
+		}
+		if len(samples) < 3 {
+			return false, 0, nil
+		}
+		latest := samples[0]
+		history := make([]int64, 0, len(samples)-1)
+		for i := len(samples) - 1; i > 0; i-- {
+			history = append(history, samples[i].Count)
+		}
+		threshold := float64(rule.Threshold)
+		met, _, _, _ = DetectZScore(history, latest.Count, threshold)
+		return met, latest.Count, nil
+	}
 	if rule.Metric == "conversion" {
 		names := strings.Split(rule.EventName, ",")
 		for i := range names {

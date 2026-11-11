@@ -18,10 +18,26 @@ func newAlertTestDB(t *testing.T) *gorm.DB {
 	if sqlDB, err := db.DB(); err == nil {
 		sqlDB.SetMaxOpenConns(1)
 	}
-	if err := db.AutoMigrate(&model.AlertRule{}, &model.AggregateCount{}, &model.Event{}); err != nil {
+	if err := db.AutoMigrate(&model.AlertRule{}, &model.AggregateCount{}, &model.Event{}, &service.MetricSample{}); err != nil {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func TestAlertServiceAnomalyRule(t *testing.T) {
+	db := newAlertTestDB(t)
+	svc := &service.AlertService{DB: db}
+	for i, count := range []int64{10, 10, 10, 100} {
+		db.Create(&service.MetricSample{TenantID: "t1", EventName: "checkout", Bucket: int64(i + 1), Count: count, Cumulative: count})
+	}
+	rule, err := svc.CreateWithWindow("t1", "checkout", "", "anomaly", 2, 0, "https://example.com/hook")
+	if err != nil {
+		t.Fatal(err)
+	}
+	met, count, err := svc.Evaluate(rule)
+	if err != nil || !met || count != 100 {
+		t.Fatalf("expected anomaly, met=%v count=%d err=%v", met, count, err)
+	}
 }
 
 func TestAlertServiceAbsenceRule(t *testing.T) {
