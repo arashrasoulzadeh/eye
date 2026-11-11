@@ -71,6 +71,17 @@ func (a *AdminService) ListTenantsQuery(filter, sort, direction string, limit, o
 	return ts, nil
 }
 
+func (a *AdminService) CountTenants(filter string) (int64, error) {
+	q := a.Repo.DB.Model(&model.Tenant{})
+	if filter != "" {
+		like := "%" + filter + "%"
+		q = q.Where("id LIKE ? OR name LIKE ?", like, like)
+	}
+	var total int64
+	err := q.Count(&total).Error
+	return total, err
+}
+
 // DeleteTenant permanently removes a tenant by ID.
 func (a *AdminService) DeleteTenant(tenantID string) error {
 	res := a.Repo.DB.Delete(&model.Tenant{}, "id = ?", tenantID)

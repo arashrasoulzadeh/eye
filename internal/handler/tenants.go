@@ -90,7 +90,17 @@ func (h *TenantsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		list, _ := h.Svc.ListTenantsQuery(r.URL.Query().Get("filter"), r.URL.Query().Get("sort"), r.URL.Query().Get("dir"), queryInt(r, "limit", 100), queryInt(r, "offset", 0))
+		filter := r.URL.Query().Get("filter")
+		list, _ := h.Svc.ListTenantsQuery(filter, r.URL.Query().Get("sort"), r.URL.Query().Get("dir"), queryInt(r, "limit", 100), queryInt(r, "offset", 0))
+		if r.URL.Query().Get("page") == "true" {
+			total, err := h.Svc.CountTenants(filter)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": queryInt(r, "limit", 100), "offset": queryInt(r, "offset", 0)})
+			return
+		}
 		json.NewEncoder(w).Encode(list)
 	case http.MethodPost:
 		var b struct{ Name, APIKey string }

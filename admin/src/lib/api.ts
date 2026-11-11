@@ -1,4 +1,5 @@
 export type Tenant = { ID: string; Name: string; APIKey: string; CreatedAt: string; MonthlyEventLimit?: number; MonthlyStorageLimit?: number };
+export type TenantPage = { items: Tenant[]; total: number; limit: number; offset: number };
 export type Session = {
   ID: string;
   TenantID: string;
@@ -104,6 +105,7 @@ export const api = {
 
   tenants: {
     list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; return req<Tenant[]>(`tenants${query}`); },
+    listPage: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => req<TenantPage>(`tenants?page=true&filter=${encodeURIComponent(params.filter ?? "")}&sort=${params.sort ?? "created"}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     create: (name: string, apiKey: string) =>
       req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }),
     remove: (id: string) => req<void>(`tenants/${id}`, { method: "DELETE" }),
