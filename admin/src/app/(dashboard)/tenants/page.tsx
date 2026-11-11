@@ -14,16 +14,18 @@ export default function TenantsPage() {
   const [totalTenants, setTotalTenants] = useState(0);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [toDelete, setToDelete] = useState<Tenant | null>(null);
   const [rotated, setRotated] = useState<{ tenant: Tenant; key: string } | null>(null);
   const { push } = useToast();
 
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
+    setLoading(true);
     try {
       const page = await api.tenants.listPage({ filter: query.filter, sort: query.sortKey ?? "created", dir: query.sortDir, limit: 10, offset: query.page * 10 }); setTenants(page.items); setTotalTenants(page.total);
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to load tenants");
-    }
+    } finally { setLoading(false); }
   }, [push]);
 
   useEffect(() => {
@@ -35,9 +37,10 @@ export default function TenantsPage() {
     setCreating(true);
     try {
       const apiKey = crypto.randomUUID().replace(/-/g, "");
-      await api.tenants.create(name.trim(), apiKey);
+      const tenant = await api.tenants.create(name.trim(), apiKey);
       setName("");
       push("success", `Tenant "${name.trim()}" created`);
+      setRotated({ tenant, key: apiKey });
       await refresh();
     } catch (e) {
       push("error", e instanceof ApiError ? e.message : "Failed to create tenant");
@@ -119,7 +122,7 @@ export default function TenantsPage() {
 
       <Card className="mt-6">
         <CardHeader title={`All tenants (${tenants.length})`} />
-        <DataTable columns={columns} rows={tenants} rowKey={(t) => t.ID} emptyMessage="No tenants yet — create one above." serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalTenants} />
+        <DataTable columns={columns} rows={tenants} rowKey={(t) => t.ID} emptyMessage="No tenants yet — create one above." loading={loading} serverSide onQueryChange={(query) => void refresh(query)} totalRows={totalTenants} />
       </Card>
 
       <ConfirmDialog
