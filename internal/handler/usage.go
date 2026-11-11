@@ -51,10 +51,14 @@ func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func quotaWarnings(events, storage, eventLimit, storageLimit int64) []string {
 	warnings := []string{}
-	if eventLimit > 0 && events*100 >= eventLimit*80 {
+	if eventLimit > 0 && events >= eventLimit {
+		warnings = append(warnings, "event quota exceeded; new events may be rejected")
+	} else if eventLimit > 0 && events*100 >= eventLimit*80 {
 		warnings = append(warnings, "event usage reached 80% of the monthly quota")
 	}
-	if storageLimit > 0 && storage*100 >= storageLimit*80 {
+	if storageLimit > 0 && storage >= storageLimit {
+		warnings = append(warnings, "storage quota exceeded; new events may be rejected")
+	} else if storageLimit > 0 && storage*100 >= storageLimit*80 {
 		warnings = append(warnings, "storage usage reached 80% of the monthly quota")
 	}
 	return warnings
