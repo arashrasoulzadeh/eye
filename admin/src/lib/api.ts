@@ -175,7 +175,7 @@ export const api = {
     },
     listPage: (filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number; sort?: "desc" | "asc"; limit?: number; offset?: number } = {}) => { const qs = new URLSearchParams(Object.entries({ ...filters, page: "true" }).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])); return req<EventPage>(`query?${qs}`).then((value) => ({ ...(value || { total: 0, limit: filters.limit ?? 10, offset: filters.offset ?? 0 }), items: Array.isArray(value?.items) ? value.items : [] })); },
   },
-  eventOptions: (tenantId: string, query = "") => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}`).then((value) => Array.isArray(value) ? value : []),
+  eventOptions: (tenantId: string, query = "", all = false) => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}${all ? "&all=1" : ""}`).then((value) => Array.isArray(value) ? value : []),
   slo: () => req<{ target: number; availability: number; requests: number; errors: number; error_budget: number; error_budget_remaining: number; within_slo: boolean }>("slo"),
   analytics: {
     funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ event_name: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }).then((value) => Array.isArray(value) ? value : []),

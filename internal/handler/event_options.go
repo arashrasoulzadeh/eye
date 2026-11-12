@@ -20,6 +20,7 @@ type EventOptionsHandler struct{ DB *gorm.DB }
 
 func (h *EventOptionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenant, query := r.URL.Query().Get("tenant_id"), r.URL.Query().Get("q")
+	all := r.URL.Query().Get("all") == "1" || r.URL.Query().Get("all") == "true"
 	var rows []EventOption
 	db := h.DB.Table("events").Select("event_name as value, COUNT(*) as count, MAX(client_ts) as last").Where("event_name <> ''")
 	if tenant != "" {
@@ -28,7 +29,10 @@ func (h *EventOptionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if query != "" {
 		db = db.Where("event_name LIKE ?", "%"+strings.ReplaceAll(query, "%", "\\%")+"%")
 	}
-	if err := db.Group("event_name").Order("count DESC, last DESC").Limit(5).Scan(&rows).Error; err != nil {
+	if !all {
+		db = db.Limit(5)
+	}
+	if err := db.Group("event_name").Order("count DESC, last DESC").Scan(&rows).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

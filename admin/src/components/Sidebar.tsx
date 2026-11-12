@@ -57,7 +57,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface">
+    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-visible border-r border-border bg-surface">
       <div className="flex items-center justify-between gap-2 px-5 py-5">
         <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-fg">
@@ -73,7 +73,7 @@ export function Sidebar() {
         <label className="mb-1 mt-3 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">Global time</label>
         <TimeRangeSelector />
       </div>
-      <nav className="flex-1 space-y-0.5 px-3">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3">
         {primary.map((item) => {
           const active = isActive(item.href);
           return (

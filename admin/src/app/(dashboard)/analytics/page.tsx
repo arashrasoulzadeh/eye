@@ -27,7 +27,7 @@ export default function AnalyticsPage() {
   useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
   useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   useEffect(() => { const params = new URLSearchParams(); if (tenant) params.set("tenant", tenant); if (selected.length) params.set("events", selected.join(",")); params.set("time_hours", hours); params.set("chart", chart); params.set("aggregation", aggregation); params.set("group", groupBy); router.replace(`/analytics?${params.toString()}`, { scroll: false }); }, [tenant, selected, hours, chart, aggregation, groupBy, router]);
-  const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { const options = await api.eventOptions(tenant, q); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
+  const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { const options = await api.eventOptions(tenant, q, q === ""); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
   const loadPanel = useCallback(async (panel: Panel) => {
     if (!tenant || !panel.eventNames.length) return;
     setQueryLoading(true);
