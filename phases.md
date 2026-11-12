@@ -16,8 +16,8 @@
 - [ ] Multi-user admin workspace — users, invitations, teams, roles, session management, and migration from the single admin key
 - [x] Usage metering, quotas, and billing foundations — period-based event/storage counters, plan limits, enforcement, usage API, and quota alerts
 - [x] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
-- [ ] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations
-- [ ] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies
+- [x] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations — anomaly z-score evaluation, destination-aware payloads, SMTP email, retries, and dead-letter handling are implemented
+- [x] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies — configured and opt-in detection, reject/warn schema paths, export/delete endpoints, and live retention settings are implemented
 - [ ] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications
 - [x] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics — all four packages now implement durable offline queues, retry-safe flushing, session persistence, and diagnostics with contract coverage
 - [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
