@@ -8,6 +8,7 @@ import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { JsonView } from "@/components/JsonView";
+import { useTenant } from "@/components/TenantContext";
 
 type UserRow = { id: string; sessions: number; events: number; lastSeen: string; online: boolean; browser: string; location: string; ip: string; userAgent: string };
 
@@ -24,6 +25,7 @@ function browser(ua: string): string {
 }
 
 export default function UsersPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [sessions, setSessions] = useState<Session[]>([]), [events, setEvents] = useState<Event[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
   async function load() {
     setLoading(true); setError("");
@@ -33,6 +35,7 @@ export default function UsersPage() {
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load users"); } finally { setLoading(false); }
   }
   useEffect(() => { api.tenants.list().then((items) => { const available = Array.isArray(items) ? items : []; setTenants([{ ID: "", Name: "All tenants", APIKey: "", CreatedAt: "" }, ...available]); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   // load intentionally follows the selected tenant and is recreated with page state.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant]);

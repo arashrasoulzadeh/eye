@@ -8,8 +8,10 @@ import { Combobox } from "@/components/Combobox";
 import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
+import { useTenant } from "@/components/TenantContext";
 
 export default function StreamPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [events, setEvents] = useState<Event[]>([]), [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantSearch, setTenantSearch] = useState(""), [eventSearch, setEventSearch] = useState("");
   const [tenantIds, setTenantIds] = useState<string[]>([]), [eventNames, setEventNames] = useState<string[]>([]);
@@ -17,6 +19,7 @@ export default function StreamPage() {
   const [style, setStyle] = useState("cards"), [running, setRunning] = useState(true), [compact, setCompact] = useState(true), [loading, setLoading] = useState(true), [error, setError] = useState("");
 
   useEffect(() => { api.tenants.list().then(setTenants).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && !tenantIds.includes(globalTenant)) setTenantIds([globalTenant]); }, [globalTenant, tenantIds]);
   useEffect(() => {
     if (!running) return;
     const now = Date.now(), fromTS = timeMode === "relative" ? now - Number(days) * 86400000 : (from ? new Date(from).getTime() : undefined), toTS = timeMode === "relative" ? now : (to ? new Date(to).getTime() : undefined);
