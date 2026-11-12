@@ -6,10 +6,12 @@ import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { formatEventLabel } from "@/lib/funnel";
+import { useTenant } from "@/components/TenantContext";
 
 type Step = { event_name: string; sessions: number; conversion_rate: number };
 
 export default function FunnelPage() {
+  const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]),
     [tenant, setTenant] = useState(""),
     [steps, setSteps] = useState<string[]>([]),
@@ -31,6 +33,7 @@ export default function FunnelPage() {
       })
       .catch((e) => setError(e.message));
   }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   // The suggestion loader intentionally uses the current range and tenant.
   useEffect(() => {
     if (!tenant) return;
@@ -132,7 +135,7 @@ export default function FunnelPage() {
         <div className="space-y-4 p-5">
           <Combobox
             value={tenant}
-            onChange={setTenant}
+            onChange={(value) => { setTenant(value); setGlobalTenant(value); }}
             options={tenants.map((item) => ({
               value: item.ID,
               label: item.Name,
