@@ -249,6 +249,7 @@ export const api = {
     setFlag: (tenantId: string, key: string, enabled: boolean) => req<unknown>("feature-flags", { method: "PUT", body: JSON.stringify({ tenant_id: tenantId, key, enabled }) }),
     deleteFlag: (tenantId: string, key: string) => req<void>(`feature-flags?tenant_id=${encodeURIComponent(tenantId)}&key=${encodeURIComponent(key)}`, { method: "DELETE" }),
     aggregations: (tenantId: string) => req<unknown[]>(`aggregations?tenant_id=${encodeURIComponent(tenantId)}`),
+    aggregationsPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`aggregations?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     createAggregation: (body: Record<string, unknown>) => req<unknown>("aggregations", { method: "POST", body: JSON.stringify(body) }),
     updateAggregation: (id: string, body: Record<string, unknown>) => req<unknown>(`aggregations/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
     deleteAggregation: (id: string) => req<void>(`aggregations/${encodeURIComponent(id)}`, { method: "DELETE" }),

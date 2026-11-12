@@ -103,6 +103,16 @@ func (h *AggregationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	switch r.Method {
 	case http.MethodGet:
+		if r.URL.Query().Get("page") == "true" {
+			limit, offset := queryInt(r, "limit", 10), queryInt(r, "offset", 0)
+			list, total, err := h.Svc.ListPage(r.URL.Query().Get("tenant_id"), r.URL.Query().Get("filter"), r.URL.Query().Get("dir"), limit, offset)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
+			return
+		}
 		list, err := h.Svc.List(r.URL.Query().Get("tenant_id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

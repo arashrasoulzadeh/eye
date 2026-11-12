@@ -80,6 +80,33 @@ func (a *AggregatorService) List(tenantID string) ([]model.Aggregation, error) {
 	return list, nil
 }
 
+func (a *AggregatorService) ListPage(tenantID, filter, direction string, limit, offset int) ([]model.Aggregation, int64, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var total int64
+	query := a.DB.Model(&model.Aggregation{}).Where("tenant_id = ?", tenantID)
+	if filter != "" {
+		like := "%" + filter + "%"
+		query = query.Where("name LIKE ? OR rule LIKE ? OR output_event LIKE ?", like, like, like)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	order := "updated_at desc"
+	if direction == "asc" {
+		order = "updated_at asc"
+	}
+	var list []model.Aggregation
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
 func (a *AggregatorService) Get(id string) (*model.Aggregation, error) {
 	var agg model.Aggregation
 	if err := a.DB.First(&agg, "id = ?", id).Error; err != nil {
