@@ -254,7 +254,10 @@ func (h *RetentionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "granularity must be daily or weekly", http.StatusBadRequest)
 		return
 	}
-	rows, err := h.Svc.Retention(tenantID, granularity)
+	var fromTS, toTS *int64
+	if raw := r.URL.Query().Get("from_ts"); raw != "" { if value, err := strconv.ParseInt(raw, 10, 64); err == nil { fromTS = &value } }
+	if raw := r.URL.Query().Get("to_ts"); raw != "" { if value, err := strconv.ParseInt(raw, 10, 64); err == nil { toTS = &value } }
+	rows, err := h.Svc.Retention(tenantID, granularity, fromTS, toTS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

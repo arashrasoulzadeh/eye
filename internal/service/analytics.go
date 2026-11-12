@@ -436,9 +436,16 @@ type RetentionRow struct {
 // sessions into cohorts by the period (day or week) their first event
 // occurred, then for each cohort and each later period count how many of
 // that cohort's sessions had at least one event in that period.
-func (a *AnalyticsService) Retention(tenantID, granularity string) ([]RetentionRow, error) {
+func (a *AnalyticsService) Retention(tenantID, granularity string, bounds ...*int64) ([]RetentionRow, error) {
 	var events []model.Event
-	if err := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID).Order("client_ts asc").Find(&events).Error; err != nil {
+	db := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID)
+	if len(bounds) > 0 && bounds[0] != nil {
+		db = db.Where("client_ts >= ?", *bounds[0])
+	}
+	if len(bounds) > 1 && bounds[1] != nil {
+		db = db.Where("client_ts <= ?", *bounds[1])
+	}
+	if err := db.Order("client_ts asc").Find(&events).Error; err != nil {
 		return nil, err
 	}
 	if len(events) == 0 {
