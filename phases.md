@@ -20,7 +20,7 @@
 - [x] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies — configured and opt-in detection, reject/warn schema paths, export/delete endpoints, and live retention settings are implemented
 - [x] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications — OTLP/HTTP server spans with W3C propagation, SLO/error-budget API/UI, replayable dead letters, and operator notifications are implemented and tested
 - [x] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics — all four packages now implement durable offline queues, retry-safe flushing, session persistence, and diagnostics with contract coverage
-- [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
+- [x] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation — Helm/Terraform validation and installer checks pass in GitHub Actions
 
 ## Admin product completeness
 - [x] Replay supports relative and absolute time ranges with validation and progress feedback
