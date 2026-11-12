@@ -33,6 +33,8 @@ export default function UsersPage() {
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load users"); } finally { setLoading(false); }
   }
   useEffect(() => { api.tenants.list().then((items) => { const available = Array.isArray(items) ? items : []; setTenants([{ ID: "", Name: "All tenants", APIKey: "", CreatedAt: "" }, ...available]); }).catch((e) => setError(e.message)); }, []);
+  // load intentionally follows the selected tenant and is recreated with page state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant]);
 
   const users = useMemo<UserRow[]>(() => {

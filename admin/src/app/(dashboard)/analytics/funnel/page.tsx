@@ -32,7 +32,6 @@ export default function FunnelPage() {
       .catch((e) => setError(e.message));
   }, []);
   // The suggestion loader intentionally uses the current range and tenant.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!tenant) return;
     setResult([]);
@@ -42,6 +41,7 @@ export default function FunnelPage() {
       .then((options) => setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)))
       .catch((e) => setError(e.message));
     void loadSuggested(tenant);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenant]);
   async function loadSuggested(tenantID = tenant) {
     if (!tenantID) return;
