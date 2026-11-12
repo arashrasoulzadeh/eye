@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -80,6 +81,38 @@ func (e *ExperimentService) List(tenantID string) ([]model.Experiment, error) {
 		q = q.Where("tenant_id = ?", tenantID)
 	}
 	return list, q.Find(&list).Error
+}
+
+func (e *ExperimentService) ListPage(tenantID, filter, direction string, limit, offset int) ([]model.Experiment, int64, error) {
+	var list []model.Experiment
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	countQuery := e.DB.Model(&model.Experiment{}).Where("tenant_id = ?", tenantID)
+	query := e.DB.Where("tenant_id = ?", tenantID)
+	if strings.TrimSpace(filter) != "" {
+		like := "%" + strings.TrimSpace(filter) + "%"
+		countQuery = countQuery.Where("name LIKE ? OR variants LIKE ?", like, like)
+		query = query.Where("name LIKE ? OR variants LIKE ?", like, like)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	order := "created_at desc"
+	if strings.EqualFold(direction, "asc") {
+		order = "created_at asc"
+	}
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
 }
 
 func (e *ExperimentService) Update(id, name, variants string, traffic int, enabled bool) (*model.Experiment, error) {

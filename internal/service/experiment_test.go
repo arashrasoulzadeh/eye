@@ -90,3 +90,16 @@ func TestExperimentService_ActiveAssignmentForSession(t *testing.T) {
 		t.Error("expected false for nonexistent session")
 	}
 }
+
+func TestExperimentListPageFiltersAndOrders(t *testing.T) {
+	db := newTestDB_experiment_test(t)
+	db.Create(&model.Experiment{ID: "one", TenantID: "t1", Name: "Checkout", Variants: `["a"]`, CreatedAt: 1})
+	db.Create(&model.Experiment{ID: "two", TenantID: "t1", Name: "Signup", Variants: `["b"]`, CreatedAt: 2})
+	items, total, err := (&ExperimentService{DB: db}).ListPage("t1", "sign", "desc", 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != "two" {
+		t.Fatalf("items=%+v total=%d", items, total)
+	}
+}

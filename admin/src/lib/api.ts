@@ -260,6 +260,7 @@ export const api = {
     replay: (tenantId: string, fromTs: number, toTs: number) => req<unknown>("replay", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, from_ts: fromTs, to_ts: toTs }) }),
     createExperiment: (body: { name: string; tenant_id: string; variants: string; traffic: number }) => req<unknown>("experiments", { method: "POST", body: JSON.stringify(body) }),
     experiments: (tenantId: string) => req<unknown[]>(`experiments?tenant_id=${encodeURIComponent(tenantId)}`),
+    experimentsPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`experiments?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     updateExperiment: (id: string, body: Record<string, unknown>) => req<unknown>(`experiments/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
     deleteExperiment: (id: string) => req<void>(`experiments/${encodeURIComponent(id)}`, { method: "DELETE" }),
     assignExperiment: (id: string, sessionId: string) => req<unknown>(`experiments/${encodeURIComponent(id)}/assign?session_id=${encodeURIComponent(sessionId)}`),
