@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -188,6 +190,42 @@ func (a *AnomalyService) CurrentAnomalies() ([]Anomaly, error) {
 		}
 	}
 	return out, nil
+}
+
+// CurrentAnomaliesPage returns a bounded, searchable view for admin tables.
+// Detection remains centralized in CurrentAnomalies so the page cannot drift
+// from the alerting path's anomaly semantics.
+func (a *AnomalyService) CurrentAnomaliesPage(filter, direction string, limit, offset int) ([]Anomaly, int, error) {
+	all, err := a.CurrentAnomalies()
+	if err != nil {
+		return nil, 0, err
+	}
+	needle := strings.ToLower(strings.TrimSpace(filter))
+	filtered := all[:0]
+	for _, item := range all {
+		if needle == "" || strings.Contains(strings.ToLower(item.TenantID), needle) || strings.Contains(strings.ToLower(item.EventName), needle) {
+			filtered = append(filtered, item)
+		}
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ZScore > filtered[j].ZScore })
+	if direction == "asc" {
+		sort.Slice(filtered, func(i, j int) bool { return filtered[i].ZScore < filtered[j].ZScore })
+	}
+	total := len(filtered)
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= total {
+		return []Anomaly{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
 }
 
 // RunAnomalySamplingJob periodically snapshots AggregateCount into
