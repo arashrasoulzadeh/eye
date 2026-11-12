@@ -14,7 +14,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       tenants: { list: vi.fn() },
       sessions: { list: vi.fn(), get: vi.fn() },
-      events: { list: vi.fn() },
+      events: { list: vi.fn(), listPage: vi.fn() },
     },
   };
 });
@@ -41,6 +41,9 @@ describe("SessionDetailClient", () => {
     vi.mocked(api.events.list).mockResolvedValue([
       { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
     ]);
+    vi.mocked(api.events.listPage).mockResolvedValue({ items: [
+      { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
+    ], total: 1, limit: 10, offset: 0 });
   });
 
   it("shows the session's tenant (as a link) and its events, scoped to this session only", async () => {

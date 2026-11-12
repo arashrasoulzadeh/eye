@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, Session, Event, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { JsonView } from "@/components/JsonView";
@@ -28,6 +28,9 @@ export default function SessionDetailClient() {
   const [session, setSession] = useState<Session | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [tableEvents, setTableEvents] = useState<Event[]>([]);
+  const [eventTotal, setEventTotal] = useState(0);
+  const [tableLoading, setTableLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [notFound, setNotFound] = useState(false);
@@ -47,10 +50,11 @@ export default function SessionDetailClient() {
         // Same pattern as the tenant detail page: there is no GET
         // /sessions/{id} endpoint, only a list, so this finds the one we
         // want from it rather than inventing a backend call that doesn't exist.
-        const [session, tenants, sessionEvents] = await Promise.all([
+        const [session, tenants, sessionEvents, firstEventPage] = await Promise.all([
           api.sessions.get(sessionId),
           api.tenants.list(),
           api.events.list({ session_id: sessionId, limit: 100, offset: 0, sort: "asc" }),
+          api.events.listPage({ session_id: sessionId, limit: 10, offset: 0, sort: "asc" }),
         ]);
         if (cancelled) return;
         const s = session || null;
@@ -58,6 +62,8 @@ export default function SessionDetailClient() {
         setNotFound(!s);
         setTenant(s ? tenants.find((t) => t.ID === s.TenantID) || null : null);
         setEvents(uniqueEvents(sessionEvents));
+        setTableEvents(uniqueEvents(firstEventPage.items));
+        setEventTotal(firstEventPage.total);
       } catch (e) {
         if (!cancelled) { const message = e instanceof ApiError ? e.message : "Failed to load session"; setLoadError(message); push("error", message); }
       } finally {
@@ -69,6 +75,26 @@ export default function SessionDetailClient() {
       cancelled = true;
     };
   }, [sessionId, push]);
+
+  async function loadEventTable(query: TableQuery) {
+    setTableLoading(true);
+    try {
+      const page = await api.events.listPage({
+        session_id: sessionId,
+        limit: 10,
+        offset: query.page * 10,
+        sort: query.sortDir,
+      });
+      setTableEvents(uniqueEvents(page.items));
+      setEventTotal(page.total);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to load session events";
+      setLoadError(message);
+      push("error", message);
+    } finally {
+      setTableLoading(false);
+    }
+  }
 
   // Live events SSE
   useEffect(() => {
@@ -220,9 +246,8 @@ export default function SessionDetailClient() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title={`Events in this session (${events.length}${events.length === 100 ? "+" : ""})`} />
-        {events.length === 100 && <p className="border-b border-border px-5 py-3 text-xs text-fg-muted">Showing the first 100 events. Use the session query API for larger exports.</p>}
-        <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events recorded for this session yet." />
+        <CardHeader title={`Events in this session (${eventTotal})`} />
+        <DataTable columns={columns} rows={tableEvents} rowKey={(e) => e.EventID} emptyMessage="No events recorded for this session yet." pageSize={10} defaultSortKey="time" serverSide totalRows={eventTotal} loading={tableLoading} onQueryChange={(query) => void loadEventTable(query)} />
       </Card>
     </div>
   );
