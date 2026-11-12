@@ -197,7 +197,7 @@ export default function AlertsPage() {
           </div>
           <div className="min-w-[220px] flex-1">
             <Label>Webhook URL</Label>
-            <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://example.com/hook" />
+            <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder={destination === "email" ? "mailto:alerts@example.com" : "https://example.com/hook"} />
           </div>
           {editing ? <><Button onClick={saveEdit} loading={creating} disabled={!eventName.trim() || !webhookUrl.trim() || !tenantId}>Save rule</Button><Button variant="secondary" onClick={cancelEdit}>Cancel</Button></> : <Button onClick={create} loading={creating} disabled={!eventName.trim() || !webhookUrl.trim() || !tenantId}>Create rule</Button>}
         </div>

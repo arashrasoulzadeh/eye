@@ -23,6 +23,7 @@ import (
 type AlertService struct {
 	DB                  *gorm.DB
 	DeadLetterNotifyURL string
+	EmailClient         WebhookClient
 }
 
 func randomAlertID() string {
@@ -46,11 +47,11 @@ func (a *AlertService) CreateWithWindowAndDestination(tenantID, eventName, dimsK
 	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
 		return nil, err
 	}
-	if err := validateWebhookURL(webhookURL); err != nil {
-		return nil, err
-	}
 	destination, err := normalizeAlertDestination(destination)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateAlertDestinationURL(webhookURL, destination); err != nil {
 		return nil, err
 	}
 	now := time.Now().Unix()
@@ -96,14 +97,14 @@ func (a *AlertService) UpdateWithWindowAndDestination(id, eventName, dimsKey, me
 	if err := validateAlertRule(eventName, metric, threshold, windowSeconds); err != nil {
 		return nil, err
 	}
-	if err := validateWebhookURL(webhookURL); err != nil {
-		return nil, err
-	}
 	if destination == "" {
 		destination = "webhook"
 	}
 	destination, err := normalizeAlertDestination(destination)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateAlertDestinationURL(webhookURL, destination); err != nil {
 		return nil, err
 	}
 	rule, err := a.Get(id)
@@ -363,7 +364,11 @@ func EvaluateAndFire(svc *AlertService, client WebhookClient, logger *slog.Logge
 		// attempt fails, DispatchWithRetry persists the delivery to
 		// WebhookDeadLetter instead of this just silently dropping it.
 		deliveryPayload := alertDeliveryPayload(rule.Destination, payload)
-		if err := DispatchWithRetryAndNotify(svc.DB, client, svc.DeadLetterNotifyURL, rule.ID, rule.WebhookURL, deliveryPayload, 3, func(attempt int) {
+		deliveryClient := client
+		if rule.Destination == "email" && svc.EmailClient != nil {
+			deliveryClient = svc.EmailClient
+		}
+		if err := DispatchWithRetryAndNotify(svc.DB, deliveryClient, svc.DeadLetterNotifyURL, rule.ID, rule.WebhookURL, deliveryPayload, 3, func(attempt int) {
 			time.Sleep(time.Duration(attempt) * 100 * time.Millisecond)
 		}); err != nil {
 			if logger != nil {

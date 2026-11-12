@@ -29,6 +29,11 @@ type Config struct {
 	PIIDetection        bool   `mapstructure:"pii_detection"`
 	SchemaMode          string `mapstructure:"schema_mode"`
 	DeadLetterNotifyURL string `mapstructure:"dead_letter_notify_url"`
+	SMTPHost            string `mapstructure:"smtp_host"`
+	SMTPPort            string `mapstructure:"smtp_port"`
+	SMTPFrom            string `mapstructure:"smtp_from"`
+	SMTPUser            string `mapstructure:"smtp_user"`
+	SMTPPassword        string `mapstructure:"smtp_password"`
 }
 
 var envFiles []string

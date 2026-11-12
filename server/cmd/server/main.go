@@ -281,6 +281,9 @@ func main() {
 	go service.RunAggregationJob(aggCtx, aggSvc, 5*time.Minute, logger)
 
 	alertSvc := &service.AlertService{DB: db, DeadLetterNotifyURL: cfg.DeadLetterNotifyURL}
+	if cfg.SMTPHost != "" {
+		alertSvc.EmailClient = &service.SMTPWebhookClient{Host: cfg.SMTPHost, Port: cfg.SMTPPort, From: cfg.SMTPFrom, User: cfg.SMTPUser, Password: cfg.SMTPPassword}
+	}
 	mux.Handle("/alerts", adminAuth(&handler.AlertsHandler{Svc: alertSvc}))
 	mux.Handle("/alerts/", adminAuth(&handler.AlertsHandler{Svc: alertSvc}))
 	alertCtx, cancelAlert := context.WithCancel(context.Background())
