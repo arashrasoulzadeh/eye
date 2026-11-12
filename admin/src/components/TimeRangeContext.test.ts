@@ -19,6 +19,8 @@ describe("global time range queries", () => {
 
   it("formats custom durations for the global selector", () => {
     expect(formatTimeRange(String(4 / 60))).toBe("Last 4 minutes");
+    expect(formatTimeRange("0.0666667")).toBe("Last 4 minutes");
+    expect(formatTimeRange("0.5")).toBe("Last 30 minutes");
     expect(formatTimeRange("720")).toBe("Last 30 days");
   });
 });
