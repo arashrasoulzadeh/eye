@@ -47,6 +47,7 @@ export function Sidebar() {
   // Funnel and Retention never appear selected at the same time as Analytics.
   const isActive = (href: string) => pathname === href || (href !== "/analytics" && pathname?.startsWith(href + "/"));
   const secondaryActive = secondary.some((item) => isActive(item.href));
+  const release = (process.env.NEXT_PUBLIC_RELEASE || "development").replace(/^sha-/, "").slice(0, 12);
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
@@ -94,7 +95,7 @@ export function Sidebar() {
       <div className="border-t border-border p-3">
         <div className="mb-2 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-fg-muted" title="Current release commit">
           <div className="uppercase tracking-wide">Release</div>
-          <code className="font-mono text-accent">e391dec</code>
+          <code className="font-mono text-accent">{release}</code>
         </div>
         <button
           onClick={logout}
