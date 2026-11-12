@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -58,6 +59,38 @@ func (s *FeatureFlagService) List(tenantID string) ([]model.FeatureFlag, error) 
 		return nil, err
 	}
 	return list, nil
+}
+
+func (s *FeatureFlagService) ListPage(tenantID, filter, direction string, limit, offset int) ([]model.FeatureFlag, int64, error) {
+	var list []model.FeatureFlag
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	countQuery := s.DB.Model(&model.FeatureFlag{}).Where("tenant_id = ?", tenantID)
+	query := s.DB.Where("tenant_id = ?", tenantID)
+	if value := strings.TrimSpace(filter); value != "" {
+		like := "%" + value + "%"
+		countQuery = countQuery.Where("key LIKE ?", like)
+		query = query.Where("key LIKE ?", like)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	order := "updated_at desc"
+	if strings.EqualFold(direction, "asc") {
+		order = "updated_at asc"
+	}
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
 }
 
 // Delete removes a tenant's flag by key.

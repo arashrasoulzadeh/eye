@@ -15,6 +15,17 @@ func (h *FeatureFlagsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	switch r.Method {
 	case http.MethodGet:
 		tenantID := r.URL.Query().Get("tenant_id")
+		if r.URL.Query().Get("page") == "true" {
+			limit := queryInt(r, "limit", 25)
+			offset := queryInt(r, "offset", 0)
+			list, total, err := h.Svc.ListPage(tenantID, r.URL.Query().Get("filter"), r.URL.Query().Get("dir"), limit, offset)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
+			return
+		}
 		list, err := h.Svc.List(tenantID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

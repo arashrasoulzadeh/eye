@@ -63,3 +63,16 @@ func TestFeatureFlagService(t *testing.T) {
 		t.Error("expected deleted flag to be disabled")
 	}
 }
+
+func TestFeatureFlagListPageFiltersAndOrders(t *testing.T) {
+	db := newTestDB_feature_flag_test(t)
+	db.Create(&model.FeatureFlag{ID: "one", TenantID: "t1", Key: "checkout.v1", UpdatedAt: 1})
+	db.Create(&model.FeatureFlag{ID: "two", TenantID: "t1", Key: "checkout.v2", UpdatedAt: 2})
+	items, total, err := (&FeatureFlagService{DB: db}).ListPage("t1", "v2", "desc", 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != "two" {
+		t.Fatalf("items=%+v total=%d", items, total)
+	}
+}
