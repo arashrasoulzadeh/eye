@@ -82,6 +82,10 @@ export function Sidebar() {
         })}</div>}
       </nav>
       <div className="border-t border-border p-3">
+        <div className="mb-2 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-fg-muted" title="Current release commit">
+          <div className="uppercase tracking-wide">Release</div>
+          <code className="font-mono text-accent">e391dec</code>
+        </div>
         <button
           onClick={logout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg"

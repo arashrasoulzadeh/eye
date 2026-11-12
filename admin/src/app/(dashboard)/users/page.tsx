@@ -26,14 +26,13 @@ function browser(ua: string): string {
 export default function UsersPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [sessions, setSessions] = useState<Session[]>([]), [events, setEvents] = useState<Event[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
   async function load() {
-    if (!tenant) return;
     setLoading(true); setError("");
     try {
-      const [sessionPage, recent] = await Promise.all([api.sessions.list({ tenant_id: tenant, limit: 100, offset: 0, sort: "last_seen", dir: "desc" }), api.events.list({ tenant_id: tenant, limit: 50, offset: 0, sort: "desc" })]);
+      const [sessionPage, recent] = await Promise.all([api.sessions.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 100, offset: 0, sort: "last_seen", dir: "desc" }), api.events.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 50, offset: 0, sort: "desc" })]);
       setSessions(sessionPage.items); setEvents(recent);
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load users"); } finally { setLoading(false); }
   }
-  useEffect(() => { api.tenants.list().then((items) => { setTenants(items); if (items[0]) setTenant(items[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { api.tenants.list().then((items) => { const available = Array.isArray(items) ? items : []; setTenants([{ ID: "", Name: "All tenants", APIKey: "", CreatedAt: "" }, ...available]); }).catch((e) => setError(e.message)); }, []);
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant]);
 
   const users = useMemo<UserRow[]>(() => {

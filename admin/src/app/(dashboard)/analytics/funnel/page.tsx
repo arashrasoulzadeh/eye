@@ -222,7 +222,7 @@ export default function FunnelPage() {
           <Card className="mt-6">
             <CardHeader title="Smart funnel diagram" />
             <div className="overflow-x-auto p-6">
-              <div className="mx-auto flex min-w-[680px] items-stretch justify-center gap-1">
+              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2">
                 {result.map((item, index) => {
                   const width = Math.max(
                     18,
@@ -233,18 +233,13 @@ export default function FunnelPage() {
                   return (
                     <div
                       key={`${item.event_name}-${index}`}
-                      className="flex min-w-0 flex-1 flex-col items-center"
+                      className="flex w-full flex-col items-center"
                     >
                       <div
                         className="relative flex h-28 items-center justify-center border border-accent/30 bg-gradient-to-br from-accent to-accent/70 px-4 text-center text-accent-fg shadow-sm"
                         style={{
                           width: `${width}%`,
-                          clipPath:
-                            index === 0
-                              ? "polygon(0 0, 92% 0, 100% 50%, 92% 100%, 0 100%)"
-                              : index === result.length - 1
-                                ? "polygon(8% 0, 100% 0, 100% 100%, 8% 100%, 0 50%)"
-                                : "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)",
+                          clipPath: "polygon(5% 0, 95% 0, 88% 100%, 12% 100%)",
                         }}
                       >
                         <div>
