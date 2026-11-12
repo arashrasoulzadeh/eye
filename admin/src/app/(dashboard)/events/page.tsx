@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
-import { Input, Label } from "@/components/Input";
+import { Label } from "@/components/Input";
 import { Combobox, ComboOption } from "@/components/Combobox";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -11,19 +11,18 @@ import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 import { EventExplorer } from "@/components/EventExplorer";
 
 export default function EventsPage() {
   const { tenantId: globalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo } = useTimeRange();
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
   const [events, setEvents] = useState<Event[]>([]);
   const [totalEvents, setTotalEvents] = useState(0);
   const [eventName, setEventName] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [sessionId, setSessionId] = useState("");
-  const [fromTime, setFromTime] = useState("");
-  const [toTime, setToTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [exploring, setExploring] = useState<Event | null>(null);
 
@@ -123,14 +122,7 @@ export default function EventsPage() {
             <Label>Session ID</Label>
             <Combobox value={sessionId} onChange={setSessionId} options={sessionOptions} placeholder="session id" />
           </div>
-          <div className="min-w-[160px]">
-            <Label>From</Label>
-            <Input type="datetime-local" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
-          </div>
-          <div className="min-w-[160px]">
-            <Label>To</Label>
-            <Input type="datetime-local" value={toTime} onChange={(e) => setToTime(e.target.value)} />
-          </div>
+          <span className="text-xs text-fg-muted">Global range: <span className="font-medium text-fg">{timeRangeLabel}</span></span>
           <Button onClick={load} loading={loading}>
             Apply
           </Button>
