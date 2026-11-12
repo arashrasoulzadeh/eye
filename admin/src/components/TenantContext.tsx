@@ -33,6 +33,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     if (value) window.localStorage.setItem(STORAGE_KEY, value);
     else window.localStorage.removeItem(STORAGE_KEY);
     window.dispatchEvent(new CustomEvent("eye-tenant-change", { detail: value }));
+    window.location.reload();
   }
 
   const value = useMemo(() => ({ tenants, tenantId, setTenantId, loading }), [tenants, tenantId, loading]);

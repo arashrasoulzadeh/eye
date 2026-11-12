@@ -114,6 +114,12 @@ let sessionsCache: { value: SessionPage; expires: number } | null = null;
 let sessionsRequest: Promise<SessionPage> | null = null;
 function invalidateTenants() { tenantsCache = null; tenantsRequest = null; }
 function invalidateSessions() { sessionsCache = null; sessionsRequest = null; }
+function orderTenantsForScope(value: Tenant[]): Tenant[] {
+  if (typeof window === "undefined") return value;
+  const selected = typeof window.localStorage?.getItem === "function" ? window.localStorage.getItem("eye.admin.tenant") : null;
+  if (!selected) return value;
+  return [...value].sort((a, b) => Number(b.ID === selected) - Number(a.ID === selected));
+}
 
 export const api = {
   metrics: () => req<Metrics>("metrics"),
@@ -121,7 +127,7 @@ export const api = {
   dashboardCache: () => req<DashboardCache>("dashboard-cache"),
 
   tenants: {
-    list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { if (!Object.keys(params).length && tenantsCache && tenantsCache.expires > Date.now()) return Promise.resolve(tenantsCache.value); const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; if (!query && tenantsRequest) return tenantsRequest; const request = req<Tenant[]>(`tenants${query}`); if (query) return request; tenantsRequest = request.then((value) => { tenantsCache = { value, expires: Date.now() + 30_000 }; tenantsRequest = null; return value; }).catch((error) => { tenantsRequest = null; throw error; }); return tenantsRequest; },
+    list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { if (!Object.keys(params).length && tenantsCache && tenantsCache.expires > Date.now()) return Promise.resolve(orderTenantsForScope(tenantsCache.value)); const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; if (!query && tenantsRequest) return tenantsRequest.then(orderTenantsForScope); const request = req<Tenant[]>(`tenants${query}`); if (query) return request.then(orderTenantsForScope); tenantsRequest = request.then((value) => { tenantsCache = { value, expires: Date.now() + 30_000 }; tenantsRequest = null; return orderTenantsForScope(value); }).catch((error) => { tenantsRequest = null; throw error; }); return tenantsRequest; },
     listPage: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => req<TenantPage>(`tenants?page=true&filter=${encodeURIComponent(params.filter ?? "")}&sort=${params.sort ?? "created"}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     clearCache: invalidateTenants,
     create: async (name: string, apiKey: string) => { const result = await req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }); invalidateTenants(); return result; },
