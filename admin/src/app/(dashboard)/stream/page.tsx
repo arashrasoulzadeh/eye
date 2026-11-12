@@ -20,11 +20,22 @@ export default function StreamPage() {
   useEffect(() => {
     if (!running) return;
     const now = Date.now(), fromTS = timeMode === "relative" ? now - Number(days) * 86400000 : (from ? new Date(from).getTime() : undefined), toTS = timeMode === "relative" ? now : (to ? new Date(to).getTime() : undefined);
-    const load = () => { setLoading(true); api.events.list({ sort: "desc", limit: 100, offset: 0, from_ts: fromTS, to_ts: toTS }).then((items) => { setEvents(items); setError(""); }).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
+    const load = () => {
+      setLoading(true);
+      const tenantFilter = tenantIds.length ? tenantIds : [undefined];
+      const eventFilter = eventNames.length ? eventNames : [undefined];
+      const requests = tenantFilter.flatMap((tenant_id) => eventFilter.map((event_name) => api.events.list({ sort: "desc", limit: 100, offset: 0, from_ts: fromTS, to_ts: toTS, tenant_id, event_name })));
+      Promise.all(requests).then((batches) => {
+        const unique = new Map<string, Event>();
+        batches.flat().forEach((event) => unique.set(event.EventID || `${event.TenantID}:${event.SessionID}:${event.ClientTS}:${event.EventName}`, event));
+        setEvents([...unique.values()].sort((a, b) => b.ClientTS - a.ClientTS).slice(0, 100));
+        setError("");
+      }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    };
     load(); const timer = window.setInterval(load, 2000); return () => window.clearInterval(timer);
-  }, [running, timeMode, days, from, to]);
+  }, [running, timeMode, days, from, to, tenantIds, eventNames]);
 
-  const visible = useMemo(() => events.filter((event) => (!tenantIds.length || tenantIds.includes(event.TenantID)) && (!eventNames.length || eventNames.includes(event.EventName))), [events, tenantIds, eventNames]);
+  const visible = useMemo(() => events, [events]);
   const tenantOptions = tenants.map((tenant) => ({ value: tenant.ID, label: tenant.Name }));
   const eventOptions = [...new Set(events.map((event) => event.EventName))].sort().map((value) => ({ value }));
   const add = (list: string[], value: string, set: (value: string[]) => void) => { if (value && !list.includes(value)) set([...list, value]); };
