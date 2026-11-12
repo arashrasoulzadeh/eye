@@ -212,6 +212,7 @@ export const api = {
 
   questions: {
     list: (tenantId: string) => req<Question[]>(`questions?tenant_id=${encodeURIComponent(tenantId)}`),
+    listPage: (tenantId: string, params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: Question[]; total: number; limit: number; offset: number }>(`questions?tenant_id=${encodeURIComponent(tenantId)}&page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     save: (question: Partial<Question> & { tenant_id?: string }) => req<Question>("questions", { method: question.ID ? "PUT" : "POST", body: JSON.stringify({ ...question, tenant_id: question.tenant_id || question.TenantID }) }),
     remove: (tenantId: string, id: string) => req<void>(`questions/${encodeURIComponent(id)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: "DELETE" }),
     results: (tenantId: string, id: string, range?: { from_ts?: number; to_ts?: number }) => req<GraphResult>(`questions/${encodeURIComponent(id)}/results?tenant_id=${encodeURIComponent(tenantId)}${range?.from_ts ? `&from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`),

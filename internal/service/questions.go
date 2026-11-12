@@ -22,6 +22,38 @@ func (s *QuestionService) List(tenantID string) ([]model.Question, error) {
 	return out, err
 }
 
+func (s *QuestionService) ListPage(tenantID, filter, direction string, limit, offset int) ([]model.Question, int64, error) {
+	var out []model.Question
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	countQuery := s.DB.Model(&model.Question{}).Where("tenant_id = ?", tenantID)
+	query := s.DB.Where("tenant_id = ?", tenantID)
+	if value := strings.TrimSpace(filter); value != "" {
+		like := "%" + value + "%"
+		countQuery = countQuery.Where("name LIKE ? OR event_names LIKE ?", like, like)
+		query = query.Where("name LIKE ? OR event_names LIKE ?", like, like)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	order := "updated_at desc"
+	if strings.EqualFold(direction, "asc") {
+		order = "updated_at asc"
+	}
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&out).Error; err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
 func (s *QuestionService) Save(q *model.Question) (*model.Question, error) {
 	if q.TenantID == "" || q.Name == "" || (q.EventName == "" && q.EventNames == "") {
 		return nil, errors.New("tenant_id, name and event_name are required")
