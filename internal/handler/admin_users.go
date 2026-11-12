@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -22,6 +23,14 @@ type adminUserBody struct {
 }
 
 func adminUserID() string { b := make([]byte, 12); _, _ = rand.Read(b); return hex.EncodeToString(b) }
+
+func invitationToken() (string, string) {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	token := hex.EncodeToString(b)
+	hash := sha256.Sum256([]byte(token))
+	return token, hex.EncodeToString(hash[:])
+}
 
 func (h *AdminUsersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/admin-users"), "/")
@@ -132,11 +141,23 @@ func (h *AdminUsersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		now := time.Now().Unix()
 		user := model.AdminUser{ID: adminUserID(), Email: strings.TrimSpace(body.Email), Name: strings.TrimSpace(body.Name), Role: body.Role, Status: body.Status, CreatedAt: now, UpdatedAt: now}
+		var token string
+		if user.Status == "invited" {
+			token, user.InviteTokenHash = invitationToken()
+			user.InviteExpiresAt = now + 7*24*60*60
+		}
 		if err := h.DB.Create(&user).Error; err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
+		if token != "" {
+			json.NewEncoder(w).Encode(struct {
+				model.AdminUser
+				InvitationToken string `json:"invitation_token"`
+			}{AdminUser: user, InvitationToken: token})
+			return
+		}
 		json.NewEncoder(w).Encode(user)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)

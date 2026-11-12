@@ -305,6 +305,7 @@ func main() {
 	mux.Handle("/audit-log", adminAuth(&handler.AuditLogHandler{DB: db}))
 	mux.Handle("/admin-users", adminUserAuth(&handler.AdminUsersHandler{DB: db}))
 	mux.Handle("/admin-users/", adminUserAuth(&handler.AdminUsersHandler{DB: db}))
+	mux.Handle("/admin-users/accept", &handler.AdminInvitationHandler{DB: db})
 
 	// Phase 8: basic statistical (z-score over a rolling window) anomaly
 	// detection, sampled from the same materialized AggregateCount read

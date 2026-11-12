@@ -53,3 +53,36 @@ func TestAdminUsersHandlerCRUD(t *testing.T) {
 		t.Fatalf("delete status=%d", remove.Code)
 	}
 }
+
+func TestAdminInvitationCanBeAcceptedOnce(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.AdminUser{}); err != nil {
+		t.Fatal(err)
+	}
+	h := &AdminUsersHandler{DB: db}
+	create := httptest.NewRecorder()
+	h.ServeHTTP(create, httptest.NewRequest("POST", "/admin-users", bytes.NewBufferString(`{"email":"invite@example.com"}`)))
+	var response struct {
+		model.AdminUser
+		InvitationToken string `json:"invitation_token"`
+	}
+	if err := json.NewDecoder(create.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.InvitationToken == "" || response.Status != "invited" {
+		t.Fatalf("unexpected invitation response: %+v", response)
+	}
+	accept := httptest.NewRecorder()
+	(&AdminInvitationHandler{DB: db}).ServeHTTP(accept, httptest.NewRequest("POST", "/admin-users/accept", bytes.NewBufferString(`{"token":"`+response.InvitationToken+`"}`)))
+	if accept.Code != 200 {
+		t.Fatalf("accept status=%d body=%s", accept.Code, accept.Body.String())
+	}
+	acceptAgain := httptest.NewRecorder()
+	(&AdminInvitationHandler{DB: db}).ServeHTTP(acceptAgain, httptest.NewRequest("POST", "/admin-users/accept", bytes.NewBufferString(`{"token":"`+response.InvitationToken+`"}`)))
+	if acceptAgain.Code != 401 {
+		t.Fatalf("second accept status=%d", acceptAgain.Code)
+	}
+}

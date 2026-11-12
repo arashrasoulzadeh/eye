@@ -224,7 +224,7 @@ export const api = {
   adminUsers: {
     list: (filter = "") => req<AdminUser[]>(`admin-users?filter=${encodeURIComponent(filter)}`),
     listPage: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: AdminUser[]; total: number; limit: number; offset: number }>(`admin-users?page=true&filter=${encodeURIComponent(params.filter ?? "")}&sort=${encodeURIComponent(params.sort ?? "created")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
-    create: (body: Partial<AdminUser>) => req<AdminUser>("admin-users", { method: "POST", body: JSON.stringify(body) }),
+    create: (body: Partial<AdminUser>) => req<AdminUser & { invitation_token?: string }>("admin-users", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: Partial<AdminUser>) => req<AdminUser>(`admin-users/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
     remove: (id: string) => req<void>(`admin-users/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
