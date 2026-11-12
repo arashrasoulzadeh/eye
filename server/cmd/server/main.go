@@ -14,6 +14,7 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/handler"
 	"github.com/arashrasoulzadeh/eye/internal/metrics"
 	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/observability"
 	"github.com/arashrasoulzadeh/eye/internal/repository"
 	"github.com/arashrasoulzadeh/eye/internal/service"
 	"github.com/arashrasoulzadeh/eye/internal/storage"
@@ -59,6 +60,12 @@ func main() {
 		logger.Error("invalid production configuration", "err", err)
 		os.Exit(1)
 	}
+	shutdownTracing, err := observability.Setup(context.Background(), cfg.OTLPEndpoint)
+	if err != nil {
+		logger.Error("otlp tracing setup failed", "err", err)
+		os.Exit(1)
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
 	db, err := storage.OpenDatabase(cfg)
 	if err != nil {
 		logger.Error("db open failed", "err", err)

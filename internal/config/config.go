@@ -34,6 +34,7 @@ type Config struct {
 	SMTPFrom            string `mapstructure:"smtp_from"`
 	SMTPUser            string `mapstructure:"smtp_user"`
 	SMTPPassword        string `mapstructure:"smtp_password"`
+	OTLPEndpoint        string `mapstructure:"otlp_exporter_endpoint"`
 }
 
 var envFiles []string
