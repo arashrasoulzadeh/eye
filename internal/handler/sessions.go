@@ -99,6 +99,9 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		query := h.DB.Model(&model.Session{})
+		if tenantID := strings.TrimSpace(r.URL.Query().Get("tenant_id")); tenantID != "" {
+			query = query.Where("tenant_id = ?", tenantID)
+		}
 		if filter := strings.TrimSpace(r.URL.Query().Get("filter")); filter != "" {
 			like := "%" + filter + "%"
 			query = query.Where("id LIKE ? OR tenant_id LIKE ? OR user_agent LIKE ? OR ip LIKE ?", like, like, like, like)

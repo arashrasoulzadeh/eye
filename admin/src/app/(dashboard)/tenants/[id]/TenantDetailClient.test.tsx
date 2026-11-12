@@ -24,10 +24,7 @@ import { api } from "@/lib/api";
 describe("TenantDetailPage", () => {
   beforeEach(() => {
     vi.mocked(api.tenants.list).mockResolvedValue([{ ID: "t1", Name: "acme", APIKey: "", CreatedAt: "2024-01-01T00:00:00Z" }]);
-    vi.mocked(api.sessions.list).mockResolvedValue([
-      { ID: "s1", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 2 },
-      { ID: "s2", TenantID: "other", StartedAt: "", LastSeen: "", EventCount: 1 },
-    ]);
+    vi.mocked(api.sessions.list).mockResolvedValue({ items: [{ ID: "s1", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 2 }], total: 1, limit: 10, offset: 0 });
     vi.mocked(api.events.list).mockResolvedValue([
       { EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "click", ClientTS: Date.now(), IngestTS: "", Payload: "{}", Dims: "{}", Source: "client", IsAggregated: false, AggregationID: "" },
     ]);
@@ -40,7 +37,7 @@ describe("TenantDetailPage", () => {
       </ToastProvider>
     );
     await waitFor(() => expect(screen.getByText("acme")).toBeInTheDocument());
-    expect(screen.getByText("Sessions").nextElementSibling).toHaveTextContent("1"); // scoped to t1 only, not s2
+    expect(screen.getByText("Sessions").nextElementSibling).toHaveTextContent("1");
     expect(screen.getByText(/no per-tenant retention setting/i)).toBeInTheDocument();
 
     // The sessions table lists only this tenant's session (s1, not s2), as a

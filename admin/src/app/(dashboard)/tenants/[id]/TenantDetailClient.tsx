@@ -7,7 +7,7 @@ import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { CopyButton } from "@/components/CopyButton";
 import { EntityLink } from "@/components/EntityLink";
-import { DataTable, Column } from "@/components/DataTable";
+import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LineTrend, ChartPoint } from "@/components/Chart";
 import { LiveCounter } from "@/components/LiveCounter";
@@ -30,6 +30,7 @@ export default function TenantDetailClient() {
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionTotal, setSessionTotal] = useState(0);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -54,7 +55,7 @@ export default function TenantDetailClient() {
         // exist.
         const [tenants, allSessions, tenantEvents] = await Promise.all([
           api.tenants.list(),
-          api.sessions.list({ limit: 100, offset: 0, filter: tenantId, sort: "last_seen", dir: "desc" }),
+          api.sessions.list({ tenant_id: tenantId, limit: 10, offset: 0, sort: "last_seen", dir: "desc" }),
           api.events.list({ tenant_id: tenantId, limit: 100, offset: 0, sort: "desc" }),
         ]);
         if (cancelled) return;
@@ -67,6 +68,7 @@ export default function TenantDetailClient() {
         }
         const sessionRows = Array.isArray(allSessions) ? allSessions : allSessions.items;
         setSessions(sessionRows.filter((s) => s.TenantID === tenantId));
+        setSessionTotal(Array.isArray(allSessions) ? sessionRows.length : allSessions.total);
         setEvents(tenantEvents);
         if (typeof api.tenants.usage === "function") {
           const currentUsage = await api.tenants.usage(tenantId);
@@ -83,6 +85,18 @@ export default function TenantDetailClient() {
       cancelled = true;
     };
   }, [tenantId, push]);
+
+  async function loadSessions(query: TableQuery) {
+    try {
+      const page = await api.sessions.list({ tenant_id: tenantId, limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey || "last_seen", dir: query.sortDir });
+      setSessions(page.items.filter((session) => session.TenantID === tenantId));
+      setSessionTotal(page.total);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to load tenant sessions";
+      setLoadError(message);
+      push("error", message);
+    }
+  }
 
   const eventCount = useMemo(() => events.length, [events]);
 
@@ -167,7 +181,7 @@ export default function TenantDetailClient() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <StatCard label="Sessions" value={sessions.length} />
+        <StatCard label="Sessions" value={sessionTotal} />
         <StatCard label="Events (loaded)" value={eventCount} hint="Capped by /query's page size" />
         <StatCard label="Created" value={tenant.CreatedAt ? new Date(tenant.CreatedAt).toLocaleDateString() : "—"} />
         <LiveCounter tenantId={tenant.ID} />
@@ -201,8 +215,8 @@ export default function TenantDetailClient() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title={`Sessions (${sessions.length})`} />
-        <DataTable columns={sessionColumns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions for this tenant yet." />
+        <CardHeader title={`Sessions (${sessionTotal})`} />
+        <DataTable columns={sessionColumns} rows={sessions} rowKey={(s) => s.ID} emptyMessage="No sessions for this tenant yet." loading={loading} serverSide totalRows={sessionTotal} defaultSortKey="last_seen" onQueryChange={(query) => void loadSessions(query)} />
       </Card>
 
       <Card className="mt-6">
