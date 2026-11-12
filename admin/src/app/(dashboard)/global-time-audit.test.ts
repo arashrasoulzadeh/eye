@@ -24,4 +24,11 @@ describe("global time contract", () => {
       expect(source, `${relativePath} must not add local date controls`).not.toMatch(/datetime-local|Last days|Range mode/);
     }
   });
+
+  it("keeps an explicit analytics share-link tenant over the persisted tenant", () => {
+    const source = readFileSync(join(root, "analytics/page.tsx"), "utf8");
+    expect(source).toContain('const urlTenant = urlParams?.get("tenant") || ""');
+    expect(source).toContain("useState(urlTenant)");
+    expect(source).toContain("if (!urlTenant && globalTenant");
+  });
 });

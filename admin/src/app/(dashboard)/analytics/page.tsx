@@ -21,13 +21,14 @@ export default function AnalyticsPage() {
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
   const timeRangeLabel = formatTimeRange(hours);
   void timeRangeLabel;
-  const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const urlTenant = urlParams?.get("tenant") || "";
+  const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(urlTenant);
   const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "auto");
   const [panels, setPanels] = useState<Panel[]>([{ id: "main", title: "Event volume", eventNames: [], chart: "line" }]), [refresh, setRefresh] = useState(true), [error, setError] = useState(""), [queryLoading, setQueryLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
-  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
+  useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); setTenant(current => current || globalTenant || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, [globalTenant]);
+  useEffect(() => { if (!urlTenant && globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant, urlTenant]);
   useEffect(() => { const params = new URLSearchParams(); if (tenant) params.set("tenant", tenant); if (selected.length) params.set("events", selected.join(",")); params.set("time_hours", hours); params.set("chart", chart); params.set("aggregation", aggregation); params.set("group", groupBy); router.replace(`/analytics?${params.toString()}`, { scroll: false }); }, [tenant, selected, hours, chart, aggregation, groupBy, router]);
   const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { const options = await api.eventOptions(tenant, q, q === ""); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
   const loadPanel = useCallback(async (panel: Panel) => {
