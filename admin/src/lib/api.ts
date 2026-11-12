@@ -235,8 +235,11 @@ export const api = {
   adminTeams: {
     list: () => req<AdminTeam[]>("admin-teams"),
     create: (name: string) => req<AdminTeam>("admin-teams", { method: "POST", body: JSON.stringify({ name }) }),
+    update: (teamId: string, name: string) => req<AdminTeam>(`admin-teams/${encodeURIComponent(teamId)}`, { method: "PUT", body: JSON.stringify({ name }) }),
+    delete: (teamId: string) => req<void>(`admin-teams/${encodeURIComponent(teamId)}`, { method: "DELETE" }),
     members: (teamId: string) => req<AdminTeamMember[]>(`admin-teams/${encodeURIComponent(teamId)}/members`),
     addMember: (teamId: string, userId: string, role?: string) => req<AdminTeamMember>(`admin-teams/${encodeURIComponent(teamId)}/members`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
+    removeMember: (teamId: string, userId: string) => req<void>(`admin-teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
   },
 
   tenantData: {

@@ -3,7 +3,9 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
@@ -118,5 +120,37 @@ func TestAdminTeamsManageMemberships(t *testing.T) {
 	h.ServeHTTP(list, httptest.NewRequest("GET", "/admin-teams/"+team.ID+"/members", nil))
 	if list.Code != 200 || !bytes.Contains(list.Body.Bytes(), []byte(`"user_id":"u1"`)) {
 		t.Fatalf("list status=%d body=%s", list.Code, list.Body.String())
+	}
+}
+
+func TestAdminTeamsUpdateDeleteAndRemoveMember(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.AdminUser{}, &model.AdminTeam{}, &model.AdminTeamMember{}); err != nil {
+		t.Fatal(err)
+	}
+	h := &AdminTeamsHandler{DB: db}
+	team := model.AdminTeam{ID: "team-1", Name: "Old", CreatedAt: 1, UpdatedAt: 1}
+	user := model.AdminUser{ID: "user-1", Email: "u@example.com", Role: "viewer", Status: "active"}
+	db.Create(&team)
+	db.Create(&user)
+	db.Create(&model.AdminTeamMember{TeamID: team.ID, UserID: user.ID, Role: "viewer"})
+	r := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/admin-teams/team-1", strings.NewReader(`{"name":"New"}`))
+	h.ServeHTTP(r, req)
+	if r.Code != http.StatusOK {
+		t.Fatalf("update status %d", r.Code)
+	}
+	r = httptest.NewRecorder()
+	h.ServeHTTP(r, httptest.NewRequest(http.MethodDelete, "/admin-teams/team-1/members/user-1", nil))
+	if r.Code != http.StatusNoContent {
+		t.Fatalf("remove status %d", r.Code)
+	}
+	r = httptest.NewRecorder()
+	h.ServeHTTP(r, httptest.NewRequest(http.MethodDelete, "/admin-teams/team-1", nil))
+	if r.Code != http.StatusNoContent {
+		t.Fatalf("delete status %d", r.Code)
 	}
 }
