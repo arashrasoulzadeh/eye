@@ -1,0 +1,38 @@
+name: Infrastructure validation
+
+on:
+  push:
+    paths:
+      - "deploy/helm/**"
+      - "deploy/terraform/**"
+      - "deploy/install.sh"
+      - ".github/workflows/infrastructure.yml"
+  pull_request:
+    paths:
+      - "deploy/helm/**"
+      - "deploy/terraform/**"
+      - "deploy/install.sh"
+      - ".github/workflows/infrastructure.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - name: Lint Helm chart
+        run: helm lint deploy/helm/eye --set server.adminKey=ci-admin --set server.apiKeySalt=ci-salt
+      - uses: hashicorp/setup-terraform@v3
+      - name: Format Terraform
+        working-directory: deploy/terraform
+        run: terraform fmt -check -diff
+      - name: Initialize Terraform providers
+        working-directory: deploy/terraform
+        run: terraform init -backend=false -input=false
+      - name: Validate Terraform module
+        working-directory: deploy/terraform
+        run: terraform validate
+      - name: Validate installer shell
+        run: bash -n deploy/install.sh
