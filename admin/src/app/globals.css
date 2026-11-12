@@ -55,6 +55,12 @@ body {
   color: var(--fg);
 }
 
+/* Guidance is consolidated into the top-right HelpIcon. Keep legacy page
+   disclosure panels out of the content flow while older pages migrate. */
+.admin-content details {
+  display: none;
+}
+
 ::selection {
   background: var(--accent);
   color: var(--accent-fg);
