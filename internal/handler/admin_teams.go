@@ -117,6 +117,38 @@ func (h *AdminTeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		if r.URL.Query().Get("page") == "true" {
+			limit, offset := queryInt(r, "limit", 10), queryInt(r, "offset", 0)
+			if limit > 100 {
+				limit = 100
+			}
+			if limit <= 0 {
+				limit = 10
+			}
+			if offset < 0 {
+				offset = 0
+			}
+			query := h.DB.Model(&model.AdminTeam{})
+			if filter := strings.TrimSpace(r.URL.Query().Get("filter")); filter != "" {
+				query = query.Where("name LIKE ?", "%"+filter+"%")
+			}
+			var total int64
+			if err := query.Count(&total).Error; err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			order := "created_at desc"
+			if r.URL.Query().Get("dir") == "asc" {
+				order = "created_at asc"
+			}
+			var teams []model.AdminTeam
+			if err := query.Order(order).Limit(limit).Offset(offset).Find(&teams).Error; err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"items": teams, "total": total, "limit": limit, "offset": offset})
+			return
+		}
 		var teams []model.AdminTeam
 		if err := h.DB.Order("created_at desc").Find(&teams).Error; err != nil {
 			http.Error(w, err.Error(), 500)

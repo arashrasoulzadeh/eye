@@ -62,6 +62,7 @@ export type EventOption = { value: string; count: number; last_ts: number };
 export type TenantUsage = { tenant_id: string; period_start: number; period_end: number; event_count: number; payload_bytes: number; storage_bytes: number; event_limit: number; storage_limit: number; warnings?: string[] };
 export type AdminUser = { id: string; email: string; name: string; role: "owner" | "admin" | "analyst" | "viewer"; status: "active" | "invited" | "suspended"; created_at: number; updated_at: number };
 export type AdminTeam = { id: string; name: string; created_at: number; updated_at: number };
+export type AdminTeamPage = { items: AdminTeam[]; total: number; limit: number; offset: number };
 export type AdminTeamMember = { team_id: string; user_id: string; role: string; created_at: number };
 
 class ApiError extends Error {
@@ -234,6 +235,7 @@ export const api = {
 
   adminTeams: {
     list: () => req<AdminTeam[]>("admin-teams"),
+    listPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<AdminTeamPage>(`admin-teams?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     create: (name: string) => req<AdminTeam>("admin-teams", { method: "POST", body: JSON.stringify({ name }) }),
     update: (teamId: string, name: string) => req<AdminTeam>(`admin-teams/${encodeURIComponent(teamId)}`, { method: "PUT", body: JSON.stringify({ name }) }),
     delete: (teamId: string) => req<void>(`admin-teams/${encodeURIComponent(teamId)}`, { method: "DELETE" }),

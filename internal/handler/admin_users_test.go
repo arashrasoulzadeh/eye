@@ -154,3 +154,20 @@ func TestAdminTeamsUpdateDeleteAndRemoveMember(t *testing.T) {
 		t.Fatalf("delete status %d", r.Code)
 	}
 }
+
+func TestAdminTeamsPagedListFiltersAndOrders(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.AdminTeam{}); err != nil {
+		t.Fatal(err)
+	}
+	db.Create(&model.AdminTeam{ID: "old", Name: "Old team", CreatedAt: 1, UpdatedAt: 1})
+	db.Create(&model.AdminTeam{ID: "new", Name: "Growth team", CreatedAt: 2, UpdatedAt: 2})
+	r := httptest.NewRecorder()
+	(&AdminTeamsHandler{DB: db}).ServeHTTP(r, httptest.NewRequest(http.MethodGet, "/admin-teams?page=true&filter=growth&limit=1&offset=0", nil))
+	if r.Code != http.StatusOK || !bytes.Contains(r.Body.Bytes(), []byte(`"total":1`)) || !bytes.Contains(r.Body.Bytes(), []byte(`"id":"new"`)) {
+		t.Fatalf("paged response status=%d body=%s", r.Code, r.Body.String())
+	}
+}
