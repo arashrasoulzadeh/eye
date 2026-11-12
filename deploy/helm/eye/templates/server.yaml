@@ -21,6 +21,10 @@ spec:
               valueFrom: { secretKeyRef: { name: {{ include "eye.fullname" . }}, key: API_KEY_SALT } }
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: {{ include "eye.fullname" . }}, key: DATABASE_URL } }
+            - name: DB_DRIVER
+              value: {{ if .Values.dependencies.postgres.enabled }}"postgres"{{ else }}"sqlite"{{ end }}
+            - name: BROKER_URL
+              value: {{ if .Values.dependencies.redis.enabled }}"redis://{{ include "eye.fullname" . }}-redis:6379"{{ else }}""{{ end }}
             - name: DEAD_LETTER_NOTIFY_URL
               value: {{ .Values.server.deadLetterNotifyURL | quote }}
           readinessProbe: { httpGet: { path: /healthz, port: http }, initialDelaySeconds: 5 }

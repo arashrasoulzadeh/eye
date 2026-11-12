@@ -7,6 +7,16 @@ server:
   apiKeySalt: ""
   databaseURL: ""
   deadLetterNotifyURL: ""
+dependencies:
+  postgres:
+    enabled: false
+    image: timescale/timescaledb:latest-pg17
+    database: eye
+    user: eye
+    password: ""
+  redis:
+    enabled: false
+    image: redis:7-bookworm
 ingress:
   enabled: false
   className: nginx

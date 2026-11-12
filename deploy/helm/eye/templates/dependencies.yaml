@@ -1,0 +1,64 @@
+{{- if .Values.dependencies.postgres.enabled }}
+apiVersion: v1
+kind: Secret
+metadata: { name: {{ include "eye.fullname" . }}-postgres }
+type: Opaque
+stringData:
+  POSTGRES_DB: {{ .Values.dependencies.postgres.database | quote }}
+  POSTGRES_USER: {{ .Values.dependencies.postgres.user | quote }}
+  POSTGRES_PASSWORD: {{ required "dependencies.postgres.password is required when postgres is enabled" .Values.dependencies.postgres.password | quote }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: {{ include "eye.fullname" . }}-postgres }
+spec:
+  serviceName: {{ include "eye.fullname" . }}-postgres
+  replicas: 1
+  selector: { matchLabels: { app: {{ include "eye.fullname" . }}-postgres } }
+  template:
+    metadata: { labels: { app: {{ include "eye.fullname" . }}-postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.dependencies.postgres.image }}
+          ports: [{ name: postgres, containerPort: 5432 }]
+          envFrom: [{ secretRef: { name: {{ include "eye.fullname" . }}-postgres } }]
+          readinessProbe: { exec: { command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"] }, initialDelaySeconds: 10, periodSeconds: 5 }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: {{ include "eye.fullname" . }}-postgres }
+spec:
+  selector: { app: {{ include "eye.fullname" . }}-postgres }
+  ports: [{ name: postgres, port: 5432, targetPort: postgres }]
+{{- end }}
+{{- if .Values.dependencies.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: {{ include "eye.fullname" . }}-redis }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: {{ include "eye.fullname" . }}-redis } }
+  template:
+    metadata: { labels: { app: {{ include "eye.fullname" . }}-redis } }
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.dependencies.redis.image }}
+          ports: [{ name: redis, containerPort: 6379 }]
+          readinessProbe: { exec: { command: ["redis-cli", "ping"] }, initialDelaySeconds: 5, periodSeconds: 5 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: {{ include "eye.fullname" . }}-redis }
+spec:
+  selector: { app: {{ include "eye.fullname" . }}-redis }
+  ports: [{ name: redis, port: 6379, targetPort: redis }]
+{{- end }}
