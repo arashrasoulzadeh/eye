@@ -83,7 +83,7 @@ export default function TestEventPage() {
     if (!tenantId) return;
     setRecentLoading(true);
     try {
-      const list = await api.events.list({ tenant_id: tenantId, session_id: sessionId || undefined });
+      const list = await api.events.list({ tenant_id: tenantId, session_id: sessionId || undefined, limit: 100, offset: 0, sort: "desc" });
       setRecent(list);
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to load recent events"); }
     finally { setRecentLoading(false); }
@@ -231,13 +231,14 @@ export default function TestEventPage() {
 
         <Card>
           <CardHeader
-            title={`Recent events for this tenant (${recent.length})`}
+            title={`Recent events for this tenant (${recent.length}${recent.length === 100 ? "+" : ""})`}
             action={
               <Button variant="ghost" onClick={refreshRecent}>
                 Refresh
               </Button>
             }
           />
+          {recent.length === 100 && <p className="border-b border-border px-5 py-3 text-xs text-fg-muted">Showing the 100 most recent events.</p>}
           <div className="max-h-[560px] divide-y divide-border overflow-y-auto">
             {recentLoading && !recent.length && <p className="px-5 py-8 text-center text-sm text-fg-muted">Loading recent events…</p>}
             {!recentLoading && recent.length === 0 && <p className="px-5 py-8 text-center text-sm text-fg-muted">No events sent yet.</p>}
