@@ -46,8 +46,9 @@ export default function FunnelPage() {
       .then((options) => setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)))
       .catch((e) => setError(e.message));
     void loadSuggested(tenant);
+  // loadSuggested is declared below and intentionally uses the current tenant/range.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenant]);
+  }, [tenant, globalFrom, globalTo]);
   async function loadSuggested(tenantID = tenant) {
     if (!tenantID) return;
     setSuggesting(true);

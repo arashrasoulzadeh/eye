@@ -41,6 +41,10 @@ export function formatTimeRange(hours: string): string {
   if (numeric % 24 === 0) return `Last ${numeric / 24} days`;
   return `Last ${numeric} hours`;
 }
+function isValidHours(value: string | null): value is string {
+  const numeric = Number(value);
+  return Boolean(value && Number.isFinite(numeric) && numeric >= 1 / 60 && numeric <= 2160 * 24);
+}
 type TimeRangeValue = { hours: string; from: number; to: number };
 type TimeRangeContextValue = TimeRangeValue & { setHours: (hours: string) => void };
 const TimeRangeContext = createContext<TimeRangeContextValue | null>(null);
@@ -49,7 +53,7 @@ const STORAGE_KEY = "eye.admin.time-hours";
 export function TimeRangeProvider({ children }: { children: React.ReactNode }) {
   const [hours, setHoursState] = useState("24");
   const [now, setNow] = useState(0);
-  useEffect(() => { setNow(Date.now()); const query = new URLSearchParams(window.location.search).get("time_hours"); const stored = window.localStorage.getItem(STORAGE_KEY); const initial = query || stored; if (initial && TIME_RANGES.some((item) => item.value === initial)) setHoursState(initial); const timer = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => { setNow(Date.now()); const query = new URLSearchParams(window.location.search).get("time_hours"); const stored = window.localStorage.getItem(STORAGE_KEY); const initial = isValidHours(query) ? query : stored; if (isValidHours(initial)) setHoursState(initial); const timer = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(timer); }, []);
   function setHours(value: string) { setHoursState(value); window.localStorage.setItem(STORAGE_KEY, value); const url = new URL(window.location.href); url.searchParams.set("time_hours", value); window.history.replaceState(null, "", url); window.dispatchEvent(new CustomEvent("eye-time-range-change", { detail: value })); window.location.reload(); }
   const value = useMemo(() => ({ hours, from: now - Number(hours) * 3600000, to: now, setHours }), [hours, now]);
   return <TimeRangeContext.Provider value={value}>{children}</TimeRangeContext.Provider>;
