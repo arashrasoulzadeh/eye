@@ -18,12 +18,19 @@ export default function Dashboard() {
   const cachedAtMs = cache ? (cache.cached_at < 100000000000 ? cache.cached_at * 1000 : cache.cached_at) : 0;
   const eventsPerMinute = hourlyAverage / 60;
   const eventsPerSecond = eventsPerMinute / 60;
+  function downloadReport() {
+    if (!cache) return;
+    const rows = [["Metric", "Value"], ["Events", String(cache.events)], ["Sessions", String(cache.sessions)], ["Users", String(cache.users ?? cache.sessions)], ["Online users", String(cache.online_users ?? 0)], ["Retention", `${((cache.retention_rate ?? 0) * 100).toFixed(1)}%`], ["Tenants", String(cache.tenants)], ["Events per hour", String(Math.round(hourlyAverage))], ["Time range hours", hours]];
+    const csv = rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = `eye-dashboard-${hours}h.csv`; link.click(); URL.revokeObjectURL(url);
+  }
 
   return (
     <div>
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
       <p className="mt-1 text-sm text-fg-muted">Metrics for the global {hours}h range (refreshed every minute).</p>
-      </div><div className="flex gap-2"><Button variant="secondary" onClick={() => window.print()}>Report</Button><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>
+      </div><div className="flex gap-2"><Button variant="secondary" onClick={() => window.print()}>Print report</Button><Button variant="secondary" onClick={downloadReport} disabled={!cache}>Download CSV</Button><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
         <p className="mt-2 text-fg-muted">These totals come from the server-side dashboard cache, not the browser. The charts summarize the latest materialized event window and refresh automatically once per minute.</p>
