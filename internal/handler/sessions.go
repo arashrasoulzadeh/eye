@@ -99,6 +99,16 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		query := h.DB.Model(&model.Session{})
+		if raw := r.URL.Query().Get("from_ts"); raw != "" {
+			if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+				query = query.Where("last_seen >= ?", time.UnixMilli(value))
+			}
+		}
+		if raw := r.URL.Query().Get("to_ts"); raw != "" {
+			if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+				query = query.Where("last_seen <= ?", time.UnixMilli(value))
+			}
+		}
 		if tenantID := strings.TrimSpace(r.URL.Query().Get("tenant_id")); tenantID != "" {
 			query = query.Where("tenant_id = ?", tenantID)
 		}

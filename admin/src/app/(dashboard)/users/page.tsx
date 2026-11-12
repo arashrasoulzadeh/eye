@@ -9,6 +9,7 @@ import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { JsonView } from "@/components/JsonView";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 type UserRow = { id: string; sessions: number; events: number; lastSeen: string; online: boolean; browser: string; location: string; ip: string; userAgent: string };
 
@@ -26,11 +27,12 @@ function browser(ua: string): string {
 
 export default function UsersPage() {
   const { tenantId: globalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [sessions, setSessions] = useState<Session[]>([]), [events, setEvents] = useState<Event[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
   async function load() {
     setLoading(true); setError("");
     try {
-      const [sessionPage, recent] = await Promise.all([api.sessions.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 100, offset: 0, sort: "last_seen", dir: "desc" }), api.events.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 50, offset: 0, sort: "desc" })]);
+      const [sessionPage, recent] = await Promise.all([api.sessions.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 100, offset: 0, sort: "last_seen", dir: "desc", from_ts: globalFrom, to_ts: globalTo }), api.events.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 50, offset: 0, sort: "desc", from_ts: globalFrom, to_ts: globalTo })]);
       setSessions(sessionPage.items); setEvents(recent);
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load users"); } finally { setLoading(false); }
   }
@@ -38,7 +40,7 @@ export default function UsersPage() {
   useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   // load intentionally follows the selected tenant and is recreated with page state.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant]);
+  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant, globalFrom, globalTo]);
 
   const users = useMemo<UserRow[]>(() => {
     const grouped = new Map<string, UserRow>();
