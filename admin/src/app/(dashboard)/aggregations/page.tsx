@@ -5,11 +5,14 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
+import { useTenant } from "@/components/TenantContext";
 type Aggregation = { ID: string; TenantID: string; Name: string; Rule: string; OutputEvent: string; Threshold: number; Window: string };
 export default function AggregationsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [items, setItems] = useState<Aggregation[]>([]), [total, setTotal] = useState(0), [name, setName] = useState(""), [rule, setRule] = useState("{}"), [output, setOutput] = useState("aggregated_event"), [threshold, setThreshold] = useState(1), [windowSize, setWindowSize] = useState("1h"), [editing, setEditing] = useState<string | null>(null), [error, setError] = useState(""), [loading, setLoading] = useState(false), [saving, setSaving] = useState(false), [busy, setBusy] = useState("");
   const load = useCallback(async (query?: TableQuery) => { if (!tenant) return; setLoading(true); setError(""); try { const page = await api.operations.aggregationsPage(tenant, { filter: query?.filter, dir: query?.sortDir, limit: 10, offset: (query?.page ?? 0) * 10 }); setItems(page.items as Aggregation[]); setTotal(page.total); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load aggregations"); } finally { setLoading(false); } }, [tenant]);
   useEffect(() => { api.tenants.list().then((x) => { setTenants(x); if (x[0]) setTenant(x[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   useEffect(() => { void load(); }, [load]);
   function reset() { setEditing(null); setName(""); setRule("{}"); setOutput("aggregated_event"); setThreshold(1); setWindowSize("1h"); }
   async function save() { setSaving(true); setError(""); try { const body = { tenant_id: tenant, name: name.trim(), rule: rule.trim(), output_event: output.trim(), threshold, window: windowSize.trim() }; if (editing) await api.operations.updateAggregation(editing, body); else await api.operations.createAggregation(body); reset(); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to save aggregation"); } finally { setSaving(false); } }

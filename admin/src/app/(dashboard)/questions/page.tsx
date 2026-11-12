@@ -6,11 +6,13 @@ import { Card, CardHeader } from "@/components/Card";
 import { Combobox } from "@/components/Combobox";
 import { Button } from "@/components/Button";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
+import { useTenant } from "@/components/TenantContext";
 
 type QuestionForm = { Name: string; clauses: string[]; MatchMode: "any" | "all" };
 const initial: QuestionForm = { Name: "", clauses: [""], MatchMode: "any" };
 
 export default function QuestionsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const [popular, setPopular] = useState<string[]>([]), [search, setSearch] = useState("");
   const [items, setItems] = useState<Question[]>([]), [total, setTotal] = useState(0), [form, setForm] = useState<QuestionForm>(initial), [edit, setEdit] = useState<Question | null>(null);
@@ -18,6 +20,7 @@ export default function QuestionsPage() {
   const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "updated", sortDir: "desc", page: 0 }) => { if (!tenant) return; setLoading(true); try { const page = await api.questions.listPage(tenant, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setItems(page.items); setTotal(page.total); setError(""); } catch (e) { setError((e as Error).message); } finally { setLoading(false); } }, [tenant]);
   const loadEvents = useCallback(async (query = "") => { if (!tenant) return; try { const options = await api.eventOptions(tenant, query); setPopular((Array.isArray(options) ? options : []).map((event) => event.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
   useEffect(() => { api.tenants.list().then((list) => { setTenants(list); if (list[0]) setTenant(list[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   useEffect(() => { if (tenant) { void load(); void loadEvents(); } }, [tenant, load, loadEvents]);
   async function submit(event: FormEvent) { event.preventDefault(); const clauses = form.clauses.map((value) => value.trim()).filter(Boolean); if (!tenant || !form.Name.trim() || !clauses.length) { setError("A tenant, question name, and at least one event are required."); return; } setSaving(true); setError(""); try { await api.questions.save({ ID: edit?.ID, TenantID: tenant, Name: form.Name.trim(), EventName: clauses[0], EventNames: clauses.join(","), MatchMode: form.MatchMode, RangeMode: "relative", RelativeDays: 1 }); setForm(initial); setEdit(null); await load(); } catch (e) { setError((e as Error).message); } finally { setSaving(false); } }
   function start(question: Question) { setEdit(question); setForm({ Name: question.Name, clauses: (question.EventNames || question.EventName).split(","), MatchMode: question.MatchMode || "any" }); }

@@ -6,14 +6,17 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
+import { useTenant } from "@/components/TenantContext";
 
 type Flag = { TenantID: string; Key: string; Enabled: boolean; CreatedAt?: number; UpdatedAt?: number };
 
 export default function FeatureFlagsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [flags, setFlags] = useState<Flag[]>([]), [total, setTotal] = useState(0), [key, setKey] = useState("");
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(""), [error, setError] = useState("");
   const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "updated", sortDir: "desc", page: 0 }) => { if (!tenant) return; setLoading(true); setError(""); try { const page = await api.operations.flagsPage(tenant, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setFlags(page.items as Flag[]); setTotal(page.total); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load flags"); } finally { setLoading(false); } }, [tenant]);
   useEffect(() => { api.tenants.list().then((items) => { setTenants(items); if (items[0]) setTenant(items[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   useEffect(() => { void load(); }, [load]);
   async function save(flagKey: string, enabled: boolean) { if (!tenant || !flagKey.trim()) return; setBusy(flagKey); setError(""); try { await api.operations.setFlag(tenant, flagKey.trim(), enabled); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to save flag"); } finally { setBusy(""); } }
   async function create() { const flagKey = key.trim(); if (!flagKey) return; await save(flagKey, true); setKey(""); }

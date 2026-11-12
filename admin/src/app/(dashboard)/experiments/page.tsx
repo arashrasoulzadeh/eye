@@ -5,12 +5,15 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
+import { useTenant } from "@/components/TenantContext";
 
 type Experiment = { ID: string; TenantID: string; Name: string; Variants: string; Traffic: number; Enabled: boolean; CreatedAt: number };
 export default function ExperimentsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [items, setItems] = useState<Experiment[]>([]), [total, setTotal] = useState(0), [name, setName] = useState(""), [variants, setVariants] = useState("control,variant"), [traffic, setTraffic] = useState(100), [editing, setEditing] = useState<string | null>(null), [experimentId, setExperimentId] = useState(""), [sessionId, setSessionId] = useState(""), [result, setResult] = useState(""), [error, setError] = useState(""), [loading, setLoading] = useState(false), [saving, setSaving] = useState(false), [assigning, setAssigning] = useState(false);
   const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => { if (!tenant) return; setLoading(true); setError(""); try { const page = await api.operations.experimentsPage(tenant, { filter: query.filter, dir: query.sortDir, limit: 10, offset: query.page * 10 }); setItems(page.items as Experiment[]); setTotal(page.total); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load experiments"); } finally { setLoading(false); } }, [tenant]);
   useEffect(() => { api.tenants.list().then((x) => { setTenants(x); if (x[0]) setTenant(x[0].ID); }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
   useEffect(() => { void load(); }, [load]);
   function reset() { setEditing(null); setName(""); setVariants("control,variant"); setTraffic(100); }
   async function save() { setSaving(true); setError(""); try { const body = { name: name.trim(), variants: variants.trim(), traffic, enabled: true, tenant_id: tenant }; if (editing) await api.operations.updateExperiment(editing, body); else await api.operations.createExperiment(body); reset(); await load(); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to save experiment"); } finally { setSaving(false); } }
