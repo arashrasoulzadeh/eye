@@ -86,3 +86,37 @@ func TestAdminInvitationCanBeAcceptedOnce(t *testing.T) {
 		t.Fatalf("second accept status=%d", acceptAgain.Code)
 	}
 }
+
+func TestAdminTeamsManageMemberships(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.AdminUser{}, &model.AdminTeam{}, &model.AdminTeamMember{}); err != nil {
+		t.Fatal(err)
+	}
+	user := model.AdminUser{ID: "u1", Email: "a@example.com", Role: "analyst", Status: "active"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	h := &AdminTeamsHandler{DB: db}
+	create := httptest.NewRecorder()
+	h.ServeHTTP(create, httptest.NewRequest("POST", "/admin-teams", bytes.NewBufferString(`{"name":"Growth"}`)))
+	if create.Code != 201 {
+		t.Fatalf("create status=%d body=%s", create.Code, create.Body.String())
+	}
+	var team model.AdminTeam
+	if err := json.NewDecoder(create.Body).Decode(&team); err != nil {
+		t.Fatal(err)
+	}
+	add := httptest.NewRecorder()
+	h.ServeHTTP(add, httptest.NewRequest("POST", "/admin-teams/"+team.ID+"/members", bytes.NewBufferString(`{"user_id":"u1","role":"editor"}`)))
+	if add.Code != 201 {
+		t.Fatalf("add status=%d body=%s", add.Code, add.Body.String())
+	}
+	list := httptest.NewRecorder()
+	h.ServeHTTP(list, httptest.NewRequest("GET", "/admin-teams/"+team.ID+"/members", nil))
+	if list.Code != 200 || !bytes.Contains(list.Body.Bytes(), []byte(`"user_id":"u1"`)) {
+		t.Fatalf("list status=%d body=%s", list.Code, list.Body.String())
+	}
+}

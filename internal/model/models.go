@@ -232,6 +232,22 @@ type AdminUser struct {
 	InviteExpiresAt int64  `json:"invite_expires_at,omitempty"`
 }
 
+// AdminTeam groups workspace users and allows roles to be scoped to a team.
+type AdminTeam struct {
+	ID        string `gorm:"primaryKey" json:"id"`
+	Name      string `gorm:"uniqueIndex" json:"name"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+// AdminTeamMember is the durable team membership and scoped role assignment.
+type AdminTeamMember struct {
+	TeamID    string `gorm:"primaryKey" json:"team_id"`
+	UserID    string `gorm:"primaryKey" json:"user_id"`
+	Role      string `json:"role"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 // DashboardCache holds pre-computed dashboard metrics, refreshed by a
 // background job on a configurable interval. The dashboard UI reads from
 // this table instead of querying the database directly.
