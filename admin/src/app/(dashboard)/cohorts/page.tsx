@@ -8,10 +8,13 @@ import { Combobox, ComboOption } from "@/components/Combobox";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function CohortsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [totalCohorts, setTotalCohorts] = useState(0);
   const [deleting, setDeleting] = useState<string | null>(null);

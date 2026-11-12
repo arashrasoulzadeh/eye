@@ -4,6 +4,7 @@ import { api, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
+import { useTenant } from "@/components/TenantContext";
 
 function JsonRows({ values }: { values: unknown[] }) {
   return <div className="divide-y divide-border">{values.length === 0 ? <p className="p-4 text-sm text-fg-muted">No recent records match the current scope.</p> : values.map((value, index) => { const record = (value && typeof value === "object" ? value : { value }) as Record<string, unknown>; const serialized = JSON.stringify(record, null, 2); return <div key={recordKey(record, index)} className="flex items-start gap-3 px-4 py-3"><div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(record).map(([key, item]) => <div key={key} className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{key.replaceAll("_", " ")}</p><p className="truncate text-sm text-fg" title={String(item)}>{typeof item === "object" ? JSON.stringify(item) : String(item ?? "—")}</p></div>)}</div><Button variant="secondary" onClick={() => void navigator.clipboard?.writeText(serialized)}>Copy</Button></div>; })}</div>;
@@ -11,8 +12,10 @@ function JsonRows({ values }: { values: unknown[] }) {
 function recordKey(record: Record<string, unknown>, index: number) { const id = record.ID ?? record.id ?? record.Key ?? record.key ?? record.Timestamp ?? record.timestamp; return id == null ? `record-${index}-${JSON.stringify(record)}` : String(id); }
 
 export default function OperationsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [flags, setFlags] = useState<unknown[]>([]), [aggregations, setAggregations] = useState<unknown[]>([]), [anomalies, setAnomalies] = useState<unknown[]>([]), [audit, setAudit] = useState<unknown[]>([]), [deadLetters, setDeadLetters] = useState<unknown[]>([]);
   const [flagKey, setFlagKey] = useState(""), [loading, setLoading] = useState(false), [busy, setBusy] = useState(""), [error, setError] = useState("");
   const load = useCallback(async () => {

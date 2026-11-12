@@ -7,10 +7,13 @@ import { Input, Label, Select, Textarea } from "@/components/Input";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function SchemasPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [schemas, setSchemas] = useState<Schema[]>([]);
   const [totalSchemas, setTotalSchemas] = useState(0);
   const [name, setName] = useState("");

@@ -6,10 +6,13 @@ import { Button } from "@/components/Button";
 import { Input, Label, Select } from "@/components/Input";
 import { CopyButton } from "@/components/CopyButton";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function CdnTestPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [apiKey, setApiKey] = useState("");
   const [rotating, setRotating] = useState(false);
   const [loading, setLoading] = useState(true);

@@ -7,10 +7,13 @@ import { Input, Label, Select, Textarea } from "@/components/Input";
 import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function TestEventPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [creatingSession, setCreatingSession] = useState(false);

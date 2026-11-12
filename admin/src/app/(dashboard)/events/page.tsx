@@ -10,8 +10,10 @@ import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function EventsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [events, setEvents] = useState<Event[]>([]);
   const [totalEvents, setTotalEvents] = useState(0);
   const [eventName, setEventName] = useState("");
@@ -25,6 +27,7 @@ export default function EventsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
   const { push } = useToast();
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -6,13 +6,16 @@ import { Card, CardHeader } from "@/components/Card";
 import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Button } from "@/components/Button";
+import { useTenant } from "@/components/TenantContext";
 
 export default function GraphsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]), [questionTotal, setQuestionTotal] = useState(0), [questionPage, setQuestionPage] = useState(0), [results, setResults] = useState<Record<string, GraphResult>>({});
   const [loadingQuestions, setLoadingQuestions] = useState(false), [loadingGraph, setLoadingGraph] = useState("");
   const [chart, setChart] = useState("line"), [mode, setMode] = useState("relative"), [days, setDays] = useState(7);
   const [from, setFrom] = useState(""), [to, setTo] = useState(""), [error, setError] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
 
   useEffect(() => { api.tenants.list().then((items) => { setTenants(items); if (items[0]) setTenant(items[0].ID); }).catch((e) => setError(e.message)); }, []);
   useEffect(() => { if (!tenant) return; setLoadingQuestions(true); setError(""); setResults({}); api.questions.listPage(tenant, { limit: 10, offset: questionPage * 10 }).then((page) => { setQuestions(page.items); setQuestionTotal(page.total); }).catch((e) => setError(e.message)).finally(() => setLoadingQuestions(false)); }, [tenant, questionPage]);

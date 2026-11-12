@@ -9,10 +9,13 @@ import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { useTenant } from "@/components/TenantContext";
 
 export default function AlertsPage() {
+  const { tenantId: globalTenant } = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState("");
+  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [totalRules, setTotalRules] = useState(0);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
