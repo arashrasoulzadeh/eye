@@ -124,7 +124,7 @@ function orderTenantsForScope(value: Tenant[]): Tenant[] {
 export const api = {
   metrics: () => req<Metrics>("metrics"),
 
-  dashboardCache: () => req<DashboardCache>("dashboard-cache"),
+  dashboardCache: (range?: { from_ts: number; to_ts: number }) => req<DashboardCache>(`dashboard-cache${range ? `?from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`),
 
   tenants: {
     list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { if (!Object.keys(params).length && tenantsCache && tenantsCache.expires > Date.now()) return Promise.resolve(orderTenantsForScope(tenantsCache.value)); const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; if (!query && tenantsRequest) return tenantsRequest.then(orderTenantsForScope); const request = req<Tenant[]>(`tenants${query}`); if (query) return request.then(orderTenantsForScope); tenantsRequest = request.then((value) => { tenantsCache = { value, expires: Date.now() + 30_000 }; tenantsRequest = null; return orderTenantsForScope(value); }).catch((error) => { tenantsRequest = null; throw error; }); return tenantsRequest; },

@@ -124,3 +124,90 @@ func (s *DashboardCacheService) Get() (*model.DashboardCache, error) {
 	}
 	return &cache, nil
 }
+
+// GetRange overlays the cached dashboard with metrics calculated for a caller's
+// selected time window. The background cache remains the fast fallback for the
+// unfiltered dashboard, while range-aware views always reflect their query.
+func (s *DashboardCacheService) GetRange(from, to int64) (*model.DashboardCache, error) {
+	cache, err := s.Get()
+	if err != nil {
+		return nil, err
+	}
+	var events int64
+	if err := s.DB.Model(&model.Event{}).Where("client_ts >= ? AND client_ts <= ?", from, to).Count(&events).Error; err != nil {
+		return nil, err
+	}
+	var sessions int64
+	if err := s.DB.Model(&model.Event{}).Where("client_ts >= ? AND client_ts <= ?", from, to).Distinct("session_id").Count(&sessions).Error; err != nil {
+		return nil, err
+	}
+	var rows []model.Event
+	if err := s.DB.Where("client_ts >= ? AND client_ts <= ?", from, to).Order("client_ts DESC").Limit(1000).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	cache.Events = events
+	cache.Sessions = sessions
+	cache.Users = sessions
+	cache.EventsByTenant = dashboardTenantBreakdown(s.DB, rows)
+	cache.EventsByHour = dashboardHourBreakdown(rows)
+	cache.UpdatedAt = time.Now().UnixMilli()
+	return cache, nil
+}
+
+func dashboardHourBreakdown(events []model.Event) string {
+	counts := make(map[string]int64)
+	for _, event := range events {
+		counts[time.UnixMilli(event.ClientTS).Format("15:00")]++
+	}
+	type point struct {
+		Label string `json:"label"`
+		Value int64  `json:"value"`
+	}
+	points := make([]point, 0, 24)
+	for hour := 0; hour < 24; hour++ {
+		label := time.Date(0, 1, 1, hour, 0, 0, 0, time.UTC).Format("15:00")
+		points = append(points, point{label, counts[label]})
+	}
+	encoded, _ := json.Marshal(points)
+	return string(encoded)
+}
+
+func dashboardTenantBreakdown(db *gorm.DB, events []model.Event) string {
+	var tenants []model.Tenant
+	db.Find(&tenants)
+	names := make(map[string]string)
+	for _, tenant := range tenants {
+		names[tenant.ID] = tenant.Name
+	}
+	counts := make(map[string]int64)
+	for _, event := range events {
+		counts[event.TenantID]++
+	}
+	type point struct {
+		Label string `json:"label"`
+		Value int64  `json:"value"`
+	}
+	points := make([]point, 0, len(counts))
+	for id, count := range counts {
+		label := names[id]
+		if label == "" {
+			label = id
+			if len(label) > 8 {
+				label = label[:8]
+			}
+		}
+		points = append(points, point{label, count})
+	}
+	for i := 0; i < len(points)-1; i++ {
+		for j := i + 1; j < len(points); j++ {
+			if points[i].Value < points[j].Value {
+				points[i], points[j] = points[j], points[i]
+			}
+		}
+	}
+	if len(points) > 8 {
+		points = points[:8]
+	}
+	encoded, _ := json.Marshal(points)
+	return string(encoded)
+}

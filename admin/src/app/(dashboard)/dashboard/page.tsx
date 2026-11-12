@@ -5,12 +5,14 @@ import { StatCard, Card, CardHeader } from "@/components/Card";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Button } from "@/components/Button";
 import Link from "next/link";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 export default function Dashboard() {
   const [cache, setCache] = useState<DashboardCache | null>(null);
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const [error, setError] = useState(""), [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => { setLoading(true); setError(""); try { setCache(await api.dashboardCache()); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, []);
+  const load = useCallback(async () => { if (!globalFrom || !globalTo) return; setLoading(true); setError(""); try { setCache(await api.dashboardCache({ from_ts: globalFrom, to_ts: globalTo })); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, [globalFrom, globalTo]);
   useEffect(() => { void load(); }, [load]);
   const hourlyAverage = cache?.events_by_hour?.length ? cache.events_by_hour.reduce((sum, point) => sum + point.value, 0) / cache.events_by_hour.length : 0;
   const cachedAtMs = cache ? (cache.cached_at < 100000000000 ? cache.cached_at * 1000 : cache.cached_at) : 0;
@@ -20,7 +22,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
-      <p className="mt-1 text-sm text-fg-muted">Cached metrics (refreshed every minute).</p>
+      <p className="mt-1 text-sm text-fg-muted">Metrics for the global {hours}h range (refreshed every minute).</p>
       </div><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
