@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, AdminTeam, AdminTeamMember, AdminUser, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -10,8 +10,8 @@ import { useToast } from "@/components/Toast";
 export default function AdminTeamsPage() {
   const [teams, setTeams] = useState<AdminTeam[]>([]), [users, setUsers] = useState<AdminUser[]>([]), [members, setMembers] = useState<AdminTeamMember[]>([]), [selected, setSelected] = useState(""), [name, setName] = useState(""), [userID, setUserID] = useState(""), [role, setRole] = useState("viewer"), [loading, setLoading] = useState(true), [error, setError] = useState("");
   const { push } = useToast();
-  async function load() { setLoading(true); try { const [nextTeams, nextUsers] = await Promise.all([api.adminTeams.list(), api.adminUsers.list()]); setTeams(nextTeams); setUsers(nextUsers); const teamID = selected || nextTeams[0]?.id || ""; setSelected(teamID); if (teamID) setMembers(await api.adminTeams.members(teamID)); else setMembers([]); setError(""); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load teams"); } finally { setLoading(false); } }
-  useEffect(() => { void load(); }, []);
+  const load = useCallback(async () => { setLoading(true); try { const [nextTeams, nextUsers] = await Promise.all([api.adminTeams.list(), api.adminUsers.list()]); setTeams(nextTeams); setUsers(nextUsers); const teamID = selected || nextTeams[0]?.id || ""; setSelected(teamID); if (teamID) setMembers(await api.adminTeams.members(teamID)); else setMembers([]); setError(""); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load teams"); } finally { setLoading(false); } }, [selected]);
+  useEffect(() => { void load(); }, [load]);
   async function selectTeam(id: string) { setSelected(id); try { setMembers(await api.adminTeams.members(id)); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load team members"); } }
   async function createTeam() { if (!name.trim()) return; try { const team = await api.adminTeams.create(name.trim()); setName(""); setTeams((items) => [team, ...items]); setSelected(team.id); setMembers([]); push("success", "Team created"); } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to create team"); } }
   async function addMember() { if (!selected || !userID) return; try { const member = await api.adminTeams.addMember(selected, userID, role); setMembers((items) => [member, ...items.filter((item) => item.user_id !== member.user_id)]); push("success", "Member added"); } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to add member"); } }
