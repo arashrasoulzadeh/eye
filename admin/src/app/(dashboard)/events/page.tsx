@@ -12,6 +12,7 @@ import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
 import { useTenant } from "@/components/TenantContext";
 import { useTimeRange } from "@/components/TimeRangeContext";
+import { EventExplorer } from "@/components/EventExplorer";
 
 export default function EventsPage() {
   const { tenantId: globalTenant } = useTenant();
@@ -24,6 +25,7 @@ export default function EventsPage() {
   const [fromTime, setFromTime] = useState("");
   const [toTime, setToTime] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exploring, setExploring] = useState<Event | null>(null);
 
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -94,6 +96,7 @@ export default function EventsPage() {
     { key: "payload", header: "Payload", render: (e) => <JsonView value={e.Payload} /> },
     { key: "dims", header: "Dims", render: (e) => <JsonView value={e.Dims} /> },
     { key: "time", header: "Ingested", render: (e) => (e.IngestTS ? new Date(e.IngestTS).toLocaleString() : "—"), sortValue: (e) => e.IngestTS },
+    { key: "actions", header: "Actions", render: (e) => <button type="button" onClick={() => setExploring(e)} className="text-xs text-accent">Inspect</button> },
   ];
 
   return (
@@ -133,6 +136,7 @@ export default function EventsPage() {
           </Button>
         </div>
       </Card>
+      {exploring && <EventExplorer event={exploring} onClose={() => setExploring(null)} />}
 
       <Card className="mt-6">
         <CardHeader title={`Events (${totalEvents})`} />

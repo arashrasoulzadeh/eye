@@ -5,6 +5,7 @@ import { AdminTopbar } from "@/components/AdminTopbar";
 import { TenantProvider } from "@/components/TenantContext";
 import { TimeRangeProvider } from "@/components/TimeRangeContext";
 import { LanguageProvider } from "@/components/LanguageContext";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,7 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar />
         </Suspense>
         <main className="flex-1 overflow-y-auto">
-          <Suspense fallback={<header className="min-h-14 border-b border-border" />}><AdminTopbar /></Suspense>
+          <Suspense fallback={<header className="min-h-14 border-b border-border" />}><AdminTopbar /><CommandPalette /></Suspense>
           <div className="admin-content mx-auto max-w-6xl px-8 py-8">{children}</div>
         </main>
       </div>

@@ -23,7 +23,7 @@ export default function Dashboard() {
     <div>
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
       <p className="mt-1 text-sm text-fg-muted">Metrics for the global {hours}h range (refreshed every minute).</p>
-      </div><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div>
+      </div><div className="flex gap-2"><Button variant="secondary" onClick={() => window.print()}>Report</Button><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
         <p className="mt-2 text-fg-muted">These totals come from the server-side dashboard cache, not the browser. The charts summarize the latest materialized event window and refresh automatically once per minute.</p>
@@ -83,6 +83,7 @@ export default function Dashboard() {
           ))}
         </div>
       </Card>
+      <Card className="mt-6"><CardHeader title="Recommended next steps"/><div className="grid gap-3 p-5 sm:grid-cols-3"><Link href="/health" className="rounded-lg border border-border p-3 text-sm hover:border-accent"><p className="font-medium text-fg">Review system health</p><p className="mt-1 text-xs text-fg-muted">SLO, anomalies, alerts, and dead letters.</p></Link><Link href="/analytics" className="rounded-lg border border-border p-3 text-sm hover:border-accent"><p className="font-medium text-fg">Investigate trends</p><p className="mt-1 text-xs text-fg-muted">Open a shareable query for the current range.</p></Link><Link href="/stream" className="rounded-lg border border-border p-3 text-sm hover:border-accent"><p className="font-medium text-fg">Watch live traffic</p><p className="mt-1 text-xs text-fg-muted">Inspect the latest events and sessions.</p></Link></div></Card>
     </div>
   );
 }
