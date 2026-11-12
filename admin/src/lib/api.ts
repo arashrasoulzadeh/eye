@@ -61,6 +61,8 @@ export type GraphResult = { question: Question; from_ts: number; to_ts: number; 
 export type EventOption = { value: string; count: number; last_ts: number };
 export type TenantUsage = { tenant_id: string; period_start: number; period_end: number; event_count: number; payload_bytes: number; storage_bytes: number; event_limit: number; storage_limit: number; warnings?: string[] };
 export type AdminUser = { id: string; email: string; name: string; role: "owner" | "admin" | "analyst" | "viewer"; status: "active" | "invited" | "suspended"; created_at: number; updated_at: number };
+export type AdminTeam = { id: string; name: string; created_at: number; updated_at: number };
+export type AdminTeamMember = { team_id: string; user_id: string; role: string; created_at: number };
 
 class ApiError extends Error {
   status: number;
@@ -227,6 +229,13 @@ export const api = {
     create: (body: Partial<AdminUser>) => req<AdminUser & { invitation_token?: string }>("admin-users", { method: "POST", body: JSON.stringify(body) }),
     update: (id: string, body: Partial<AdminUser>) => req<AdminUser>(`admin-users/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
     remove: (id: string) => req<void>(`admin-users/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
+
+  adminTeams: {
+    list: () => req<AdminTeam[]>("admin-teams"),
+    create: (name: string) => req<AdminTeam>("admin-teams", { method: "POST", body: JSON.stringify({ name }) }),
+    members: (teamId: string) => req<AdminTeamMember[]>(`admin-teams/${encodeURIComponent(teamId)}/members`),
+    addMember: (teamId: string, userId: string, role?: string) => req<AdminTeamMember>(`admin-teams/${encodeURIComponent(teamId)}/members`, { method: "POST", body: JSON.stringify({ user_id: userId, role }) }),
   },
 
   tenantData: {
