@@ -18,7 +18,7 @@
 - [x] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
 - [x] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations — anomaly z-score evaluation, destination-aware payloads, SMTP email, retries, and dead-letter handling are implemented
 - [x] Data governance — PII detection/redaction, schema enforcement modes, tenant exports, deletion workflows, and retention policies — configured and opt-in detection, reject/warn schema paths, export/delete endpoints, and live retention settings are implemented
-- [ ] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications
+- [x] Observability and reliability — OpenTelemetry traces, SLO/error-budget dashboards, dead-letter replay UI, and failure notifications — OTLP/HTTP server spans with W3C propagation, SLO/error-budget API/UI, replayable dead letters, and operator notifications are implemented and tested
 - [x] SDK ecosystem — React Native, Flutter, Python, and Node SDKs with durable offline queues and diagnostics — all four packages now implement durable offline queues, retry-safe flushing, session persistence, and diagnostics with contract coverage
 - [ ] Infrastructure automation — Helm chart, Terraform module, managed dependency options, and one-command installation
 
