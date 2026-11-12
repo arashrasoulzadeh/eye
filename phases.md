@@ -25,7 +25,7 @@
 ## Admin product completeness
 - [x] Replay supports relative and absolute time ranges with validation and progress feedback
 - [ ] Every admin resource page has server-backed list/filter/sort, create/edit/delete actions, detail views, and contextual help
-- [ ] Operations pages expose full CRUD and safe destructive-action confirmation for flags, aggregations, experiments, alerts, and dead letters
+- [x] Operations pages expose full CRUD and safe destructive-action confirmation for flags, aggregations, experiments, alerts, and dead letters — all five resource pages now expose API-backed CRUD/replay actions with confirmation and regression coverage
 - [ ] Admin UX has consistent empty/loading/error states, action menus, copy controls, and API-backed pagination across all resource tables
 
 ## Workflow rule
