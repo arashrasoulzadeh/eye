@@ -10,7 +10,10 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 docker compose version >/dev/null || { echo "docker compose plugin is required" >&2; exit 1; }
 cd "$ROOT"
 docker compose config >/dev/null
-docker compose up -d --build
+docker compose pull
+# This deliberately does not run `down`, `down -v`, prune, or remove volumes.
+# Compose recreates containers when the image changes while preserving volumes.
+docker compose up -d --no-build
 for attempt in {1..30}; do
   if docker compose ps --status running --services | grep -qx server && docker compose ps --status running --services | grep -qx admin; then
     break

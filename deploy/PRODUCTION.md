@@ -8,12 +8,15 @@ values must be stored in the configured secret manager.
 
 Set `DB_DRIVER=postgres` and provide `DATABASE_URL` (or `DATABASE_URL_FILE`) for a PostgreSQL/TimescaleDB database. The server runs the portable GORM migration first, then creates the Timescale hypertable and indexes.
 
-For a local production-like stack, run `POSTGRES_PASSWORD=... docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --build server postgres`.
+The production Compose file uses prebuilt images from GHCR. Run `ADMIN_KEY=... API_KEY_SALT=... ./deploy/deploy.sh`; it pulls images and never builds on the server. Set `EYE_SERVER_IMAGE`, `EYE_COLLECTOR_IMAGE`, or `EYE_ADMIN_IMAGE` to pin another registry/tag.
 
-Add `-f docker-compose.redis.yml` to enable Redis Streams locally:
+For a local production-like stack with PostgreSQL, pull the images first and then run `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --no-build server postgres`. Add `docker compose pull` before the command whenever you want the newest published images.
+
+Add `-f docker-compose.redis.yml` to enable Redis Streams:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.redis.yml up -d --build
+docker compose pull
+docker compose -f docker-compose.yml -f docker-compose.redis.yml up -d --no-build
 ```
 
 Kubernetes deployments should apply `deploy/k8s/redis.yaml` and the server manifest together.
