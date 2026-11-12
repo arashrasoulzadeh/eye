@@ -240,10 +240,10 @@ export default function FunnelPage() {
                       className="flex w-full flex-col items-center"
                     >
                       <div
-                        className="relative flex h-28 items-center justify-center border border-accent/30 bg-gradient-to-br from-accent to-accent/70 px-4 text-center text-accent-fg shadow-sm"
+                        className="relative flex min-h-24 items-center justify-center border border-accent/30 bg-gradient-to-br from-accent to-accent/70 px-4 text-center text-accent-fg shadow-sm transition-all"
                         style={{
                           width: `${width}%`,
-                          clipPath: "polygon(5% 0, 95% 0, 88% 100%, 12% 100%)",
+                          clipPath: "polygon(4% 0, 96% 0, 88% 100%, 12% 100%)",
                         }}
                       >
                         <div>

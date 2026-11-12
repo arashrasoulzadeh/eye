@@ -13,6 +13,7 @@ export default function Dashboard() {
   const load = useCallback(async () => { setLoading(true); setError(""); try { setCache(await api.dashboardCache()); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, []);
   useEffect(() => { void load(); }, [load]);
   const hourlyAverage = cache?.events_by_hour?.length ? cache.events_by_hour.reduce((sum, point) => sum + point.value, 0) / cache.events_by_hour.length : 0;
+  const cachedAtMs = cache ? (cache.cached_at < 100000000000 ? cache.cached_at * 1000 : cache.cached_at) : 0;
   const eventsPerMinute = hourlyAverage / 60;
   const eventsPerSecond = eventsPerMinute / 60;
 
@@ -42,7 +43,7 @@ export default function Dashboard() {
         <StatCard label="Events / second" value={cache ? eventsPerSecond.toFixed(2) : "…"} hint="Derived average rate" />
         <StatCard label="Active sessions" value={cache ? (cache.online_users ?? 0).toLocaleString() : "…"} hint="Seen in the last 5 minutes" />
         <StatCard label="Hourly buckets" value={cache ? cache.events_by_hour.length.toLocaleString() : "…"} hint="Available trend points" />
-        <StatCard label="Cache age" value={cache ? `${Math.max(0, Math.round((Date.now() - cache.cached_at) / 1000))}s` : "…"} hint="Since server snapshot" />
+        <StatCard label="Cache age" value={cache ? `${Math.max(0, Math.round((Date.now() - cachedAtMs) / 1000))}s` : "…"} hint="Since server snapshot" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
