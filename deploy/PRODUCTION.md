@@ -8,7 +8,18 @@ values must be stored in the configured secret manager.
 
 Set `DB_DRIVER=postgres` and provide `DATABASE_URL` (or `DATABASE_URL_FILE`) for a PostgreSQL/TimescaleDB database. The server runs the portable GORM migration first, then creates the Timescale hypertable and indexes.
 
-The production Compose file uses prebuilt images from GHCR. Run `ADMIN_KEY=... API_KEY_SALT=... ./deploy/deploy.sh`; it pulls images and never builds on the server. Set `EYE_SERVER_IMAGE`, `EYE_COLLECTOR_IMAGE`, or `EYE_ADMIN_IMAGE` to pin another registry/tag.
+The production Compose file uses prebuilt images from GHCR. Put `ADMIN_KEY`, `API_KEY_SALT`, and optional `GHCR_USERNAME`/`GHCR_TOKEN` in the project `.env`, then run `./deploy/deploy.sh`; it pulls images and never builds on the server. Set `EYE_SERVER_IMAGE`, `EYE_COLLECTOR_IMAGE`, or `EYE_ADMIN_IMAGE` in `.env` to pin another registry/tag.
+
+To create the GHCR credentials, open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Grant `read:packages` to pull private images, copy the token once, and add this to `.env`:
+
+```dotenv
+ADMIN_KEY=your-eye-admin-key
+API_KEY_SALT=your-eye-api-key-salt
+GHCR_USERNAME=arashrasoulzadeh
+GHCR_TOKEN=ghp_or_your_token
+```
+
+For public GHCR images, omit `GHCR_USERNAME` and `GHCR_TOKEN`. Never commit `.env` or paste the token into shell history.
 
 For a local production-like stack with PostgreSQL, pull the images first and then run `docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d --no-build server postgres`. Add `docker compose pull` before the command whenever you want the newest published images.
 

@@ -4,6 +4,15 @@ set -euo pipefail
 # Pull prebuilt images published by GitHub Actions and restart the stack.
 # Usage: ADMIN_KEY=... API_KEY_SALT=... ./deploy/deploy.sh
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Compose reads .env for interpolation, and this script also loads it so the
+# required keys and optional GHCR login work without repeating secrets on the
+# command line. Explicitly exported environment variables win over .env.
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
 : "${ADMIN_KEY:?ADMIN_KEY is required}"
 : "${API_KEY_SALT:?API_KEY_SALT is required}"
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
