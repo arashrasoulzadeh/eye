@@ -94,9 +94,10 @@ export default function FunnelPage() {
       setLoading(false);
     }
   }
+  const safeResult = Array.isArray(result) ? result : [];
   const label = (name: unknown) => formatEventLabel(name, titles);
-  const firstSessions = result[0]?.sessions || 0;
-  const completedSessions = result[result.length - 1]?.sessions || 0;
+  const firstSessions = safeResult[0]?.sessions || 0;
+  const completedSessions = safeResult[safeResult.length - 1]?.sessions || 0;
   const overallConversion = firstSessions ? completedSessions / firstSessions : 0;
   return (
     <div>
@@ -227,7 +228,7 @@ export default function FunnelPage() {
                   const width = Math.max(
                     18,
                     Math.round(
-                      (item.sessions / Math.max(1, result[0].sessions)) * 100,
+                      (item.sessions / Math.max(1, safeResult[0]?.sessions || 1)) * 100,
                     ),
                   );
                   return (

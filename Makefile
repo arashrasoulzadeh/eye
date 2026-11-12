@@ -1,4 +1,7 @@
-.PHONY: server admin test admin-build mutation-test
+.PHONY: server admin test admin-build mutation-test hooks
+
+hooks:
+	./scripts/install-hooks.sh
 server:
 	cd server && go run ./cmd/server --env=../.env
 

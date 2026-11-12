@@ -4,5 +4,5 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if git diff --cached --name-only | grep -q '^admin/'; then
   echo "Running admin null-safety checks..."
-  (cd "$ROOT/admin" && npm test -- --run && npm run lint)
+  (cd "$ROOT/admin" && npm test -- --run && npm run lint && npm run build)
 fi

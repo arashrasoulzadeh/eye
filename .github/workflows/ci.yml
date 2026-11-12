@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate commit hook
+        run: bash -n .githooks/pre-commit && test -x .githooks/pre-commit
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
