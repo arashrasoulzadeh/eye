@@ -70,9 +70,9 @@ export function Sidebar() {
         <LanguageSwitcher />
       </div>
       <div className="px-3 pb-4">
-        <label className="mb-1 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">Tenant scope</label>
+        <label className="mb-1 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">{translate("Tenant scope", language)}</label>
         <Combobox value={tenantId} onChange={setTenantId} options={[{ value: "", label: "All tenants" }, ...tenants.map((item) => ({ value: item.ID, label: item.Name }))]} placeholder={loading ? "Loading tenants…" : "All tenants"} maxVisible={6} />
-        <label className="mb-1 mt-3 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">Global time</label>
+        <label className="mb-1 mt-3 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">{translate("Global time", language)}</label>
         <TimeRangeSelector />
       </div>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3">

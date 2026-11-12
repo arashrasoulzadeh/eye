@@ -65,6 +65,11 @@ export function translate(value: string, language: Language): string {
   return language === "fa" ? TRANSLATIONS[value] || value : value;
 }
 
+export function translateText(value: string, language: Language): string {
+  if (language !== "fa") return value;
+  return Object.entries(TRANSLATIONS).sort(([a], [b]) => b.length - a.length).reduce((current, [english, persian]) => current.split(english).join(persian), value);
+}
+
 const ORIGINAL_TEXT = new WeakMap<Text, string>();
 function translateDocument(language: Language) {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -75,8 +80,9 @@ function translateDocument(language: Language) {
     ORIGINAL_TEXT.set(node, raw);
     const trimmed = raw.trim();
     if (!trimmed || node.parentElement?.closest("script,style,code,pre")) return;
-    const translated = translate(trimmed, language);
-    node.textContent = language === "fa" ? raw.replace(trimmed, translated) : raw;
+    if (language === "fa") {
+      node.textContent = translateText(raw, language);
+    } else node.textContent = raw;
   });
 }
 
