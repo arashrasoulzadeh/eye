@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
     setQueryLoading(true);
     try {
       const now = Date.now(), from = now - Number(range) * 86400000;
-      const data = await Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc" })));
+      const data = await Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc", limit: 500, offset: 0 })));
       const flat = data.flat(), buckets = new Map<string, Set<string>>();
       flat.forEach(e => { const date = new Date(e.ClientTS), key = groupBy === "minute" ? date.toISOString().slice(0, 16) : groupBy === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
       const points = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, values]) => ({ label, value: values.size }));

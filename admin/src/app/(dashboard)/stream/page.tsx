@@ -20,7 +20,7 @@ export default function StreamPage() {
   useEffect(() => {
     if (!running) return;
     const now = Date.now(), fromTS = timeMode === "relative" ? now - Number(days) * 86400000 : (from ? new Date(from).getTime() : undefined), toTS = timeMode === "relative" ? now : (to ? new Date(to).getTime() : undefined);
-    const load = () => { setLoading(true); api.events.list({ sort: "desc", from_ts: fromTS, to_ts: toTS }).then((items) => { setEvents(items); setError(""); }).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
+    const load = () => { setLoading(true); api.events.list({ sort: "desc", limit: 100, offset: 0, from_ts: fromTS, to_ts: toTS }).then((items) => { setEvents(items); setError(""); }).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
     load(); const timer = window.setInterval(load, 2000); return () => window.clearInterval(timer);
   }, [running, timeMode, days, from, to]);
 
