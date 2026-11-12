@@ -77,7 +77,7 @@ export function TimeRangeSelector() {
     <button type="button" onClick={() => { setOpen((value) => !value); setError(""); }} className="flex w-full items-center justify-between rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm text-fg hover:border-accent">
       <span className="truncate">{formatTimeRange(hours)}</span><span className="ml-2 text-xs text-fg-muted">▾</span>
     </button>
-    {open && <div className="absolute left-0 z-30 mt-2 w-80 rounded-xl border border-border bg-surface p-3 shadow-xl">
+    {open && <div className="absolute left-0 top-0 z-40 w-80 rounded-xl border border-border bg-surface p-3 shadow-xl">
       <div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-fg">Global time range</span><button type="button" onClick={() => setOpen(false)} className="text-xs text-fg-muted">Esc</button></div>
       <input autoFocus value={input} onChange={(event) => { setInput(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") apply(input); if (event.key === "Escape") setOpen(false); }} placeholder="last 4 minutes" className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/20" />
       <p className="mt-2 text-[11px] text-fg-muted">Examples: last 1m · last 4 minutes · last 2h · last month · now-30m</p>
