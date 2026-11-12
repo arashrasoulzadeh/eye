@@ -7,11 +7,13 @@ import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { formatEventLabel } from "@/lib/funnel";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 type Step = { event_name: string; sessions: number; conversion_rate: number };
 
 export default function FunnelPage() {
   const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [tenants, setTenants] = useState<Tenant[]>([]),
     [tenant, setTenant] = useState(""),
     [steps, setSteps] = useState<string[]>([]),
@@ -23,7 +25,7 @@ export default function FunnelPage() {
     [loading, setLoading] = useState(false),
     [suggesting, setSuggesting] = useState(false),
     [error, setError] = useState("");
-  const range = () => ({ from: Date.now() - days * 86400000, to: Date.now() });
+  const range = () => ({ from: globalFrom, to: globalTo });
   useEffect(() => {
     api.tenants
       .list()

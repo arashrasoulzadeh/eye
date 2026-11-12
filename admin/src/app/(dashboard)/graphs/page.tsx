@@ -7,9 +7,11 @@ import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Button } from "@/components/Button";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 export default function GraphsPage() {
   const { tenantId: globalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]), [questionTotal, setQuestionTotal] = useState(0), [questionPage, setQuestionPage] = useState(0), [results, setResults] = useState<Record<string, GraphResult>>({});
   const [loadingQuestions, setLoadingQuestions] = useState(false), [loadingGraph, setLoadingGraph] = useState("");
@@ -21,9 +23,8 @@ export default function GraphsPage() {
   useEffect(() => { if (!tenant) return; setLoadingQuestions(true); setError(""); setResults({}); api.questions.listPage(tenant, { limit: 10, offset: questionPage * 10 }).then((page) => { setQuestions(page.items); setQuestionTotal(page.total); }).catch((e) => setError(e.message)).finally(() => setLoadingQuestions(false)); }, [tenant, questionPage]);
 
   async function run(question: Question) {
-    const now = Date.now();
-    const fromTs = mode === "relative" ? now - Math.max(1, days) * 86400000 : new Date(from).getTime();
-    const toTs = mode === "relative" ? now : new Date(to).getTime();
+    const fromTs = globalFrom;
+    const toTs = globalTo;
     if (!Number.isFinite(fromTs) || !Number.isFinite(toTs) || fromTs >= toTs) { setError("Choose a valid graph time range."); return; }
     setLoadingGraph(question.ID); setError("");
     try { const result = await api.questions.results(tenant, question.ID, { from_ts: fromTs, to_ts: toTs }); setResults((current) => ({ ...current, [question.ID]: result })); }

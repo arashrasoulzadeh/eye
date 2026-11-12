@@ -3,10 +3,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { ToastProvider } from "@/components/Toast";
 import { AdminTopbar } from "@/components/AdminTopbar";
 import { TenantProvider } from "@/components/TenantContext";
+import { TimeRangeProvider } from "@/components/TimeRangeContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ToastProvider><TenantProvider>
+    <ToastProvider><TenantProvider><TimeRangeProvider>
       <div className="flex min-h-screen">
         {/* Sidebar reads usePathname(), which needs a Suspense boundary for
             routes (like /tenants/[id]) that can't be prerendered statically
@@ -19,6 +20,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="admin-content mx-auto max-w-6xl px-8 py-8">{children}</div>
         </main>
       </div>
-    </TenantProvider></ToastProvider>
+    </TimeRangeProvider></TenantProvider></ToastProvider>
   );
 }

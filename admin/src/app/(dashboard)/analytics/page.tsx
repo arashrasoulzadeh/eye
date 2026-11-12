@@ -7,6 +7,7 @@ import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown, AreaTrend, PieBreakdown } from "@/components/Chart";
 import { JsonView } from "@/components/JsonView";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 
 type Panel = { id: string; title: string; eventNames: string[]; chart: "line" | "area" | "bar" | "pie" | "table"; result?: GraphResult; events?: Event[] };
@@ -16,6 +17,7 @@ function dimensionValue(raw: string, key: string): string { try { const value = 
 export default function AnalyticsPage() {
   const router = useRouter();
   const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [range, setRange] = useState(() => urlParams?.get("range") || "7"), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "day");
@@ -29,14 +31,14 @@ export default function AnalyticsPage() {
     if (!tenant || !panel.eventNames.length) return;
     setQueryLoading(true);
     try {
-      const now = Date.now(), from = now - Number(range) * 86400000;
+      const now = globalTo, from = globalFrom;
       const data = await Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc", limit: 500, offset: 0 })));
       const flat = data.flat(), buckets = new Map<string, Set<string>>();
       flat.forEach(e => { const date = new Date(e.ClientTS), key = groupBy.startsWith("dim:") ? dimensionValue(e.Dims, groupBy.slice(4)) : groupBy === "minute" ? date.toISOString().slice(0, 16) : groupBy === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
       const points = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, values]) => ({ label, value: values.size }));
       setPanels(current => current.map(p => p.id === panel.id ? { ...p, events: flat, result: { question: {} as Question, from_ts: from, to_ts: now, points } } : p));
     } catch (e) { setError((e as Error).message); } finally { setQueryLoading(false); }
-  }, [aggregation, groupBy, range, tenant]);
+  }, [aggregation, groupBy, tenant, globalFrom, globalTo]);
   useEffect(() => { if (!tenant) return; void loadEventOptions(""); }, [loadEventOptions, tenant]);
   useEffect(() => { if (tenant) api.analytics.views(tenant).then(value => setViews(Array.isArray(value) ? value : [])).catch(e => setError(e.message)); }, [tenant]);
   useEffect(() => { if (!refresh || !panels.length) return; const t = window.setInterval(() => panels.forEach(loadPanel), 15000); return () => window.clearInterval(t); }, [loadPanel, panels, refresh]);

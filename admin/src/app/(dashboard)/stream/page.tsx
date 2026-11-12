@@ -9,9 +9,11 @@ import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 export default function StreamPage() {
   const { tenantId: globalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [events, setEvents] = useState<Event[]>([]), [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantSearch, setTenantSearch] = useState(""), [eventSearch, setEventSearch] = useState("");
   const [tenantIds, setTenantIds] = useState<string[]>([]), [eventNames, setEventNames] = useState<string[]>([]);
@@ -22,7 +24,7 @@ export default function StreamPage() {
   useEffect(() => { if (globalTenant && !tenantIds.includes(globalTenant)) setTenantIds([globalTenant]); }, [globalTenant, tenantIds]);
   useEffect(() => {
     if (!running) return;
-    const now = Date.now(), fromTS = timeMode === "relative" ? now - Number(days) * 86400000 : (from ? new Date(from).getTime() : undefined), toTS = timeMode === "relative" ? now : (to ? new Date(to).getTime() : undefined);
+    const now = globalTo, fromTS = globalFrom, toTS = now;
     const load = () => {
       setLoading(true);
       const tenantFilter = tenantIds.length ? tenantIds : [undefined];
@@ -36,7 +38,7 @@ export default function StreamPage() {
       }).catch((e) => setError(e.message)).finally(() => setLoading(false));
     };
     load(); const timer = window.setInterval(load, 2000); return () => window.clearInterval(timer);
-  }, [running, timeMode, days, from, to, tenantIds, eventNames]);
+  }, [running, timeMode, days, from, to, tenantIds, eventNames, globalFrom, globalTo]);
 
   const visible = useMemo(() => events, [events]);
   const tenantOptions = tenants.map((tenant) => ({ value: tenant.ID, label: tenant.Name }));

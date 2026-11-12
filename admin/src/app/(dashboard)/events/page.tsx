@@ -11,9 +11,11 @@ import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
 import { useToast } from "@/components/Toast";
 import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 
 export default function EventsPage() {
   const { tenantId: globalTenant } = useTenant();
+  const { from: globalFrom, to: globalTo } = useTimeRange();
   const [events, setEvents] = useState<Event[]>([]);
   const [totalEvents, setTotalEvents] = useState(0);
   const [eventName, setEventName] = useState("");
@@ -36,8 +38,8 @@ export default function EventsPage() {
           event_name: eventName,
           tenant_id: tenantId,
           session_id: sessionId,
-          from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
-          to_ts: toTime ? new Date(toTime).getTime() : undefined,
+          from_ts: globalFrom,
+          to_ts: globalTo,
           sort: "desc",
           limit: 10,
           offset: 0,
@@ -49,7 +51,7 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventName, fromTime, push, sessionId, tenantId, toTime]);
+  }, [eventName, push, sessionId, tenantId, globalFrom, globalTo]);
 
   async function loadTable(query: TableQuery) {
     setLoading(true);
@@ -58,8 +60,8 @@ export default function EventsPage() {
         event_name: query.filter || eventName,
         tenant_id: tenantId,
         session_id: sessionId,
-        from_ts: fromTime ? new Date(fromTime).getTime() : undefined,
-        to_ts: toTime ? new Date(toTime).getTime() : undefined,
+        from_ts: globalFrom,
+        to_ts: globalTo,
         sort: query.sortDir,
         limit: 10,
         offset: query.page * 10,
