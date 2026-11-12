@@ -13,7 +13,7 @@
 - [x] Pagination, cursor queries, analytics caching, and scalable aggregation workers — cursor pagination, bounded query caching, standalone aggregation worker, and PostgreSQL advisory locking are implemented
 
 ## Product expansion roadmap
-- [ ] Multi-user admin workspace — users, invitations, teams, roles, session management, and migration from the single admin key
+- [x] Multi-user admin workspace — users, invitations, teams, roles, session management, and migration from the single admin key — durable users/invitations/teams/memberships, revocable sessions, OIDC session integration, and shared-key fallback are implemented and tested
 - [x] Usage metering, quotas, and billing foundations — period-based event/storage counters, plan limits, enforcement, usage API, and quota alerts
 - [x] Advanced analytics workspace — funnels, conversion rates, retention comparisons, breakdowns, dashboard layouts, and shareable saved views
 - [x] Alerting expansion — anomaly, funnel, conversion-rate, and absence rules with email, Slack, and PagerDuty destinations — anomaly z-score evaluation, destination-aware payloads, SMTP email, retries, and dead-letter handling are implemented
