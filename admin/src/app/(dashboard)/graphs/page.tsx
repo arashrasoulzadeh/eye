@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { api, GraphResult, Question, Tenant } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
