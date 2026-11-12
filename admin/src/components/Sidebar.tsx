@@ -40,7 +40,10 @@ export function Sidebar() {
   const [moreOpen, setMoreOpen] = useState(false);
   const primary = NAV.slice(0, 10);
   const secondary = NAV.slice(10);
-  const secondaryActive = secondary.some((item) => pathname === item.href || pathname?.startsWith(item.href + "/"));
+  // Analytics has dedicated child routes. Keep the parent exact-match only so
+  // Funnel and Retention never appear selected at the same time as Analytics.
+  const isActive = (href: string) => pathname === href || (href !== "/analytics" && pathname?.startsWith(href + "/"));
+  const secondaryActive = secondary.some((item) => isActive(item.href));
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
@@ -57,7 +60,7 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
         {primary.map((item) => {
-          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const active = isActive(item.href);
           return (
             <Link
               key={item.href}
@@ -77,7 +80,7 @@ export function Sidebar() {
           <span className="text-xs">{moreOpen ? "▴" : "▾"}</span>
         </button>
         {moreOpen && <div data-testid="sidebar-more-items" className="mt-1 border-l border-border pl-2">{secondary.map((item) => {
-          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const active = isActive(item.href);
           return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{item.label}</Link>;
         })}</div>}
       </nav>
