@@ -263,13 +263,16 @@ type AdminSession struct {
 // background job on a configurable interval. The dashboard UI reads from
 // this table instead of querying the database directly.
 type DashboardCache struct {
-	ID             uint   `gorm:"primaryKey"` // always 1
-	Events         int64  `json:"events"`
-	Sessions       int64  `json:"sessions"`
-	Tenants        int64  `json:"tenants"`
-	EventsByHour   string `json:"events_by_hour"`   // JSON: [{"label":"00:00","value":10},...]
-	EventsByTenant string `json:"events_by_tenant"` // JSON: [{"label":"acme","value":100},...]
-	UpdatedAt      int64  `json:"updated_at"`
+	ID             uint    `gorm:"primaryKey"` // always 1
+	Events         int64   `json:"events"`
+	Sessions       int64   `json:"sessions"`
+	Tenants        int64   `json:"tenants"`
+	Users          int64   `json:"users"`
+	OnlineUsers    int64   `json:"online_users"`
+	RetentionRate  float64 `json:"retention_rate"`
+	EventsByHour   string  `json:"events_by_hour"`   // JSON: [{"label":"00:00","value":10},...]
+	EventsByTenant string  `json:"events_by_tenant"` // JSON: [{"label":"acme","value":100},...]
+	UpdatedAt      int64   `json:"updated_at"`
 }
 
 // Question is a saved, tenant-scoped event-count graph definition.

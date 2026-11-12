@@ -22,6 +22,21 @@ func (s *DashboardCacheService) Refresh() error {
 
 	var sessions int64
 	s.DB.Model(&model.Session{}).Count(&sessions)
+	now := time.Now()
+	var onlineUsers int64
+	s.DB.Model(&model.Session{}).Where("last_seen >= ?", now.Add(-5*time.Minute)).Count(&onlineUsers)
+	var cohortSessions []model.Session
+	s.DB.Where("started_at < ? AND started_at >= ?", now.Add(-14*24*time.Hour), now.Add(-21*24*time.Hour)).Find(&cohortSessions)
+	retentionRate := 0.0
+	if len(cohortSessions) > 0 {
+		ids := make([]string, 0, len(cohortSessions))
+		for _, session := range cohortSessions {
+			ids = append(ids, session.ID)
+		}
+		var retained int64
+		s.DB.Model(&model.Event{}).Where("session_id IN ? AND client_ts >= ?", ids, now.Add(-7*24*time.Hour).UnixMilli()).Distinct("session_id").Count(&retained)
+		retentionRate = float64(retained) / float64(len(cohortSessions))
+	}
 
 	var tenants int64
 	s.DB.Model(&model.Tenant{}).Count(&tenants)
@@ -90,6 +105,9 @@ func (s *DashboardCacheService) Refresh() error {
 		Events:         events,
 		Sessions:       sessions,
 		Tenants:        tenants,
+		Users:          sessions,
+		OnlineUsers:    onlineUsers,
+		RetentionRate:  retentionRate,
 		EventsByHour:   string(hourlyJSON),
 		EventsByTenant: string(tenantJSON),
 		UpdatedAt:      time.Now().UnixMilli(),

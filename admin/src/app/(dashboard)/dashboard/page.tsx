@@ -25,9 +25,12 @@ export default function Dashboard() {
 
       {error && <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <StatCard label="Events" value={cache ? cache.events.toLocaleString() : "…"} hint="Server-cached total" />
         <StatCard label="Sessions" value={cache ? cache.sessions.toLocaleString() : "…"} hint="Server-cached total" />
+        <StatCard label="Users" value={cache ? cache.users.toLocaleString() : "…"} hint="Distinct sessions (user proxy)" />
+        <StatCard label="Online users" value={cache ? cache.online_users.toLocaleString() : "…"} hint="Seen in the last 5 minutes" />
+        <StatCard label="Retention" value={cache ? `${(cache.retention_rate * 100).toFixed(1)}%` : "…"} hint="7-day return rate" />
         <StatCard label="Tenants" value={cache ? cache.tenants.toLocaleString() : "…"} hint="Active tenant records" />
       </div>
 

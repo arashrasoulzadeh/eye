@@ -32,6 +32,9 @@ export type DashboardCache = {
   events: number;
   sessions: number;
   tenants: number;
+  users: number;
+  online_users: number;
+  retention_rate: number;
   events_by_hour: Array<{ label: string; value: number }>;
   events_by_tenant: Array<{ label: string; value: number }>;
   cached_at: number;
