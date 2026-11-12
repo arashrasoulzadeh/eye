@@ -248,6 +248,17 @@ type AdminTeamMember struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+// AdminSession is a revocable, expiring session token. Only its hash is stored.
+type AdminSession struct {
+	ID        string `gorm:"primaryKey" json:"id"`
+	TokenHash string `gorm:"uniqueIndex" json:"-"`
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	ExpiresAt int64  `json:"expires_at"`
+	RevokedAt int64  `json:"revoked_at,omitempty"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 // DashboardCache holds pre-computed dashboard metrics, refreshed by a
 // background job on a configurable interval. The dashboard UI reads from
 // this table instead of querying the database directly.

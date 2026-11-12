@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function proxy(req: NextRequest) {
-  const hasKey = req.cookies.has("admin_key");
+  const hasKey = req.cookies.has("admin_key") || req.cookies.has("admin_session");
   const { pathname } = req.nextUrl;
 
   if (!hasKey && pathname !== "/login") {

@@ -5,6 +5,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestTenantIngestAuth(t *testing.T) {
@@ -42,6 +47,41 @@ func TestTenantIngestAuth(t *testing.T) {
 				t.Fatalf("status = %d, want %d", res.Code, tc.want)
 			}
 		})
+	}
+}
+
+func TestAdminSessionAuthAcceptsAndRevokesSession(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.AdminSession{}); err != nil {
+		t.Fatal(err)
+	}
+	token, hash := adminSessionToken()
+	if err := db.Create(&model.AdminSession{ID: "s1", TokenHash: hash, Email: "a@example.com", ExpiresAt: time.Now().Add(time.Hour).Unix()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	h := AdminSessionAuth(db, "legacy-key", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("x-admin-email") != "a@example.com" {
+			t.Fatalf("email=%q", r.Header.Get("x-admin-email"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set("x-admin-session", token)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("session status=%d", w.Code)
+	}
+	if err := RevokeAdminSession(db, token); err != nil {
+		t.Fatal(err)
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked status=%d", w.Code)
 	}
 }
 

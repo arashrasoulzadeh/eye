@@ -27,6 +27,13 @@ export async function GET(req: Request) {
   if (allowedGroups.length && !allowedGroups.some((group) => groups.includes(group))) return NextResponse.redirect(new URL("/login?error=forbidden", req.url));
   const res = NextResponse.redirect(new URL("/dashboard", req.url));
   res.cookies.delete("oidc_state"); res.cookies.delete("oidc_nonce");
+  try {
+    const sessionRes = await fetch(`${process.env.BACKEND_URL || "http://localhost:8080"}/admin-sessions`, { method: "POST", headers: { "x-admin-key": process.env.ADMIN_API_KEY!, "content-type": "application/json" }, body: JSON.stringify({ email }) });
+    if (sessionRes.ok) {
+      const session = await sessionRes.json() as { token?: string; expires_at?: number };
+      if (session.token) res.cookies.set("admin_session", session.token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: Math.max(60, (session.expires_at || 0) - Math.floor(Date.now() / 1000)) });
+    }
+  } catch { /* retain the legacy key during backend/session migration */ }
   res.cookies.set("admin_key", process.env.ADMIN_API_KEY!, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 8 * 60 * 60 });
   if (email) res.cookies.set("admin_email", email, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 8 * 60 * 60 });
   return res;
