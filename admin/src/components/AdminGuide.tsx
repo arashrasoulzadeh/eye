@@ -1,3 +1,3 @@
-export function AdminGuide() {
-  return <details className="mb-6 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Admin guide</summary><div className="mt-2 grid gap-2 text-fg-muted sm:grid-cols-3"><p><span className="font-medium text-fg">Data:</span> lists are loaded from the API and reflect server state.</p><p><span className="font-medium text-fg">Actions:</span> use row actions for details, edits, copies, and safe refreshes.</p><p><span className="font-medium text-fg">Safety:</span> destructive actions require confirmation and cannot be undone.</p></div></details>;
-}
+// Page guidance is rendered by the top-right HelpIcon in AdminTopbar.
+// Keep this file as a compatibility export for downstream imports.
+export function AdminGuide() { return null; }

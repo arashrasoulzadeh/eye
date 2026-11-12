@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { ToastProvider } from "@/components/Toast";
-import { AdminGuide } from "@/components/AdminGuide";
 import { AdminTopbar } from "@/components/AdminTopbar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -16,7 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Suspense>
         <main className="flex-1 overflow-y-auto">
           <Suspense fallback={<header className="min-h-14 border-b border-border" />}><AdminTopbar /></Suspense>
-          <div className="mx-auto max-w-6xl px-8 py-8"><AdminGuide />{children}</div>
+          <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
         </main>
       </div>
     </ToastProvider>
