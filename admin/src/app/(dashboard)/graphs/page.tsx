@@ -7,16 +7,20 @@ import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Button } from "@/components/Button";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 export default function GraphsPage() {
   const { tenantId: globalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo } = useTimeRange();
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
+  void timeRangeLabel;
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]), [questionTotal, setQuestionTotal] = useState(0), [questionPage, setQuestionPage] = useState(0), [results, setResults] = useState<Record<string, GraphResult>>({});
   const [loadingQuestions, setLoadingQuestions] = useState(false), [loadingGraph, setLoadingGraph] = useState("");
-  const [chart, setChart] = useState("line"), [mode, setMode] = useState("relative"), [days, setDays] = useState(7);
-  const [from, setFrom] = useState(""), [to, setTo] = useState(""), [error, setError] = useState("");
+  const [chart, setChart] = useState("line");
+  const [mode, setMode] = useState("relative"), [days, setDays] = useState(7);
+  const [from, setFrom] = useState(""), [to, setTo] = useState("");
+  const [error, setError] = useState("");
   useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
 
   useEffect(() => { api.tenants.list().then((items) => { setTenants(items); if (items[0]) setTenant(items[0].ID); }).catch((e) => setError(e.message)); }, []);

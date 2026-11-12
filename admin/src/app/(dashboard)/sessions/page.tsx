@@ -6,7 +6,7 @@ import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { EntityLink } from "@/components/EntityLink";
 import { Badge } from "@/components/Badge";
 import { useToast } from "@/components/Toast";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 function deviceSummary(s: Session): string {
   try {
@@ -25,6 +25,7 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const { push } = useToast();
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
 
   const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "last_seen", sortDir: "desc", page: 0 }) => {
     setLoading(true);
@@ -45,7 +46,7 @@ export default function SessionsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Sessions</h1>
-      <p className="mt-1 text-sm text-fg-muted">Sessions in the global {hours}h range, ordered by last activity. Open one for its full journey and event details.</p>
+      <p className="mt-1 text-sm text-fg-muted">Sessions in the global <span className="font-medium text-fg">{timeRangeLabel}</span>, ordered by last activity. Open one for its full journey and event details.</p>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">Session data help</summary>
         <p className="mt-2 text-fg-muted">The list is intentionally bounded to the latest 100 sessions. Select a session ID to inspect its tenant, device metadata, aggregated journey, and live events.</p>

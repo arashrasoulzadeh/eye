@@ -7,7 +7,7 @@ import { Combobox } from "@/components/Combobox";
 import { LineTrend, BarBreakdown, AreaTrend, PieBreakdown } from "@/components/Chart";
 import { JsonView } from "@/components/JsonView";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 import Link from "next/link";
 
 
@@ -19,6 +19,8 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
+  void timeRangeLabel;
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "auto");

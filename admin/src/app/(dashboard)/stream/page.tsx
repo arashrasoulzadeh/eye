@@ -9,11 +9,13 @@ import { Badge } from "@/components/Badge";
 import { JsonView } from "@/components/JsonView";
 import { EntityLink } from "@/components/EntityLink";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 export default function StreamPage() {
   const { tenantId: globalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo } = useTimeRange();
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
+  void timeRangeLabel;
   const [events, setEvents] = useState<Event[]>([]), [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantSearch, setTenantSearch] = useState(""), [eventSearch, setEventSearch] = useState("");
   const [tenantIds, setTenantIds] = useState<string[]>([]), [eventNames, setEventNames] = useState<string[]>([]);

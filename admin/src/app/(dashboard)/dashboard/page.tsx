@@ -5,12 +5,13 @@ import { StatCard, Card, CardHeader } from "@/components/Card";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
 import { Button } from "@/components/Button";
 import Link from "next/link";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 export default function Dashboard() {
   const [cache, setCache] = useState<DashboardCache | null>(null);
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const [error, setError] = useState(""), [loading, setLoading] = useState(true);
+  const timeRangeLabel = formatTimeRange(hours);
 
   const load = useCallback(async () => { if (!globalFrom || !globalTo) return; setLoading(true); setError(""); try { setCache(await api.dashboardCache({ from_ts: globalFrom, to_ts: globalTo })); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, [globalFrom, globalTo]);
   useEffect(() => { void load(); }, [load]);
@@ -29,7 +30,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
-      <p className="mt-1 text-sm text-fg-muted">Metrics for the global {hours}h range (refreshed every minute).</p>
+      <p className="mt-1 text-sm text-fg-muted">Metrics for the global <span className="font-medium text-fg">{timeRangeLabel}</span> (refreshed every minute).</p>
       </div><div className="flex gap-2"><Button variant="secondary" onClick={() => window.print()}>Print report</Button><Button variant="secondary" onClick={downloadReport} disabled={!cache}>Download CSV</Button><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>

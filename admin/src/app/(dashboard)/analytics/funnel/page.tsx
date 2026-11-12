@@ -7,20 +7,20 @@ import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { formatEventLabel } from "@/lib/funnel";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 type Step = { event_name: string; sessions: number; conversion_rate: number };
 
 export default function FunnelPage() {
   const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo } = useTimeRange();
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
   const [tenants, setTenants] = useState<Tenant[]>([]),
     [tenant, setTenant] = useState(""),
     [steps, setSteps] = useState<string[]>([]),
     [titles, setTitles] = useState<Record<string, string>>({}),
     [input, setInput] = useState(""),
     [eventOptions, setEventOptions] = useState<string[]>([]),
-    [days, setDays] = useState(30),
     [result, setResult] = useState<Step[]>([]),
     [loading, setLoading] = useState(false),
     [suggesting, setSuggesting] = useState(false),
@@ -179,18 +179,7 @@ export default function FunnelPage() {
               </button>
             ))}
           </div>
-          <label className="block text-sm text-fg-muted">
-            Last days
-            <input
-              type="number"
-              min="1"
-              value={days}
-              onChange={(e) =>
-                setDays(Math.max(1, Number(e.target.value) || 1))
-              }
-              className="mt-1 block w-28 rounded border border-border bg-surface px-3 py-2 text-fg"
-            />
-          </label>
+          <p className="text-xs text-fg-muted">Global time range: <span className="font-medium text-fg">{timeRangeLabel}</span></p>
           <Button
             onClick={() => void run()}
             loading={loading}

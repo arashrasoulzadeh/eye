@@ -5,11 +5,13 @@ import { Card, CardHeader } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
 import { useTenant } from "@/components/TenantContext";
-import { useTimeRange } from "@/components/TimeRangeContext";
+import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 export default function ReplayPage() {
   const { tenantId: globalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo } = useTimeRange();
+  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
+  const timeRangeLabel = formatTimeRange(hours);
+  void timeRangeLabel;
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(""), [mode, setMode] = useState<"relative" | "absolute">("relative"), [days, setDays] = useState(1), [from, setFrom] = useState(""), [to, setTo] = useState(""), [result, setResult] = useState(""), [loading, setLoading] = useState(false), [error, setError] = useState("");
   useEffect(() => { api.tenants.list().then((x) => { setTenants(x); if (x[0]) setTenant(x[0].ID); }).catch((e) => setError(e.message)); }, []);
   useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
