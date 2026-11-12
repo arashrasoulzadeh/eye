@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Combobox } from "@/components/Combobox";
+import { useTenant } from "@/components/TenantContext";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⌂" },
@@ -38,6 +40,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { tenants, tenantId, setTenantId, loading } = useTenant();
   const primary = NAV.slice(0, 10);
   const secondary = NAV.slice(10);
   // Analytics has dedicated child routes. Keep the parent exact-match only so
@@ -57,6 +60,10 @@ export function Sidebar() {
           e
         </div>
         <span className="text-sm font-semibold text-fg">eye admin</span>
+      </div>
+      <div className="px-3 pb-4">
+        <label className="mb-1 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">Tenant scope</label>
+        <Combobox value={tenantId} onChange={setTenantId} options={[{ value: "", label: "All tenants" }, ...tenants.map((item) => ({ value: item.ID, label: item.Name }))]} placeholder={loading ? "Loading tenants…" : "All tenants"} maxVisible={6} />
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
         {primary.map((item) => {
