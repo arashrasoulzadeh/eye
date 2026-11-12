@@ -30,9 +30,27 @@ func (h *AuditLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			offset = n
 		}
 	}
-	var list []model.AuditLog
-	if err := h.DB.Order("created_at desc").Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+	query := h.DB.Model(&model.AuditLog{})
+	if filter := r.URL.Query().Get("filter"); filter != "" {
+		like := "%" + filter + "%"
+		query = query.Where("action LIKE ? OR resource LIKE ? OR actor_key LIKE ? OR body_snippet LIKE ?", like, like, like, like)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	order := "created_at desc"
+	if r.URL.Query().Get("dir") == "asc" {
+		order = "created_at asc"
+	}
+	var list []model.AuditLog
+	if err := query.Order(order).Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if r.URL.Query().Get("page") == "true" {
+		json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
 		return
 	}
 	json.NewEncoder(w).Encode(list)

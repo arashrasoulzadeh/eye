@@ -258,6 +258,7 @@ export const api = {
     anomalies: () => req<unknown[]>("anomalies"),
     anomaliesPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`anomalies?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     auditLog: () => req<unknown[]>("audit-log?limit=100"),
+    auditLogPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`audit-log?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     deadLetters: (params: { filter?: string; dir?: string; page?: number; limit?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`webhooks/dead-letter?page=true&limit=${params.limit ?? 25}&offset=${(params.page ?? 0) * (params.limit ?? 25)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     deleteDeadLetter: (id: string) => req<void>(`webhooks/dead-letter?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     replayDeadLetter: (id: string) => req<void>(`webhooks/dead-letter/${encodeURIComponent(id)}/replay`, { method: "POST" }),
