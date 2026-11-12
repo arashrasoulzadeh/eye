@@ -54,7 +54,7 @@ describe("SessionDetailClient", () => {
     const tenantLink = screen.getByRole("link", { name: "acme" });
     expect(tenantLink).toHaveAttribute("href", "/tenants/t1");
 
-    expect(api.events.list).toHaveBeenCalledWith({ session_id: "s1" });
+    expect(api.events.list).toHaveBeenCalledWith({ session_id: "s1", limit: 100, offset: 0, sort: "asc" });
     expect(screen.getByText("Events in this session (1)")).toBeInTheDocument();
     expect(screen.getByText("click")).toBeInTheDocument();
 

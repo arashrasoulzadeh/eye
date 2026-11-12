@@ -50,7 +50,7 @@ export default function SessionDetailClient() {
         const [session, tenants, sessionEvents] = await Promise.all([
           api.sessions.get(sessionId),
           api.tenants.list(),
-          api.events.list({ session_id: sessionId }),
+          api.events.list({ session_id: sessionId, limit: 100, offset: 0, sort: "asc" }),
         ]);
         if (cancelled) return;
         const s = session || null;
@@ -220,7 +220,8 @@ export default function SessionDetailClient() {
       </Card>
 
       <Card className="mt-6">
-        <CardHeader title={`Events in this session (${events.length})`} />
+        <CardHeader title={`Events in this session (${events.length}${events.length === 100 ? "+" : ""})`} />
+        {events.length === 100 && <p className="border-b border-border px-5 py-3 text-xs text-fg-muted">Showing the first 100 events. Use the session query API for larger exports.</p>}
         <DataTable columns={columns} rows={events} rowKey={(e) => e.EventID} emptyMessage="No events recorded for this session yet." />
       </Card>
     </div>
