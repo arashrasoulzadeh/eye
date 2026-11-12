@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Combobox } from "@/components/Combobox";
 import { useTenant } from "@/components/TenantContext";
 import { TimeRangeSelector } from "@/components/TimeRangeContext";
+import { LanguageSwitcher } from "@/components/LanguageContext";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⌂" },
@@ -57,11 +58,14 @@ export function Sidebar() {
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface">
-      <div className="flex items-center gap-2 px-5 py-5">
+      <div className="flex items-center justify-between gap-2 px-5 py-5">
+        <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-fg">
           e
         </div>
         <span className="text-sm font-semibold text-fg">eye admin</span>
+        </div>
+        <LanguageSwitcher />
       </div>
       <div className="px-3 pb-4">
         <label className="mb-1 block px-2 text-[10px] font-medium uppercase tracking-wide text-fg-muted">Tenant scope</label>
