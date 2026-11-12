@@ -76,6 +76,13 @@ describe("api client", () => {
     expect(url).toContain("to_ts=2000");
   });
 
+  it("normalizes null collection responses so pages can safely iterate them", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(null));
+    await expect(api.events.list({ tenant_id: "t1" })).resolves.toEqual([]);
+    fetchMock.mockResolvedValueOnce(jsonResponse(null));
+    await expect(api.analytics.retention("t1")).resolves.toEqual([]);
+  });
+
   it("returns null for an empty (e.g. 204) response body", async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, status: 204, text: async () => "" } as Response);
     const result = await api.tenants.remove("t1");
