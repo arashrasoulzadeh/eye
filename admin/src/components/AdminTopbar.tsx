@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { HelpIcon } from "@/components/HelpIcon";
+import { translate, useLanguage } from "@/components/LanguageContext";
 
 const LABELS: Record<string, string> = {
   dashboard: "Dashboard", stream: "Live Stream", analytics: "Analytics", graphs: "Graphs", questions: "Questions",
@@ -29,8 +30,9 @@ export function AdminTopbar() {
   const pathname = usePathname() || "/dashboard";
   const segment = pathname.split("/").filter(Boolean)[0] || "dashboard";
   const title = LABELS[segment] || "Admin";
+  const { language } = useLanguage();
   return <header className="sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-border bg-bg/90 px-8 backdrop-blur">
-    <div className="flex min-w-0 items-center gap-2 text-sm"><span className="font-medium text-fg">{title}</span>{pathname !== `/${segment}` && <><span className="text-fg-muted">/</span><span className="truncate text-fg-muted">{pathname.split("/").filter(Boolean).slice(1).join(" / ")}</span></>}</div>
-    <div className="flex items-center gap-3 text-xs text-fg-muted"><HelpIcon title={title}><div className="space-y-2"><p>{HELP[segment] || "Use this page to filter, inspect, and refresh current server data."}</p><p><span className="font-medium text-fg">Data:</span> lists reflect current API state.</p><p><span className="font-medium text-fg">Actions:</span> use row actions for details, edits, copies, and safe refreshes.</p><p><span className="font-medium text-fg">Safety:</span> destructive actions require confirmation and cannot be undone.</p></div></HelpIcon><span className="hidden rounded-full border border-border bg-surface px-2.5 py-1 sm:inline-flex">Admin console</span><span className="rounded-full border border-border bg-surface px-2.5 py-1">Protected</span></div>
+    <div className="flex min-w-0 items-center gap-2 text-sm"><span className="font-medium text-fg">{translate(title, language)}</span>{pathname !== `/${segment}` && <><span className="text-fg-muted">/</span><span className="truncate text-fg-muted">{pathname.split("/").filter(Boolean).slice(1).join(" / ")}</span></>}</div>
+    <div className="flex items-center gap-3 text-xs text-fg-muted"><HelpIcon title={translate(title, language)}><div className="space-y-2"><p>{language === "fa" ? "از این صفحه برای فیلتر، بررسی و تازه‌سازی داده‌های فعلی سرور استفاده کنید." : HELP[segment] || "Use this page to filter, inspect, and refresh current server data."}</p><p><span className="font-medium text-fg">{language === "fa" ? "داده:" : "Data:"}</span> {language === "fa" ? "فهرست‌ها وضعیت فعلی API را نشان می‌دهند." : "lists reflect current API state."}</p><p><span className="font-medium text-fg">{language === "fa" ? "عملیات:" : "Actions:"}</span> {language === "fa" ? "برای جزئیات، ویرایش، کپی و تازه‌سازی امن از عملیات ردیف استفاده کنید." : "use row actions for details, edits, copies, and safe refreshes."}</p></div></HelpIcon><span className="hidden rounded-full border border-border bg-surface px-2.5 py-1 sm:inline-flex">{translate("Admin console", language)}</span><span className="rounded-full border border-border bg-surface px-2.5 py-1">{translate("Protected", language)}</span></div>
   </header>;
 }

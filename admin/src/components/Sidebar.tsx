@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Combobox } from "@/components/Combobox";
 import { useTenant } from "@/components/TenantContext";
 import { TimeRangeSelector } from "@/components/TimeRangeContext";
-import { LanguageSwitcher } from "@/components/LanguageContext";
+import { LanguageSwitcher, translate, useLanguage } from "@/components/LanguageContext";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⌂" },
@@ -44,6 +44,7 @@ export function Sidebar() {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const { tenants, tenantId, setTenantId, loading } = useTenant();
+  const { language } = useLanguage();
   const primary = NAV.slice(0, 10);
   const secondary = NAV.slice(10);
   // Analytics has dedicated child routes. Keep the parent exact-match only so
@@ -87,17 +88,17 @@ export function Sidebar() {
               }`}
             >
               <span className="w-4 text-center text-xs">{item.icon}</span>
-              {item.label}
+              {translate(item.label, language)}
             </Link>
           );
         })}
         <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm ${secondaryActive ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}>
-          <span className="flex items-center gap-3"><span className="w-4 text-center text-xs">⋯</span>More <span className="text-xs text-fg-muted">({secondary.length})</span></span>
+          <span className="flex items-center gap-3"><span className="w-4 text-center text-xs">⋯</span>{translate("More", language)} <span className="text-xs text-fg-muted">({secondary.length})</span></span>
           <span className="text-xs">{moreOpen ? "▴" : "▾"}</span>
         </button>
         {moreOpen && <div data-testid="sidebar-more-items" className="mt-1 border-l border-border pl-2">{secondary.map((item) => {
           const active = isActive(item.href);
-          return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{item.label}</Link>;
+          return <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-accent/10 text-accent font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"}`}><span className="w-4 text-center text-xs">{item.icon}</span>{translate(item.label, language)}</Link>;
         })}</div>}
       </nav>
       <div className="border-t border-border p-3">

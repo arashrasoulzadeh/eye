@@ -26,3 +26,4 @@ Multi-tenant analytics ingestion/query system. Full design intent: [PLAN.md](PLA
 - TDD: failing test → implementation → refactor. No merge without passing tests.
 - After each phases.md checkbox: run tests, commit, push, then mark `[x]`.
 - Never mark a checkbox done unless the code genuinely implements it — `phases.md` has been burned by fake checkmarks before; verify by reading code, not by file existence.
+- Localization law: all new user-visible admin strings must go through the shared language/translation layer; persisted Persian selection must be read synchronously so the UI does not intentionally flash English before switching.

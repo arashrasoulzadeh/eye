@@ -6,13 +6,24 @@ export type Language = "en" | "fa";
 type LanguageContextValue = { language: Language; setLanguage: (language: Language) => void; isPersian: boolean };
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
+const TRANSLATIONS: Record<string, string> = {
+  Dashboard: "داشبورد", "Live Stream": "پخش زنده", Analytics: "تحلیل‌ها", Graphs: "نمودارها", Questions: "سؤال‌ها",
+  Funnels: "قیف‌ها", Retention: "بازگشت", "Health Center": "مرکز سلامت", Tenants: "تنانت‌ها", Sessions: "نشست‌ها",
+  Users: "کاربران", Events: "رویدادها", Alerts: "هشدارها", Operations: "عملیات", "Admin Users": "کاربران مدیر",
+  "Admin Teams": "تیم‌های مدیر", "Test Event": "رویداد آزمایشی", "CDN Test": "آزمایش CDN", Schemas: "طرحواره‌ها",
+  Cohorts: "گروه‌ها", "Feature Flags": "پرچم‌های قابلیت", Aggregations: "تجمیع‌ها", Anomalies: "ناهنجاری‌ها",
+  "Audit Log": "گزارش ممیزی", "Dead Letters": "صف خطا", Replay: "بازپخش", Experiments: "آزمایش‌ها",
+  Settings: "تنظیمات", "SLO & Error Budget": "SLO و بودجه خطا", More: "بیشتر", "Tenant scope": "محدوده تنانت",
+  "Global time": "زمان سراسری", Release: "نسخه", "Log out": "خروج", Protected: "محافظت‌شده", "Admin console": "کنسول مدیریت",
+};
+function initialLanguage(): Language {
+  if (typeof window === "undefined") return "en";
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === "fa" || stored === "en" ? stored : "en";
+}
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("en");
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "fa" || stored === "en") setLanguageState(stored);
-  }, []);
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === "fa" ? "rtl" : "ltr";
@@ -23,6 +34,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
 export function useLanguage() {
   return useContext(LanguageContext) || { language: "en" as Language, isPersian: false, setLanguage: () => undefined };
+}
+
+export function translate(value: string, language: Language): string {
+  return language === "fa" ? TRANSLATIONS[value] || value : value;
 }
 
 export function LanguageSwitcher() {
