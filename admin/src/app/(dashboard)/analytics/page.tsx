@@ -12,7 +12,8 @@ import Link from "next/link";
 
 
 type Panel = { id: string; title: string; eventNames: string[]; chart: "line" | "area" | "bar" | "pie" | "table"; result?: GraphResult; events?: Event[] };
-const groupingOptions = [{ value: "minute", label: "By minute" }, { value: "hour", label: "By hour" }, { value: "day", label: "By day" }, { value: "dim:country", label: "Event dimension: country" }, { value: "dim:region", label: "Event dimension: region" }, { value: "dim:city", label: "Event dimension: city" }, { value: "dim:device", label: "Event dimension: device" }, { value: "dim:campaign", label: "Event dimension: campaign" }];
+const groupingOptions = [{ value: "auto", label: "Auto time buckets" }, { value: "minute", label: "By minute" }, { value: "hour", label: "By hour" }, { value: "day", label: "By day" }, { value: "dim:country", label: "Event dimension: country" }, { value: "dim:region", label: "Event dimension: region" }, { value: "dim:city", label: "Event dimension: city" }, { value: "dim:device", label: "Event dimension: device" }, { value: "dim:campaign", label: "Event dimension: campaign" }];
+function autoGrouping(hours: string): "minute" | "hour" | "day" { const value = Number(hours); return value <= 6 ? "minute" : value <= 168 ? "hour" : "day"; }
 function dimensionValue(raw: string, key: string): string { try { const value = JSON.parse(raw || "{}")[key]; return value === undefined || value === null || value === "" ? "(unknown)" : String(value); } catch { return "(unknown)"; } }
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function AnalyticsPage() {
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
   const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState("");
   const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "day");
+  const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "auto");
   const [panels, setPanels] = useState<Panel[]>([{ id: "main", title: "Event volume", eventNames: [], chart: "line" }]), [refresh, setRefresh] = useState(true), [error, setError] = useState(""), [queryLoading, setQueryLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
@@ -33,13 +34,14 @@ export default function AnalyticsPage() {
     try {
       const now = globalTo, from = globalFrom;
       const data = await Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc", limit: 500, offset: 0 })));
-      const flat = data.flat(), buckets = new Map<string, Set<string>>();
-      flat.forEach(e => { const date = new Date(e.ClientTS), key = groupBy.startsWith("dim:") ? dimensionValue(e.Dims, groupBy.slice(4)) : groupBy === "minute" ? date.toISOString().slice(0, 16) : groupBy === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
+      const flat = data.flat(), buckets = new Map<string, Set<string>>(), effectiveGroup = groupBy === "auto" ? autoGrouping(hours) : groupBy;
+      flat.forEach(e => { const date = new Date(e.ClientTS), key = effectiveGroup.startsWith("dim:") ? dimensionValue(e.Dims, effectiveGroup.slice(4)) : effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : effectiveGroup === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
       const points = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, values]) => ({ label, value: values.size }));
       setPanels(current => current.map(p => p.id === panel.id ? { ...p, events: flat, result: { question: {} as Question, from_ts: from, to_ts: now, points } } : p));
     } catch (e) { setError((e as Error).message); } finally { setQueryLoading(false); }
-  }, [aggregation, groupBy, tenant, globalFrom, globalTo]);
+  }, [aggregation, groupBy, hours, tenant, globalFrom, globalTo]);
   useEffect(() => { if (!tenant) return; void loadEventOptions(""); }, [loadEventOptions, tenant]);
+  useEffect(() => { if (tenant && events.length && !selected.length && !panels[0]?.eventNames.length) setSelected(events); }, [events, panels, selected.length, tenant]);
   useEffect(() => { if (!refresh || !panels.length) return; const t = window.setInterval(() => panels.forEach(loadPanel), 15000); return () => window.clearInterval(t); }, [loadPanel, panels, refresh]);
   function addEvent(v: string) { if (v && !selected.includes(v)) { setSelected([...selected, v]); setQuery(""); } }
   useEffect(() => {
