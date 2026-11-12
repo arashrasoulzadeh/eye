@@ -39,7 +39,7 @@ export default function FunnelPage() {
     setError("");
     void api
       .eventOptions(tenant, "")
-      .then((options) => setEventOptions(options.map((option) => option.value)))
+      .then((options) => setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)))
       .catch((e) => setError(e.message));
     void loadSuggested(tenant);
   }, [tenant]);
@@ -150,7 +150,7 @@ export default function FunnelPage() {
                   void api
                     .eventOptions(tenant, query)
                     .then((options) =>
-                      setEventOptions(options.map((option) => option.value)),
+                      setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)),
                     );
               }}
               options={eventOptions.map((value) => ({ value }))}

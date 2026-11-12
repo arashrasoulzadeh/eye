@@ -19,9 +19,9 @@ export default function AnalyticsPage() {
   const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [range, setRange] = useState(() => urlParams?.get("range") || "7"), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "day");
   const [panels, setPanels] = useState<Panel[]>([{ id: "main", title: "Event volume", eventNames: [], chart: "line" }]), [refresh, setRefresh] = useState(true), [error, setError] = useState(""), [queryLoading, setQueryLoading] = useState(false);
   const [views, setViews] = useState<Array<{ id: string; name: string; query: string }>>([]), [viewName, setViewName] = useState(""), [copied, setCopied] = useState(false);
-  useEffect(() => { api.tenants.list().then(x => { setTenants(x); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || x[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
+  useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); const fromURL = new URLSearchParams(window.location.search).get("tenant"); setTenant(fromURL || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, []);
   useEffect(() => { const params = new URLSearchParams(); if (tenant) params.set("tenant", tenant); if (selected.length) params.set("events", selected.join(",")); params.set("range", range); params.set("chart", chart); params.set("aggregation", aggregation); params.set("group", groupBy); router.replace(`/analytics?${params.toString()}`, { scroll: false }); }, [tenant, selected, range, chart, aggregation, groupBy, router]);
-  const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { setEvents((await api.eventOptions(tenant, q)).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
+  const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { const options = await api.eventOptions(tenant, q); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
   const loadPanel = useCallback(async (panel: Panel) => {
     if (!tenant || !panel.eventNames.length) return;
     setQueryLoading(true);
@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
     } catch (e) { setError((e as Error).message); } finally { setQueryLoading(false); }
   }, [aggregation, groupBy, range, tenant]);
   useEffect(() => { if (!tenant) return; void loadEventOptions(""); }, [loadEventOptions, tenant]);
-  useEffect(() => { if (tenant) api.analytics.views(tenant).then(setViews).catch(e => setError(e.message)); }, [tenant]);
+  useEffect(() => { if (tenant) api.analytics.views(tenant).then(value => setViews(Array.isArray(value) ? value : [])).catch(e => setError(e.message)); }, [tenant]);
   useEffect(() => { if (!refresh || !panels.length) return; const t = window.setInterval(() => panels.forEach(loadPanel), 15000); return () => window.clearInterval(t); }, [loadPanel, panels, refresh]);
   function addEvent(v: string) { if (v && !selected.includes(v)) { setSelected([...selected, v]); setQuery(""); } }
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
   function addPanel() { if (!selected.length) return; const panel = { id: `panel-${Date.now()}`, title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] }; setPanels(current => [...current, panel]); void loadPanel(panel); }
   function removePanel(id: string) { if (panels.length === 1) return; setPanels(current => current.filter(panel => panel.id !== id)); }
   function queryString() { const params = new URLSearchParams({ tenant, events: selected.join(","), range, chart, aggregation, group: groupBy, panels: JSON.stringify(panels.map(({ id, title, eventNames, chart }) => ({ id, title, eventNames, chart }))) }); return params.toString(); }
-  async function saveView() { if (!tenant || !viewName.trim() || !selected.length) return; try { await api.analytics.saveView(tenant, viewName.trim(), queryString()); setViewName(""); setViews(await api.analytics.views(tenant)); } catch (e) { setError((e as Error).message); } }
+  async function saveView() { if (!tenant || !viewName.trim() || !selected.length) return; try { await api.analytics.saveView(tenant, viewName.trim(), queryString()); setViewName(""); const value = await api.analytics.views(tenant); setViews(Array.isArray(value) ? value : []); } catch (e) { setError((e as Error).message); } }
   async function copyShareLink() { try { await navigator.clipboard.writeText(`${window.location.origin}/analytics?${queryString()}`); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { setError("Could not copy the share link"); } }
   async function loadView(view: { query: string }) { const params = new URLSearchParams(view.query); setTenant(params.get("tenant") || tenant); setSelected((params.get("events") || "").split(",").filter(Boolean)); setRange(params.get("range") || "7"); setChart(params.get("chart") || "line"); setAggregation(params.get("aggregation") || "count"); setGroupBy(params.get("group") || "day"); try { const savedPanels = JSON.parse(params.get("panels") || "[]") as Panel[]; if (savedPanels.length) setPanels(savedPanels); } catch { setError("Saved view has an invalid panel layout"); } }
   const matchingEvents = panels.flatMap(p => p.events || []);

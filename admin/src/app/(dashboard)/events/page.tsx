@@ -74,7 +74,7 @@ export default function EventsPage() {
     api.sessions.list().then((page) => setSessions(page.items)).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
   }, [load, push]);
 
-  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions(options.map((option) => ({ value: option.value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [tenantId, push]);
+  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions((Array.isArray(options) ? options : []).map((option) => ({ value: option.value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [tenantId, push]);
 
   const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
   const sessionOptions: ComboOption[] = sessions

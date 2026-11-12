@@ -33,7 +33,7 @@ export default function CohortsPage() {
     }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
   }, [push]);
 
-  useEffect(() => { if (!tenantId) return; api.events.list({ tenant_id: tenantId, limit: 100, sort: "desc" }).then((events) => setEventNameOptions([...new Set(events.map((event) => event.EventName))].map((value) => ({ value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [push, tenantId]);
+  useEffect(() => { if (!tenantId) return; api.events.list({ tenant_id: tenantId, limit: 100, sort: "desc" }).then((events) => { const items = Array.isArray(events) ? events : []; setEventNameOptions([...new Set(items.map((event) => event.EventName))].map((value) => ({ value }))); }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [push, tenantId]);
 
   const refresh = useCallback(async (query: TableQuery = { filter: "", sortKey: "created", sortDir: "desc", page: 0 }) => {
     if (!tenantId) return;
