@@ -19,19 +19,28 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 			}
 			return
 		}
-		var global model.IntelligenceModel
-		globalReady := svc.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error == nil
+		counts := make(map[string]int, len(tenants))
 		for _, tenant := range tenants {
 			if count, err := svc.Refresh(tenant.ID, time.Now()); err != nil {
 				if logger != nil {
 					logger.Error("intelligence refresh failed", "tenant", tenant.ID, "err", err)
 				}
 			} else {
-				if !globalReady {
-					if _, err := svc.TrainUnsupervisedGlobal(time.Now()); err == nil {
-						globalReady = true
-					}
-				}
+				counts[tenant.ID] = count
+			}
+		}
+		var global model.IntelligenceModel
+		globalReady := svc.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error == nil
+		if !globalReady {
+			if _, err := svc.TrainUnsupervisedGlobal(time.Now()); err == nil {
+				globalReady = true
+			}
+		}
+		for _, tenant := range tenants {
+			if _, ok := counts[tenant.ID]; !ok {
+				continue
+			}
+			{
 				var tenantModel model.IntelligenceModel
 				if svc.DB.Where("tenant_id = ? AND label = ?", tenant.ID, "behavior").First(&tenantModel).Error != nil && globalReady {
 					_, _ = svc.TrainUnsupervised(tenant.ID, time.Now())
@@ -45,7 +54,7 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 					}
 				}
 				if logger != nil {
-					logger.Debug("intelligence refreshed", "tenant", tenant.ID, "users", count)
+					logger.Debug("intelligence refreshed", "tenant", tenant.ID, "users", counts[tenant.ID])
 				}
 			}
 		}
