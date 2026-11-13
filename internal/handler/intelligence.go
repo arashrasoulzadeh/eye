@@ -137,7 +137,10 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
-			_ = h.Svc.RecordQualityAlert(result)
+			if err := h.Svc.RecordQualityAlert(result); err != nil {
+				http.Error(w, "evaluation recorded but quality alert persistence failed: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 			json.NewEncoder(w).Encode(result)
 			return
 		}
