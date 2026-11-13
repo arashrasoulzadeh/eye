@@ -1,0 +1,35 @@
+package service
+
+import (
+	"testing"
+
+	"github.com/arashrasoulzadeh/eye/internal/model"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func TestBucketServiceGroupsAndCachesCounts(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Event{}); err != nil {
+		t.Fatal(err)
+	}
+	db.Create(&model.Event{EventID: "a", TenantID: "t1", EventName: "click", ClientTS: 61_000})
+	db.Create(&model.Event{EventID: "b", TenantID: "t1", EventName: "click", ClientTS: 119_000})
+	db.Create(&model.Event{EventID: "c", TenantID: "t1", EventName: "click", ClientTS: 601_000})
+	svc := &BucketService{DB: db}
+	points, err := svc.Events("t1", "click", "10minute", 0, 900_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(points) != 2 || points[0].Bucket != 0 || points[0].Count != 2 || points[1].Bucket != 600_000 || points[1].Count != 1 {
+		t.Fatalf("unexpected buckets: %#v", points)
+	}
+	db.Create(&model.Event{EventID: "d", TenantID: "t1", EventName: "click", ClientTS: 120_000})
+	cached, err := svc.Events("t1", "click", "10minute", 0, 900_000)
+	if err != nil || len(cached) != 2 || cached[0].Count != 2 {
+		t.Fatalf("expected cached buckets, err=%v points=%#v", err, cached)
+	}
+}

@@ -62,6 +62,7 @@ export type AlertRulePage = { items: AlertRule[]; total: number; limit: number; 
 export type Question = { ID: string; TenantID: string; Name: string; EventName: string; EventNames: string; MatchMode: "any" | "all"; ChartType: "line" | "bar"; RangeMode: "relative" | "absolute"; RelativeDays: number; FromTS: number; ToTS: number; CreatedAt: number; UpdatedAt: number };
 export type GraphResult = { question: Question; from_ts: number; to_ts: number; points: Array<{ label: string; value: number }> };
 export type EventOption = { value: string; count: number; last_ts: number };
+export type BucketPoint = { bucket: number; count: number };
 export type TenantUsage = { tenant_id: string; period_start: number; period_end: number; event_count: number; payload_bytes: number; storage_bytes: number; event_limit: number; storage_limit: number; warnings?: string[] };
 export type AdminUser = { id: string; email: string; name: string; role: "owner" | "admin" | "analyst" | "viewer"; status: "active" | "invited" | "suspended"; created_at: number; updated_at: number };
 export type AdminTeam = { id: string; name: string; created_at: number; updated_at: number };
@@ -178,6 +179,7 @@ export const api = {
   eventOptions: (tenantId: string, query = "", all = false) => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}${all ? "&all=1" : ""}`).then((value) => Array.isArray(value) ? value : []),
   slo: () => req<{ target: number; availability: number; requests: number; errors: number; error_budget: number; error_budget_remaining: number; within_slo: boolean }>("slo"),
   analytics: {
+    buckets: (tenantId: string, params: { event_name?: string; bucket: "minute" | "10minute" | "hour"; from_ts: number; to_ts: number }) => req<BucketPoint[]>(`analytics/buckets?tenant_id=${encodeURIComponent(tenantId)}&event_name=${encodeURIComponent(params.event_name ?? "")}&bucket=${params.bucket}&from_ts=${params.from_ts}&to_ts=${params.to_ts}`).then((value) => Array.isArray(value) ? value : []),
     funnel: (tenantId: string, steps: string[], fromTs?: number, toTs?: number) => req<Array<{ event_name: string; sessions: number; conversion_rate: number }>>("analytics/funnel", { method: "POST", body: JSON.stringify({ tenant_id: tenantId, steps, from_ts: fromTs, to_ts: toTs }) }).then((value) => Array.isArray(value) ? value : []),
     suggestedFunnel: (tenantId: string, fromTs?: number, toTs?: number) => req<Array<{ position: number; event_name: string; title: string; sessions: number }>>(`analytics/funnel/suggested?tenant_id=${encodeURIComponent(tenantId)}${fromTs ? `&from_ts=${fromTs}` : ""}${toTs ? `&to_ts=${toTs}` : ""}`).then((value) => Array.isArray(value) ? value : []),
     retention: (tenantId: string, granularity: "daily" | "weekly" = "daily", range?: { from_ts: number; to_ts: number }) => req<Array<{ cohort_period: string; cohort_size: number; active_by_n: number[]; retained_pct: number[] }>>(`analytics/retention?tenant_id=${encodeURIComponent(tenantId)}&granularity=${granularity}${range ? `&from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`).then((value) => Array.isArray(value) ? value : []),

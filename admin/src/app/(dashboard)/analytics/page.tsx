@@ -35,10 +35,17 @@ export default function AnalyticsPage() {
     if (!tenant || !panel.eventNames.length) return;
     setQueryLoading(true);
     try {
-      const now = globalTo, from = globalFrom;
-      const data = await Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc", limit: 500, offset: 0 })));
-      const flat = data.flat(), buckets = new Map<string, Set<string>>(), effectiveGroup = groupBy === "auto" ? autoGrouping(hours) : groupBy;
-      flat.forEach(e => { const date = new Date(e.ClientTS), key = effectiveGroup.startsWith("dim:") ? dimensionValue(e.Dims, effectiveGroup.slice(4)) : effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : effectiveGroup === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
+      const now = globalTo, from = globalFrom, effectiveGroup = groupBy === "auto" ? autoGrouping(hours) : groupBy;
+      const bucketName = effectiveGroup === "minute" ? "minute" : effectiveGroup === "hour" ? "hour" : "";
+      const [data, bucketData] = await Promise.all([
+        Promise.all(panel.eventNames.map(name => api.events.list({ tenant_id: tenant, event_name: name, from_ts: from, to_ts: now, sort: "desc", limit: bucketName ? 100 : 500, offset: 0 }))),
+        aggregation === "count" && bucketName ? Promise.all(panel.eventNames.map(name => api.analytics.buckets(tenant, { event_name: name, bucket: bucketName as "minute" | "hour", from_ts: from, to_ts: now }))) : Promise.resolve([]),
+      ]);
+      const flat = data.flat(), buckets = new Map<string, Set<string>>();
+      if (bucketData.length) {
+        bucketData.flat().forEach(point => { const date = new Date(point.bucket), key = effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : date.toISOString().slice(0, 13) + ":00"; if (!buckets.has(key)) buckets.set(key, new Set()); for (let index = 0; index < point.count; index++) buckets.get(key)!.add(`${key}-${index}`); });
+      }
+      if (!bucketData.length) flat.forEach(e => { const date = new Date(e.ClientTS), key = effectiveGroup.startsWith("dim:") ? dimensionValue(e.Dims, effectiveGroup.slice(4)) : effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : effectiveGroup === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
       const points = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, values]) => ({ label, value: values.size }));
       setPanels(current => current.map(p => p.id === panel.id ? { ...p, events: flat, result: { question: {} as Question, from_ts: from, to_ts: now, points } } : p));
     } catch (e) { setError((e as Error).message); } finally { setQueryLoading(false); }

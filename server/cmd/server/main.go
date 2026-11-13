@@ -154,6 +154,7 @@ func main() {
 	}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
+	bucketSvc := &service.BucketService{DB: db}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/funnel/suggested", adminAuth(&handler.SuggestedFunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
@@ -165,6 +166,7 @@ func main() {
 	mux.Handle("/analytics/distinct-sessions", adminAuth(&handler.DistinctSessionsHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/percentiles", adminAuth(&handler.PercentilesHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/geography", adminAuth(&handler.GeoBreakdownHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/buckets", adminAuth(&handler.BucketsHandler{Svc: bucketSvc}))
 	mux.Handle("/export/events", adminAuth(&handler.ExportHandler{Svc: qs}))
 	cohortSvc := &service.CohortService{DB: db}
 	mux.Handle("/cohorts", adminAuth(&handler.CohortsHandler{Svc: cohortSvc}))
