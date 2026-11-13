@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:54:56+03:30** — perf(intelligence): batch unsupervised training data (`ea94585`, `ea945852677d88ff188120a070719aa26df9dbcb`)
 - **2026-11-13T17:52:53+03:30** — perf(intelligence): batch refresh event history (`cc4a437`, `cc4a437a376436941eeebd658dda1e7c8af681bb`)
 - **2026-11-13T17:50:26+03:30** — perf(intelligence): aggregate data quality in database (`b5c0ae5`, `b5c0ae50048f02a2a7245f78a88da36c5776775d`)
 - **2026-11-13T17:46:57+03:30** — ci: validate intelligence alert manifests (`a0fe3ab`, `a0fe3ab06dd5e116a8893c6d10e3c5aa7db92354`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:32:54+03:30** — ci: run full validation suite before commits (`8c85756`, `8c85756dba8d7025eeed6c75c243454535526c52`)
 - **2026-11-13T14:31:38+03:30** — fix(admin): guard collection responses and automate changelog (`82fadf8`, `82fadf8206d9df4e672a3e5dd7b77c32671b7ee0`)
 - **2026-11-13T14:24:51+03:30** — fix(admin): inspect layered behavior models (`3dffa59`, `3dffa59e6aa1d60b7462160268dea5f6189539af`)
-- **2026-11-13T14:23:36+03:30** — chore(admin): remove training page lint warning (`14b34c1`, `14b34c1dbbc71898d0ad182c7cf439c0f535826f`)
