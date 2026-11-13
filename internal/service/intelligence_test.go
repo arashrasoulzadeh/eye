@@ -202,3 +202,21 @@ func TestModelsAreReturnedNewestFirstAndTenantScoped(t *testing.T) {
 		t.Fatalf("models=%#v err=%v", models, err)
 	}
 }
+
+func TestEvaluationsAreReturnedNewestFirstAndTenantScoped(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligenceEvaluation{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	db.Create(&model.IntelligenceEvaluation{ID: "t1:1", TenantID: "t1", Label: "behavior", ModelVersion: 1, CreatedAt: now.Add(-time.Hour)})
+	db.Create(&model.IntelligenceEvaluation{ID: "t1:2", TenantID: "t1", Label: "behavior", ModelVersion: 2, CreatedAt: now})
+	db.Create(&model.IntelligenceEvaluation{ID: "t2:1", TenantID: "t2", Label: "behavior", ModelVersion: 1, CreatedAt: now})
+	evaluations, err := (&UserIntelligenceService{DB: db}).Evaluations("t1", "behavior", 10)
+	if err != nil || len(evaluations) != 2 || evaluations[0].ModelVersion != 2 {
+		t.Fatalf("evaluations=%#v err=%v", evaluations, err)
+	}
+}

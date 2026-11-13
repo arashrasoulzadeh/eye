@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:55:24+03:30** — feat(intelligence): expose model version history (`7430c7d`, `7430c7d1883baa7ea790ce51026cf6374fdc754c`)
 - **2026-11-13T16:51:32+03:30** — test(intelligence): cover supervised auto promotion (`ba43a39`, `ba43a399914c6cfff1eb55db26129b8a707818a6`)
 - **2026-11-13T16:49:46+03:30** — feat(intelligence): automate supervised model lifecycle (`1c089b5`, `1c089b559642fc7e92b06733de5bb319d0a66e40`)
 - **2026-11-13T16:47:51+03:30** — test(intelligence): verify automatic layer promotion (`b84cf0f`, `b84cf0f41efdae5180db22c16fb394350d2ab2cd`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:23:15+03:30** — feat(deploy): install model image during deploy (`860d619`, `860d619e1a70eefa5f0cc6ec480a959985b8b946`)
 - **2026-11-13T13:20:40+03:30** — feat(deploy): update model volume from GHCR (`7c050b1`, `7c050b1d31e14228a35def93b0953ec4b49b0a9d`)
 - **2026-11-13T13:20:07+03:30** — feat(deploy): publish model registry artifacts (`56f016e`, `56f016e194fbf489ebcf726b34cba9de95a6c7d4`)
-- **2026-11-13T13:19:31+03:30** — test(offline): verify model artifact integrity (`cd151ba`, `cd151babb1060dc349a51884b8a97e17a4bacc09`)
