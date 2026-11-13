@@ -155,11 +155,9 @@ func main() {
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	bucketSvc := &service.BucketService{DB: db}
-	go func() {
-		if err := bucketSvc.Backfill(); err != nil {
-			logger.Error("event bucket backfill failed", "err", err)
-		}
-	}()
+	if err := bucketSvc.Backfill(); err != nil {
+		logger.Error("event bucket backfill failed", "err", err)
+	}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/funnel/suggested", adminAuth(&handler.SuggestedFunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))

@@ -18,7 +18,7 @@ type DashboardCacheService struct {
 // Refresh recomputes the dashboard metrics and stores them in the cache.
 func (s *DashboardCacheService) Refresh() error {
 	var events int64
-	s.DB.Model(&model.Event{}).Count(&events)
+	s.DB.Model(&model.Event{}).Where("is_aggregated = ?", false).Count(&events)
 
 	var sessions int64
 	s.DB.Model(&model.Session{}).Count(&sessions)
@@ -43,7 +43,7 @@ func (s *DashboardCacheService) Refresh() error {
 
 	// Get events for hourly breakdown (last 1000 events)
 	var recentEvents []model.Event
-	s.DB.Order("client_ts DESC").Limit(1000).Find(&recentEvents)
+	s.DB.Where("is_aggregated = ?", false).Order("client_ts DESC").Limit(1000).Find(&recentEvents)
 
 	hourly := make(map[string]int64)
 	for _, e := range recentEvents {
@@ -134,15 +134,15 @@ func (s *DashboardCacheService) GetRange(from, to int64) (*model.DashboardCache,
 		return nil, err
 	}
 	var events int64
-	if err := s.DB.Model(&model.Event{}).Where("client_ts >= ? AND client_ts <= ?", from, to).Count(&events).Error; err != nil {
+	if err := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Count(&events).Error; err != nil {
 		return nil, err
 	}
 	var sessions int64
-	if err := s.DB.Model(&model.Event{}).Where("client_ts >= ? AND client_ts <= ?", from, to).Distinct("session_id").Count(&sessions).Error; err != nil {
+	if err := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Distinct("session_id").Count(&sessions).Error; err != nil {
 		return nil, err
 	}
 	var rows []model.Event
-	if err := s.DB.Where("client_ts >= ? AND client_ts <= ?", from, to).Order("client_ts DESC").Limit(1000).Find(&rows).Error; err != nil {
+	if err := s.DB.Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Order("client_ts DESC").Limit(1000).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	cache.Events = events

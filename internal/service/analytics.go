@@ -375,7 +375,7 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 		return nil, nil
 	}
 
-	query := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID).Where("event_name IN ?", steps)
+	query := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND is_aggregated = ?", tenantID, false).Where("event_name IN ?", steps)
 	if fromTS != nil {
 		query = query.Where("client_ts >= ?", *fromTS)
 	}

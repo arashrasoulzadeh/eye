@@ -3,6 +3,8 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,6 +92,9 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 
 // UpsertEventBuckets updates all durable resolutions for one accepted event.
 func UpsertEventBuckets(db *gorm.DB, event *model.Event) error {
+	if event.IsAggregated {
+		return nil
+	}
 	for _, spec := range []struct {
 		name  string
 		width int64
@@ -117,13 +122,38 @@ func UpsertEventBuckets(db *gorm.DB, event *model.Event) error {
 // bucket table existed. Existing rows are rebuilt idempotently at startup.
 func (s *BucketService) Backfill() error {
 	var events []model.Event
-	if err := s.DB.Select("tenant_id, event_name, client_ts").Find(&events).Error; err != nil {
+	if err := s.DB.Where("is_aggregated = ?", false).Select("tenant_id, event_name, client_ts").Find(&events).Error; err != nil {
 		return err
 	}
-	for i := range events {
-		if err := UpsertEventBuckets(s.DB, &events[i]); err != nil {
-			return err
+	counts := make(map[string]int64)
+	for _, event := range events {
+		for _, spec := range []struct {
+			name  string
+			width int64
+		}{{"minute", 60_000}, {"10minute", 600_000}, {"hour", 3_600_000}} {
+			start := (event.ClientTS / spec.width) * spec.width
+			counts[fmt.Sprintf("%s\x00%s\x00%s\x00%d", event.TenantID, event.EventName, spec.name, start)]++
 		}
 	}
-	return nil
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.EventBucket{}).Error; err != nil {
+			return err
+		}
+		rows := make([]model.EventBucket, 0, len(counts))
+		for key, count := range counts {
+			var tenant, eventName, bucket string
+			var start int64
+			parts := strings.Split(key, "\x00")
+			if len(parts) != 4 {
+				return fmt.Errorf("invalid bucket key")
+			}
+			start, _ = strconv.ParseInt(parts[3], 10, 64)
+			tenant, eventName, bucket = parts[0], parts[1], parts[2]
+			rows = append(rows, model.EventBucket{TenantID: tenant, EventName: eventName, Bucket: bucket, BucketStart: start, Count: count, UpdatedAt: time.Now()})
+		}
+		if len(rows) > 0 {
+			return tx.CreateInBatches(rows, 500).Error
+		}
+		return nil
+	})
 }
