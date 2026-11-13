@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T15:02:20+03:30** — fix(intelligence): gate runtime scoring on promoted models (`1fd0ac0`, `1fd0ac0a7ee071a3b02327addffc9a7b8ca8a23a`)
 - **2026-11-13T15:00:39+03:30** — feat(intelligence): add model promotion and rollback (`f33220d`, `f33220df5727a40d3bf0a30328ba4c8363358926`)
 - **2026-11-13T14:57:36+03:30** — fix(intelligence): surface label review failures (`2477623`, `2477623740ef1fbc758116ccea0ce2e9a2ad181c`)
 - **2026-11-13T14:55:59+03:30** — ci: make changelog entries timestamped and traceable (`26ab25b`, `26ab25b34ecf79da8f67c0c4a690c189feed3dc1`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T12:36:45+03:30** — fix(dashboard): limit hourly chart to selected range (`08d1a60`, `08d1a60301d72fa8b241cd11d89bc7decf5d97c8`)
 - **2026-11-13T12:26:31+03:30** — fix(admin): link user profiles (`b71187e`, `b71187e205279df216747f5095630092e520fd03`)
 - **2026-11-13T12:25:02+03:30** — docs: add admin guide and populated screenshots (`0119d30`, `0119d30693842a47a9d6eb1fa82c60a8dc99d504`)
-- **2026-11-13T03:51:57+03:30** — perf(analytics): cache suggested funnels (`e3851a9`, `e3851a972081f576be8edd7a65a342e808cf58d5`)
