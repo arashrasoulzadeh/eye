@@ -46,6 +46,20 @@ func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now ti
 	if len(snapshots) == 0 {
 		return model.IntelligenceModel{}, fmt.Errorf("unsupervised training requires intelligence snapshots")
 	}
+	var events []model.Event
+	eventQuery := s.DB.Where("is_aggregated = ?", false)
+	if tenantID != "" {
+		eventQuery = eventQuery.Where("tenant_id = ?", tenantID)
+	}
+	if err := eventQuery.Find(&events).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	eventTypes := map[string]int{}
+	sessions := map[string]bool{}
+	for _, event := range events {
+		eventTypes[event.EventName]++
+		sessions[event.SessionID] = true
+	}
 	segments := map[string]int{}
 	anomalies := 0
 	for _, snapshot := range snapshots {
@@ -60,6 +74,9 @@ func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now ti
 	}
 	metrics := map[string]any{
 		"profiles":           len(snapshots),
+		"events":             len(events),
+		"sessions":           len(sessions),
+		"event_types":        eventTypes,
 		"segments":           segments,
 		"anomalies":          anomalies,
 		"method":             "behavioral_baseline",
@@ -69,7 +86,7 @@ func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now ti
 	var latest model.IntelligenceModel
 	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&latest)
 	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:behavior:%d", tenantID, latest.Version+1), TenantID: tenantID, Label: "behavior", Version: latest.Version + 1, Algorithm: "unsupervised_behavior_v1", Parameters: string(encoded), Metrics: string(encoded), CreatedAt: now}
-	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: len(snapshots), Status: "completed", Metrics: string(encoded), CreatedAt: now}
+	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: len(events), Status: "completed", Metrics: string(encoded), CreatedAt: now}
 	if err := s.DB.Create(&run).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}

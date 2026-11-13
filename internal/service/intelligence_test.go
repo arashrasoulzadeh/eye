@@ -65,16 +65,21 @@ func TestUnsupervisedTrainingUsesGlobalBaseAndTenantLayer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}); err != nil {
+	if err := db.AutoMigrate(&model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
 	db.Create(&model.UserIntelligence{ID: "t1:u1", TenantID: "t1", Fingerprint: "u1", Tags: `["new_user"]`})
 	db.Create(&model.UserIntelligence{ID: "t2:u2", TenantID: "t2", Fingerprint: "u2", Tags: `["buyer"]`})
+	db.Create(&model.Event{EventID: "e1", TenantID: "t1", SessionID: "s1", EventName: "page_view", IsAggregated: false})
+	db.Create(&model.Event{EventID: "e2", TenantID: "t2", SessionID: "s2", EventName: "purchase", IsAggregated: false})
 	svc := &UserIntelligenceService{DB: db}
 	base, err := svc.TrainUnsupervisedGlobal(now)
 	if err != nil || base.TenantID != "" || base.Version != 1 {
 		t.Fatalf("global model=%#v err=%v", base, err)
+	}
+	if !strings.Contains(base.Metrics, `"events":2`) {
+		t.Fatalf("global model did not include events: %s", base.Metrics)
 	}
 	local, err := svc.TrainUnsupervised("t1", now.Add(time.Second))
 	if err != nil || local.TenantID != "t1" {
