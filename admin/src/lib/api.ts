@@ -198,6 +198,7 @@ export const api = {
     refresh: (tenantId: string) => req<{ refreshed: number }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=refresh`, { method: "POST" }),
     train: (tenantId: string, label = "buyer") => req<{ id: string; version: number; algorithm: string; metrics: string }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=train&label=${encodeURIComponent(label)}`, { method: "POST" }),
     model: (tenantId: string, task = "buyer") => req<{ scope: string; manifest: { name: string; version: string; task: string; algorithm: string; source: string; created_at: string } }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=model&task=${encodeURIComponent(task)}`),
+    exportModel: (tenantId: string, label = "buyer", scope = "global") => req<{ name: string; version: string; task: string; algorithm: string; artifact: string; sha256: string }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=export&label=${encodeURIComponent(label)}&scope=${encodeURIComponent(scope)}`, { method: "POST" }),
   },
 
   schemas: {

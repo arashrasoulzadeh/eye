@@ -181,6 +181,18 @@ func (s *UserIntelligenceService) ApplyModel(trained model.IntelligenceModel) er
 	return nil
 }
 
+func (s *UserIntelligenceService) ExportModel(tenantID, label string, registry ModelRegistry, scope string, now time.Time) (ModelManifest, error) {
+	var trained model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&trained).Error; err != nil {
+		return ModelManifest{}, err
+	}
+	manifest := NewManifest("eye-"+label, fmt.Sprintf("%d", trained.Version), label, trained.Algorithm, "eye-user-features-v1", "model.json", "eye-db", []byte(trained.Parameters), now)
+	if err := registry.Store(scope, label, manifest, []byte(trained.Parameters)); err != nil {
+		return ModelManifest{}, err
+	}
+	return manifest, nil
+}
+
 type UserIntelligenceSnapshot struct {
 	TenantID             string             `json:"tenant_id"`
 	Fingerprint          string             `json:"fingerprint"`

@@ -27,6 +27,24 @@ type ModelManifest struct {
 
 type ModelRegistry struct{ Root string }
 
+func (r ModelRegistry) Store(scope, task string, manifest ModelManifest, artifact []byte) error {
+	dir := filepath.Join(r.Root, scope, task)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	manifest.Artifact = filepath.Base(manifest.Artifact)
+	sum := sha256.Sum256(artifact)
+	manifest.SHA256 = hex.EncodeToString(sum[:])
+	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, manifest.Artifact), artifact, 0644); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "manifest.json"), encoded, 0644)
+}
+
 func (r ModelRegistry) manifestPath(scope, task string) string {
 	return filepath.Join(r.Root, scope, task, "manifest.json")
 }
