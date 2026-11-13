@@ -65,6 +65,11 @@ func Observability(next http.Handler) http.Handler {
 			status = http.StatusOK
 		}
 		metrics.HTTPRequestDuration.WithLabelValues(r.Method, fmt.Sprint(status)).Observe(time.Since(started).Seconds())
+		route := r.Pattern
+		if route == "" {
+			route = r.URL.Path
+		}
+		metrics.HTTPRouteDuration.WithLabelValues(route, r.Method, fmt.Sprint(status)).Observe(time.Since(started).Seconds())
 		metrics.RecordHTTPRequest(status)
 	})
 }

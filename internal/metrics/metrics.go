@@ -50,6 +50,12 @@ var IntelligenceProfiles = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_i
 var IntelligenceModels = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_models", Help: "Persisted intelligence models."})
 var IntelligenceTrainingRuns = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_training_runs", Help: "Persisted intelligence training runs."})
 var DatabaseRows = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_database_rows", Help: "Rows currently stored in each Eye database table."}, []string{"table"})
+var HTTPRouteDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_route_duration_seconds", Help: "HTTP request duration by normalized route, method, and status."}, []string{"route", "method", "status"})
+var MLTrainingExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_training_examples", Help: "Examples used by the latest persisted ML training runs."})
+var MLTrainingPositiveExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_training_positive_examples", Help: "Positive examples in persisted ML training runs."})
+var MLTrainingNegativeExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_training_negative_examples", Help: "Negative examples in persisted ML training runs."})
+var MLAnomalyScoreAverage = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_anomaly_score_average", Help: "Average anomaly score across user intelligence snapshots."})
+var MLPredictionConfidenceAverage = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_prediction_confidence_average", Help: "Average prediction confidence across user intelligence snapshots."})
 
 var httpRequests atomic.Int64
 var httpErrors atomic.Int64
@@ -104,6 +110,28 @@ func RefreshDatabaseStats(db *gorm.DB) {
 			DatabaseRows.WithLabelValues(row.name).Set(float64(count))
 		}
 	}
+	var runs []model.IntelligenceTrainingRun
+	if db.Find(&runs).Error == nil {
+		var examples, positive, negative int
+		for _, run := range runs {
+			examples += run.Examples
+			positive += run.Positive
+			negative += run.Negative
+		}
+		MLTrainingExamples.Set(float64(examples))
+		MLTrainingPositiveExamples.Set(float64(positive))
+		MLTrainingNegativeExamples.Set(float64(negative))
+	}
+	var profiles []model.UserIntelligence
+	if db.Find(&profiles).Error == nil && len(profiles) > 0 {
+		var anomaly, confidence float64
+		for _, profile := range profiles {
+			anomaly += profile.AnomalyScore
+			confidence += profile.Confidence
+		}
+		MLAnomalyScoreAverage.Set(anomaly / float64(len(profiles)))
+		MLPredictionConfidenceAverage.Set(confidence / float64(len(profiles)))
+	}
 	total, errors := HTTPRequestSnapshot()
 	HTTPRequestsTotal.Set(float64(total))
 	HTTPErrorsTotal.Set(float64(errors))
@@ -112,5 +140,5 @@ func RefreshDatabaseStats(db *gorm.DB) {
 func HTTPRequestSnapshot() (total, errors int64) { return httpRequests.Load(), httpErrors.Load() }
 
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows, HTTPRouteDuration, MLTrainingExamples, MLTrainingPositiveExamples, MLTrainingNegativeExamples, MLAnomalyScoreAverage, MLPredictionConfidenceAverage)
 }

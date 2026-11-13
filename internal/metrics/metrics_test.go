@@ -24,6 +24,12 @@ func TestInit(t *testing.T) {
 	prometheus.Unregister(IntelligenceModels)
 	prometheus.Unregister(IntelligenceTrainingRuns)
 	prometheus.Unregister(DatabaseRows)
+	prometheus.Unregister(HTTPRouteDuration)
+	prometheus.Unregister(MLTrainingExamples)
+	prometheus.Unregister(MLTrainingPositiveExamples)
+	prometheus.Unregister(MLTrainingNegativeExamples)
+	prometheus.Unregister(MLAnomalyScoreAverage)
+	prometheus.Unregister(MLPredictionConfidenceAverage)
 
 	Init()
 

@@ -139,6 +139,31 @@
         { "expr": "eye_database_rows", "legendFormat": "{{table}}", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 10,
+      "title": "ML health",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_ml_anomaly_score_average", "legendFormat": "anomaly score", "refId": "A" },
+        { "expr": "eye_ml_prediction_confidence_average", "legendFormat": "prediction confidence", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 11,
+      "title": "ML training examples",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_ml_training_examples", "legendFormat": "examples", "refId": "A" },
+        { "expr": "eye_ml_training_positive_examples", "legendFormat": "positive", "refId": "B" },
+        { "expr": "eye_ml_training_negative_examples", "legendFormat": "negative", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
     }
   ],
   "templating": {
