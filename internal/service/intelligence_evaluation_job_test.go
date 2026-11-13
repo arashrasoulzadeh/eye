@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -83,4 +84,37 @@ func TestRunUserIntelligenceJobPromotesHealthyAutomaticLayers(t *testing.T) {
 	var models []model.IntelligenceModel
 	db.Find(&models)
 	t.Fatalf("automatic layers were not promoted: %#v", models)
+}
+
+func TestTrainEligibleSupervisedModelsPromotesBalancedLabels(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:intelligence-supervised-test?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	for i := 0; i < 20; i++ {
+		fingerprint := "u" + strconv.Itoa(i)
+		if err := db.Create(&model.UserIntelligence{ID: "t1:" + fingerprint, TenantID: "t1", Fingerprint: fingerprint, Features: `{"activity":1}`}).Error; err != nil {
+			t.Fatal(err)
+		}
+		label := "buyer"
+		if i >= 10 {
+			label = "bot"
+		}
+		if err := db.Create(&model.UserIntelligenceLabel{ID: "t1:" + fingerprint + ":" + label, TenantID: "t1", Fingerprint: fingerprint, Label: label, Decision: "accepted", CreatedAt: now}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	trainEligibleSupervisedModels(&UserIntelligenceService{DB: db}, "t1", now, nil)
+	var trained model.IntelligenceModel
+	if err := db.Where("tenant_id = ? AND label = ?", "t1", "buyer").First(&trained).Error; err != nil {
+		t.Fatal(err)
+	}
+	if trained.Status != "promoted" || trained.Algorithm != "gaussian_naive_bayes" {
+		t.Fatalf("supervised model=%#v", trained)
+	}
 }
