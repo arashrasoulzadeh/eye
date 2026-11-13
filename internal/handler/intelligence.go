@@ -63,7 +63,16 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if r.URL.Query().Get("action") == "train" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {
-			label = "buyer"
+			label = "auto"
+		}
+		if label == "auto" {
+			trained, err := h.Svc.TrainUnsupervised(tenantID, time.Now())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			json.NewEncoder(w).Encode(trained)
+			return
 		}
 		trained, err := h.Svc.Train(tenantID, label, time.Now())
 		if err != nil {

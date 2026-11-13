@@ -16,6 +16,50 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+// TrainUnsupervised builds a tenant baseline from the explainable snapshots
+// already produced by Refresh. It needs no hand-labelled users: the existing
+// behavioral tags and anomaly scores become the initial segments, while the
+// persisted run gives operators an auditable first-run result.
+func (s *UserIntelligenceService) TrainUnsupervised(tenantID string, now time.Time) (model.IntelligenceModel, error) {
+	var snapshots []model.UserIntelligence
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&snapshots).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	if len(snapshots) == 0 {
+		return model.IntelligenceModel{}, fmt.Errorf("unsupervised training requires tenant intelligence snapshots")
+	}
+	segments := map[string]int{}
+	anomalies := 0
+	for _, snapshot := range snapshots {
+		var tags []string
+		_ = json.Unmarshal([]byte(snapshot.Tags), &tags)
+		for _, tag := range tags {
+			segments[tag]++
+		}
+		if snapshot.AnomalyScore >= 0.7 {
+			anomalies++
+		}
+	}
+	metrics := map[string]any{
+		"profiles":  len(snapshots),
+		"segments":  segments,
+		"anomalies": anomalies,
+		"method":    "behavioral_baseline",
+	}
+	encoded, _ := json.Marshal(metrics)
+	var latest model.IntelligenceModel
+	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&latest)
+	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:behavior:%d", tenantID, latest.Version+1), TenantID: tenantID, Label: "behavior", Version: latest.Version + 1, Algorithm: "unsupervised_behavior_v1", Parameters: string(encoded), Metrics: string(encoded), CreatedAt: now}
+	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: len(snapshots), Status: "completed", Metrics: string(encoded), CreatedAt: now}
+	if err := s.DB.Create(&run).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	if err := s.DB.Create(&trained).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	return trained, nil
+}
+
 type trainedFeatureStats struct {
 	Mean     float64 `json:"mean"`
 	Variance float64 `json:"variance"`
