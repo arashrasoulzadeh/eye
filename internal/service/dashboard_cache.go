@@ -142,7 +142,10 @@ func (s *DashboardCacheService) GetRange(from, to int64) (*model.DashboardCache,
 		return nil, err
 	}
 	var rows []model.Event
-	if err := s.DB.Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Order("client_ts DESC").Limit(1000).Find(&rows).Error; err != nil {
+	// Load the complete selected window. Truncating this to the newest 1,000
+	// events makes the chart appear to ignore the global time range whenever a
+	// busy tenant has more than 1,000 events in it.
+	if err := s.DB.Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Order("client_ts DESC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	cache.Events = events

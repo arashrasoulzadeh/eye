@@ -99,3 +99,28 @@ func TestDashboardCacheService_GetNotFound(t *testing.T) {
 		t.Error("expected error for missing cache")
 	}
 }
+
+func TestDashboardCacheService_GetRangeDoesNotTruncateChartInput(t *testing.T) {
+	db := newTestDB_dashboard_cache_test(t)
+	svc := &DashboardCacheService{DB: db}
+	from := time.Date(2026, 11, 13, 10, 0, 0, 0, time.UTC).UnixMilli()
+	to := time.Date(2026, 11, 13, 11, 0, 0, 0, time.UTC).UnixMilli()
+	db.Create(&model.DashboardCache{ID: 1})
+	for i := 0; i < 1001; i++ {
+		db.Create(&model.Event{EventID: string(rune(i + 1)), TenantID: "t1", EventName: "click", ClientTS: from + int64(i)})
+	}
+
+	cache, err := svc.GetRange(from, to)
+	if err != nil {
+		t.Fatalf("get range: %v", err)
+	}
+	var points []struct {
+		Value int64 `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(cache.EventsByHour), &points); err != nil {
+		t.Fatalf("decode chart points: %v", err)
+	}
+	if len(points) != 2 || points[0].Value != 1001 {
+		t.Fatalf("chart dropped events: %#v", points)
+	}
+}
