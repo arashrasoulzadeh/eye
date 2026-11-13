@@ -12,6 +12,11 @@ The production Compose file uses prebuilt images from GHCR. Put `ADMIN_KEY`, `AP
 
 The server mounts the persistent `eye-models` volume at `/models` and uses `MODEL_REGISTRY_DIR=/models`. Model artifacts use `/models/global/buyer/manifest.json` and `/models/global/buyer/model.json`; tenant overrides use `/models/tenants/<tenant-id>/buyer/`. Tenant artifacts override global artifacts, and the scheduled refresh consumes new valid artifacts without rebuilding the application image.
 
+To publish the mounted registry as a standalone GHCR OCI artifact, set
+`MODEL_IMAGE` and run `./deploy/publish-model.sh`. This builds only the model
+artifact from `MODEL_REGISTRY_DIR` and pushes it independently of the server,
+collector, and admin images.
+
 To create the GHCR credentials, open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Grant `read:packages` to pull private images, copy the token once, and add this to `.env`:
 
 ```dotenv
