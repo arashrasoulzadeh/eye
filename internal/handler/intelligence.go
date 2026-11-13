@@ -124,9 +124,29 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
+			if evaluation, err := h.Svc.EvaluateLatest("", "behavior", time.Now()); err != nil {
+				http.Error(w, "global model evaluation failed: "+err.Error(), http.StatusUnprocessableEntity)
+				return
+			} else if evaluation.Status == "drifted" {
+				http.Error(w, "global model is drifted and cannot be promoted", http.StatusUnprocessableEntity)
+				return
+			} else if _, err := h.Svc.PromoteLatest("", "behavior", time.Now()); err != nil {
+				http.Error(w, "global model promotion failed: "+err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
 			trained, err := h.Svc.TrainUnsupervised(tenantID, time.Now())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			if evaluation, err := h.Svc.EvaluateLatest(tenantID, "behavior", time.Now()); err != nil {
+				http.Error(w, "tenant model evaluation failed: "+err.Error(), http.StatusUnprocessableEntity)
+				return
+			} else if evaluation.Status == "drifted" {
+				http.Error(w, "tenant model is drifted and cannot be promoted", http.StatusUnprocessableEntity)
+				return
+			} else if _, err := h.Svc.PromoteLatest(tenantID, "behavior", time.Now()); err != nil {
+				http.Error(w, "tenant model promotion failed: "+err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
 			json.NewEncoder(w).Encode(trained)
