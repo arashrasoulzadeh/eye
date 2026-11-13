@@ -34,6 +34,7 @@ const NAV = [
   { href: "/anomalies", label: "Anomalies", icon: "△" },
   { href: "/intelligence/training", label: "Model Training", icon: "▣" },
   { href: "/intelligence/models", label: "Model Registry", icon: "◈" },
+  { href: "/intelligence/labels", label: "User Labels", icon: "✓" },
   { href: "/audit-log", label: "Audit Log", icon: "≡" },
   { href: "/dead-letters", label: "Dead Letters", icon: "!" },
   { href: "/replay", label: "Replay", icon: "↻" },
