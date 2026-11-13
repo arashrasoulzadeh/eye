@@ -245,6 +245,18 @@ func (s *UserIntelligenceService) Models(tenantID, label string, limit int) ([]m
 	return models, query.Find(&models).Error
 }
 
+func (s *UserIntelligenceService) ModelLayers(tenantID, label string, limit int) ([]model.IntelligenceModel, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	query := s.DB.Where("tenant_id = ? OR tenant_id = ?", "", tenantID).Order("created_at desc").Limit(limit)
+	if label != "" {
+		query = query.Where("label = ?", label)
+	}
+	var models []model.IntelligenceModel
+	return models, query.Find(&models).Error
+}
+
 func (s *UserIntelligenceService) Evaluations(tenantID, label string, limit int) ([]model.IntelligenceEvaluation, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 25

@@ -220,3 +220,25 @@ func TestEvaluationsAreReturnedNewestFirstAndTenantScoped(t *testing.T) {
 		t.Fatalf("evaluations=%#v err=%v", evaluations, err)
 	}
 }
+
+func TestModelLayersIncludeGlobalAndTenantOnly(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligenceModel{}); err != nil {
+		t.Fatal(err)
+	}
+	db.Create(&model.IntelligenceModel{ID: "global:behavior:1", TenantID: "", Label: "behavior", Version: 1})
+	db.Create(&model.IntelligenceModel{ID: "t1:behavior:1", TenantID: "t1", Label: "behavior", Version: 1})
+	db.Create(&model.IntelligenceModel{ID: "t2:behavior:1", TenantID: "t2", Label: "behavior", Version: 1})
+	layers, err := (&UserIntelligenceService{DB: db}).ModelLayers("t1", "behavior", 10)
+	if err != nil || len(layers) != 2 {
+		t.Fatalf("layers=%#v err=%v", layers, err)
+	}
+	for _, layer := range layers {
+		if layer.TenantID != "" && layer.TenantID != "t1" {
+			t.Fatalf("unexpected layer=%#v", layer)
+		}
+	}
+}
