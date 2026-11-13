@@ -19,7 +19,11 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 docker compose version >/dev/null || { echo "docker compose plugin is required" >&2; exit 1; }
 
 cd "$ROOT"
-docker compose config >/dev/null
+COMPOSE=(docker compose)
+if [[ "${DB_DRIVER:-sqlite}" =~ ^(postgres|postgresql|timescale)$ ]]; then
+  COMPOSE+=( -f docker-compose.postgres.yml )
+fi
+"${COMPOSE[@]}" config >/dev/null
 
 # Optional private-GHCR login. Public images work without these variables.
 if [[ -n "${GHCR_TOKEN:-}" ]]; then
@@ -27,7 +31,7 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
   printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
 fi
 
-docker compose pull --quiet
+"${COMPOSE[@]}" pull --quiet
 # Optional standalone model artifact. This updates only the persistent model
 # volume; leaving MODEL_IMAGE unset keeps deployments application-only.
 if [[ -n "${MODEL_IMAGE:-}" ]]; then
@@ -35,17 +39,17 @@ if [[ -n "${MODEL_IMAGE:-}" ]]; then
 fi
 # This deliberately does not run `down`, `down -v`, prune, or remove volumes.
 # Compose recreates containers when the image changes while preserving volumes.
-docker compose up -d --no-build
+"${COMPOSE[@]}" up -d --no-build
 
 for attempt in {1..30}; do
-  if docker compose ps --status running --services | grep -qx server && docker compose ps --status running --services | grep -qx admin; then
-    docker compose ps
+  if "${COMPOSE[@]}" ps --status running --services | grep -qx server && "${COMPOSE[@]}" ps --status running --services | grep -qx admin; then
+    "${COMPOSE[@]}" ps
     echo "Eye is running from prebuilt images: admin http://127.0.0.1:3003, API http://127.0.0.1:8080"
     exit 0
   fi
   if [[ "$attempt" -eq 30 ]]; then
-    docker compose ps
-    docker compose logs --tail=80 server admin >&2 || true
+    "${COMPOSE[@]}" ps
+    "${COMPOSE[@]}" logs --tail=80 server admin >&2 || true
     echo "Eye services did not become running" >&2
     exit 1
   fi

@@ -6,6 +6,7 @@ COPY . .
 RUN CGO_ENABLED=1 go build -o /out/eye-server ./server/cmd/server
 RUN CGO_ENABLED=1 go build -o /out/eye-collector ./server/cmd/collector
 RUN CGO_ENABLED=1 go build -o /out/eye-aggregation-worker ./server/cmd/aggregation-worker
+RUN CGO_ENABLED=1 go build -o /out/eye-migrate ./server/cmd/migrate-sqlite-postgres
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/*
@@ -14,6 +15,7 @@ WORKDIR /app
 COPY --from=build /out/eye-server /app/eye-server
 COPY --from=build /out/eye-collector /app/eye-collector
 COPY --from=build /out/eye-aggregation-worker /app/eye-aggregation-worker
+COPY --from=build /out/eye-migrate /app/eye-migrate
 RUN mkdir -p /data/snapshots && chown -R eye:eye /data
 USER eye
 ENV EYE_ENV=production DB_PATH=/data/eye.db SNAPSHOT_DIR=/data/snapshots PORT=8080
