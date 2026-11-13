@@ -85,7 +85,7 @@ func main() {
 	modelRegistry := service.ModelRegistry{Root: cfg.ModelRegistryDir}
 	intelligenceCtx, cancelIntelligence := context.WithCancel(context.Background())
 	defer cancelIntelligence()
-	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, 15*time.Minute, logger)
+	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, &modelRegistry, 15*time.Minute, logger)
 	defer geoIP.Close()
 	if updated, backfillErr := geoIP.Backfill(db); backfillErr != nil {
 		logger.Error("geoip backfill failed", "err", backfillErr)

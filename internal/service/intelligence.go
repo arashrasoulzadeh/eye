@@ -181,6 +181,10 @@ func (s *UserIntelligenceService) ApplyModel(trained model.IntelligenceModel) er
 	return nil
 }
 
+func (s *UserIntelligenceService) ApplyArtifact(tenantID, label string, parameters []byte) error {
+	return s.ApplyModel(model.IntelligenceModel{TenantID: tenantID, Label: label, Parameters: string(parameters)})
+}
+
 func (s *UserIntelligenceService) ExportModel(tenantID, label string, registry ModelRegistry, scope string, now time.Time) (ModelManifest, error) {
 	var trained model.IntelligenceModel
 	if err := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&trained).Error; err != nil {

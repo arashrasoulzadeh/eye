@@ -10,7 +10,7 @@ import (
 
 // RunUserIntelligenceJob refreshes every tenant's explainable snapshot on a
 // schedule. A later supervised trainer can consume the same stored features.
-func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, interval time.Duration, logger *slog.Logger) {
+func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, registry *ModelRegistry, interval time.Duration, logger *slog.Logger) {
 	refresh := func() {
 		var tenants []model.Tenant
 		if err := svc.DB.Find(&tenants).Error; err != nil {
@@ -24,8 +24,17 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, i
 				if logger != nil {
 					logger.Error("intelligence refresh failed", "tenant", tenant.ID, "err", err)
 				}
-			} else if logger != nil {
-				logger.Debug("intelligence refreshed", "tenant", tenant.ID, "users", count)
+			} else {
+				if registry != nil {
+					if artifact, manifest, err := registry.Artifact("tenants/"+tenant.ID, "buyer"); err == nil {
+						_ = svc.ApplyArtifact(tenant.ID, manifest.Task, artifact)
+					} else if artifact, manifest, err := registry.Artifact("global", "buyer"); err == nil {
+						_ = svc.ApplyArtifact(tenant.ID, manifest.Task, artifact)
+					}
+				}
+				if logger != nil {
+					logger.Debug("intelligence refreshed", "tenant", tenant.ID, "users", count)
+				}
 			}
 		}
 	}

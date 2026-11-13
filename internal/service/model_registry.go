@@ -76,6 +76,15 @@ func (r ModelRegistry) Load(scope, task string) (ModelManifest, error) {
 	return manifest, nil
 }
 
+func (r ModelRegistry) Artifact(scope, task string) ([]byte, ModelManifest, error) {
+	manifest, err := r.Load(scope, task)
+	if err != nil {
+		return nil, ModelManifest{}, err
+	}
+	data, err := os.ReadFile(filepath.Join(r.Root, scope, task, manifest.Artifact))
+	return data, manifest, err
+}
+
 // Resolve prefers a tenant-pinned artifact and falls back to the global one.
 func (r ModelRegistry) Resolve(tenantID, task string) (ModelManifest, string, error) {
 	if tenantID != "" {
