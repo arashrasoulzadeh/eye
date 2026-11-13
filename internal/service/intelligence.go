@@ -249,6 +249,9 @@ type LabelSuggestion struct {
 	Label       string                   `json:"label"`
 	Confidence  float64                  `json:"confidence"`
 	Reasons     []string                 `json:"reasons"`
+	Evidence    map[string]float64       `json:"evidence"`
+	Identity    string                   `json:"identity"`
+	ModelSource string                   `json:"model_source"`
 	Snapshot    UserIntelligenceSnapshot `json:"snapshot"`
 }
 
@@ -308,7 +311,19 @@ func (s *UserIntelligenceService) LabelSuggestions(tenantID string, limit int) (
 			if label == "inactive" {
 				reasons = append(reasons, "last activity is outside the active window")
 			}
-			result = append(result, LabelSuggestion{TenantID: tenantID, Fingerprint: row.Fingerprint, Label: label, Confidence: confidence, Reasons: reasons, Snapshot: snapshotOf(row)})
+			evidence := map[string]float64{}
+			for key, value := range featuresFromSnapshot(row) {
+				evidence[key] = value
+			}
+			identity := "inferred_fingerprint"
+			if row.UserID != "" {
+				identity = "explicit_user_id"
+			}
+			modelSource := "tenant_behavior_layer"
+			if scores["global_behavior"] > 0 && scores["tenant_behavior"] == 0 {
+				modelSource = "global_behavior_baseline"
+			}
+			result = append(result, LabelSuggestion{TenantID: tenantID, Fingerprint: row.Fingerprint, Label: label, Confidence: confidence, Reasons: reasons, Evidence: evidence, Identity: identity, ModelSource: modelSource, Snapshot: snapshotOf(row)})
 		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Confidence > result[j].Confidence })
@@ -316,6 +331,17 @@ func (s *UserIntelligenceService) LabelSuggestions(tenantID string, limit int) (
 		result = result[:limit]
 	}
 	return result, nil
+}
+
+func featuresFromSnapshot(row model.UserIntelligence) map[string]float64 {
+	var features map[string]float64
+	_ = json.Unmarshal([]byte(row.Features), &features)
+	if features == nil {
+		features = map[string]float64{}
+	}
+	features["anomaly_score"] = row.AnomalyScore
+	features["prediction_confidence"] = row.Confidence
+	return features
 }
 
 func snapshotOf(row model.UserIntelligence) UserIntelligenceSnapshot {

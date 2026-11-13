@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:21:02+03:30** — feat(intelligence): export model quality metrics (`5115b44`, `5115b446311a45f05a92c5048000c0a26ae2ede0`)
 - **2026-11-13T16:19:09+03:30** — feat(intelligence): measure confidence calibration (`94f76c9`, `94f76c956f1d6c2cc248fc71175d8ccb4a17f7ee`)
 - **2026-11-13T16:16:51+03:30** — feat(intelligence): persist explicit user identity (`5813ca8`, `5813ca814b89de695006689e1eb971768e9e2d86`)
 - **2026-11-13T16:13:38+03:30** — feat(intelligence): add training data quality assessments (`83e4285`, `83e428586350dcc6c2918b732ef9e1d802822a9b`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T12:58:26+03:30** — feat(offline): add intelligence training labels (`37028ec`, `37028ec3340cd5c7ed4fac7cc7a71e7c5022fe05`)
 - **2026-11-13T12:54:59+03:30** — feat(admin): add user intelligence dashboard (`bf7002f`, `bf7002f8fa05478e266bb99a97b517841a569330`)
 - **2026-11-13T12:52:55+03:30** — feat(offline): add user intelligence snapshots (`95a0240`, `95a02408d2a2da6f7145da30e75f4949e9d95199`)
-- **2026-11-13T12:49:41+03:30** — feat(offline): expose persisted session location (`58c1046`, `58c1046b7ff4e82b6d9a03acad7f7ed1d9aa9080`)
