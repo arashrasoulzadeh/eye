@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -34,15 +35,16 @@ func promoteHealthyUnsupervisedModel(svc *UserIntelligenceService, tenantID stri
 	}
 }
 
-func trainEligibleSupervisedModels(svc *UserIntelligenceService, tenantID string, now time.Time, logger *slog.Logger) {
+func trainEligibleSupervisedModels(svc *UserIntelligenceService, tenantID string, now time.Time, logger *slog.Logger) int {
 	var labels []model.UserIntelligenceLabel
 	if err := svc.DB.Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Find(&labels).Error; err != nil {
 		if logger != nil {
 			logger.Error("intelligence label scan failed", "tenant", tenantID, "err", err)
 		}
-		return
+		return 0
 	}
 	seen := map[string]bool{}
+	trained := 0
 	for _, labeled := range labels {
 		if seen[labeled.Label] || labeled.Label == "behavior" {
 			continue
@@ -70,8 +72,74 @@ func trainEligibleSupervisedModels(svc *UserIntelligenceService, tenantID string
 		}
 		if _, err := svc.PromoteLatest(tenantID, candidate.Label, now); err != nil && logger != nil {
 			logger.Error("automatic supervised promotion failed", "tenant", tenantID, "label", candidate.Label, "err", err)
+		} else {
+			trained++
 		}
 	}
+	return trained
+}
+
+// PipelineResult is the auditable result of a one-click intelligence run.
+type PipelineResult struct {
+	TenantID          string   `json:"tenant_id"`
+	Refreshed         int      `json:"refreshed"`
+	SupervisedTrained int      `json:"supervised_trained"`
+	QualityStatus     string   `json:"quality_status"`
+	Steps             []string `json:"steps"`
+}
+
+// RunPipeline executes the complete synchronous intelligence lifecycle for one
+// tenant. The scheduled job uses the same individual operations, while this
+// method gives the admin a single auditable action with explicit stages.
+func (s *UserIntelligenceService) RunPipeline(tenantID string, now time.Time) (PipelineResult, error) {
+	result := PipelineResult{TenantID: tenantID, Steps: make([]string, 0, 9)}
+	refreshed, err := s.Refresh(tenantID, now)
+	if err != nil {
+		return result, fmt.Errorf("refresh: %w", err)
+	}
+	result.Refreshed = refreshed
+	result.Steps = append(result.Steps, "refresh")
+	if _, err = s.TrainUnsupervisedGlobal(now); err != nil {
+		return result, fmt.Errorf("global training: %w", err)
+	}
+	result.Steps = append(result.Steps, "global_train")
+	if evaluation, evalErr := s.EvaluateLatest("", "behavior", now); evalErr != nil {
+		return result, fmt.Errorf("global evaluation: %w", evalErr)
+	} else if evaluation.Status == "drifted" {
+		return result, fmt.Errorf("global evaluation drifted")
+	}
+	result.Steps = append(result.Steps, "global_evaluate")
+	if _, err = s.PromoteLatest("", "behavior", now); err != nil {
+		return result, fmt.Errorf("global promotion: %w", err)
+	}
+	result.Steps = append(result.Steps, "global_promote")
+	if _, err = s.TrainUnsupervised(tenantID, now); err != nil {
+		return result, fmt.Errorf("tenant training: %w", err)
+	}
+	result.Steps = append(result.Steps, "tenant_train")
+	if evaluation, evalErr := s.EvaluateLatest(tenantID, "behavior", now); evalErr != nil {
+		return result, fmt.Errorf("tenant evaluation: %w", evalErr)
+	} else if evaluation.Status == "drifted" {
+		return result, fmt.Errorf("tenant evaluation drifted")
+	}
+	result.Steps = append(result.Steps, "tenant_evaluate")
+	if _, err = s.PromoteLatest(tenantID, "behavior", now); err != nil {
+		return result, fmt.Errorf("tenant promotion: %w", err)
+	}
+	result.Steps = append(result.Steps, "tenant_promote")
+	result.SupervisedTrained = trainEligibleSupervisedModels(s, tenantID, now, nil)
+	result.Steps = append(result.Steps, "supervised_train")
+	if quality, qualityErr := s.AssessDataQuality(tenantID, now); qualityErr != nil {
+		return result, fmt.Errorf("quality assessment: %w", qualityErr)
+	} else {
+		result.QualityStatus = quality.Status
+	}
+	result.Steps = append(result.Steps, "quality_assess")
+	if err = s.ApplyBehaviorLayers(tenantID); err != nil {
+		return result, fmt.Errorf("apply behavior layers: %w", err)
+	}
+	result.Steps = append(result.Steps, "apply_layers")
+	return result, nil
 }
 
 // RunUserIntelligenceJob refreshes every tenant's explainable snapshot on a

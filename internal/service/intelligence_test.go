@@ -37,6 +37,40 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 	}
 }
 
+func TestRunPipelineCompletesGlobalTenantAndQualityStages(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}, &model.IntelligenceDataQuality{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.Create(&model.Session{ID: "pipeline-session", TenantID: "t1", IP: "127.0.0.1", UserAgent: "browser", StartedAt: now, LastSeen: now}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Event{EventID: "pipeline-event", TenantID: "t1", SessionID: "pipeline-session", EventName: "page_view", ClientTS: now.UnixMilli()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, err := (&UserIntelligenceService{DB: db}).RunPipeline("t1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Refreshed != 1 || result.QualityStatus == "" || len(result.Steps) < 9 {
+		t.Fatalf("unexpected pipeline result: %#v", result)
+	}
+	var global, tenant model.IntelligenceModel
+	if err := db.Where("tenant_id = ? AND label = ?", "", "behavior").First(&global).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("tenant_id = ? AND label = ?", "t1", "behavior").First(&tenant).Error; err != nil {
+		t.Fatal(err)
+	}
+	if global.Status != "promoted" || tenant.Status != "promoted" {
+		t.Fatalf("models not promoted: global=%s tenant=%s", global.Status, tenant.Status)
+	}
+}
+
 func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
