@@ -10,6 +10,8 @@ Set `DB_DRIVER=postgres` and provide `DATABASE_URL` (or `DATABASE_URL_FILE`) for
 
 The production Compose file uses prebuilt images from GHCR. Put `ADMIN_KEY`, `API_KEY_SALT`, and optional `GHCR_USERNAME`/`GHCR_TOKEN` in the project `.env`, then run `./deploy/deploy.sh`; it pulls images and never builds on the server. Set `EYE_SERVER_IMAGE`, `EYE_COLLECTOR_IMAGE`, or `EYE_ADMIN_IMAGE` in `.env` to pin another registry/tag.
 
+The server mounts the persistent `eye-models` volume at `/models` and uses `MODEL_REGISTRY_DIR=/models`. Model artifacts use `/models/global/buyer/manifest.json` and `/models/global/buyer/model.json`; tenant overrides use `/models/tenants/<tenant-id>/buyer/`. Tenant artifacts override global artifacts, and the scheduled refresh consumes new valid artifacts without rebuilding the application image.
+
 To create the GHCR credentials, open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Grant `read:packages` to pull private images, copy the token once, and add this to `.env`:
 
 ```dotenv
