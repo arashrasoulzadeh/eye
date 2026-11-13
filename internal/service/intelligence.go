@@ -96,6 +96,13 @@ func (s *UserIntelligenceService) PromoteLatest(tenantID, label string, now time
 	if err := s.DB.Model(&candidate).Updates(map[string]any{"status": candidate.Status, "promoted_at": candidate.PromotedAt, "parent_id": candidate.ParentID}).Error; err != nil {
 		return candidate, err
 	}
+	if label == "behavior" {
+		if err := s.ApplyBehaviorLayers(tenantID); err != nil {
+			return candidate, err
+		}
+	} else if err := s.ApplyModel(candidate); err != nil {
+		return candidate, err
+	}
 	return candidate, nil
 }
 
@@ -430,9 +437,6 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 	if err := s.DB.Create(&trained).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
-	if err := s.ApplyModel(trained); err != nil {
-		return model.IntelligenceModel{}, err
-	}
 	return trained, nil
 }
 
@@ -698,13 +702,18 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 // so runtime scoring remains explainable and deterministic for every profile.
 func (s *UserIntelligenceService) ApplyBehaviorLayers(tenantID string) error {
 	var global, local model.IntelligenceModel
-	if err := s.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil
+	globalQuery := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", "", "behavior", "promoted").Order("version desc")
+	if err := globalQuery.First(&global).Error; err != nil {
+		if err := s.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil
+			}
+			return err
 		}
-		return err
 	}
-	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&local)
+	if err := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", tenantID, "behavior", "promoted").Order("version desc").First(&local).Error; err != nil {
+		_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&local)
+	}
 	globalMetrics := behaviorMetrics(global.Metrics)
 	localMetrics := behaviorMetrics(local.Metrics)
 	var rows []model.UserIntelligence
