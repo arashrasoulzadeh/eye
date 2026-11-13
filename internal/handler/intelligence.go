@@ -51,6 +51,15 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.URL.Query().Get("action") == "training" {
+		runs, err := h.Svc.TrainingRuns(tenantID, r.URL.Query().Get("label"), 20)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(runs)
+		return
+	}
 	if r.URL.Query().Get("action") == "train" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {

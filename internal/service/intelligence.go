@@ -51,6 +51,18 @@ func (s *UserIntelligenceService) TrainingReadiness(tenantID, label string) (map
 	return map[string]any{"tenant_id": tenantID, "label": label, "examples": total, "positive": positive, "negative": total - positive, "ready": total >= 20 && positive >= 5 && total-positive >= 5}, nil
 }
 
+func (s *UserIntelligenceService) TrainingRuns(tenantID, label string, limit int) ([]model.IntelligenceTrainingRun, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	var runs []model.IntelligenceTrainingRun
+	query := s.DB.Where("tenant_id = ?", tenantID).Order("created_at desc").Limit(limit)
+	if label != "" {
+		query = query.Where("label = ?", label)
+	}
+	return runs, query.Find(&runs).Error
+}
+
 // Train fits a small offline Gaussian Naive Bayes model over the durable
 // feature snapshots. It is intentionally explainable and versioned; a future
 // heavier model can consume the same labels and feature contract.
