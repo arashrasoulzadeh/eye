@@ -75,6 +75,45 @@ func TestRunPipelineCompletesGlobalTenantAndQualityStages(t *testing.T) {
 	}
 }
 
+func TestStartPipelinePersistsAsyncCompletion(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:pipeline-async-test?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}, &model.IntelligenceDataQuality{}, &model.IntelligencePipelineRun{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.Create(&model.Session{ID: "async-session", TenantID: "t1", IP: "127.0.0.1", UserAgent: "browser", StartedAt: now, LastSeen: now}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Event{EventID: "async-event", TenantID: "t1", SessionID: "async-session", EventName: "page_view", ClientTS: now.UnixMilli()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	run, err := svc.StartPipeline("t1", now)
+	if err != nil || run.Status != "queued" {
+		t.Fatalf("run=%#v err=%v", run, err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		var current model.IntelligencePipelineRun
+		if err := db.First(&current, "id = ?", run.ID).Error; err == nil {
+			if current.Status == "completed" {
+				if current.Progress != 100 || current.Stage != "completed" {
+					t.Fatalf("incomplete run=%#v", current)
+				}
+				return
+			}
+			if current.Status == "failed" {
+				t.Fatalf("pipeline failed: %s", current.Error)
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("pipeline did not complete asynchronously")
+}
+
 func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
