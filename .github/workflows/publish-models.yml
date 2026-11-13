@@ -1,0 +1,34 @@
+name: Publish model artifacts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'models/**'
+      - 'deploy/model-artifact.Dockerfile'
+      - '.github/workflows/publish-models.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    if: ${{ hashFiles('models/**/manifest.json') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push model artifact
+        uses: docker/build-push-action@v6
+        with:
+          context: models
+          file: deploy/model-artifact.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/eye-models:latest
