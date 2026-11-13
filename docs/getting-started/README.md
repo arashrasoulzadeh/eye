@@ -221,6 +221,21 @@ Per-tenant boolean toggles:
 POST /feature-flags { "tenant_id": "t1", "key": "new-ui", "enabled": true }
 ```
 
+### Intelligence monitoring
+
+Prometheus metrics are exposed at `/metrics/prometheus`. Load
+`deploy/prometheus/eye-intelligence-alerts.yml` into Prometheus' `rule_files`
+to alert on model drift, unhealthy models, calibration degradation, and
+missing intelligence profiles.
+
+```yaml
+rule_files:
+  - /etc/prometheus/eye-intelligence-alerts.yml
+```
+
+The Grafana dashboard in `deploy/grafana/eye-dashboard.json` includes the
+corresponding model-quality and drift panels.
+
 ## Deployment
 
 ### Production (Docker + TimescaleDB)

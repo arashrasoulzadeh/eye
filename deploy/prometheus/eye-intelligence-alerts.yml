@@ -1,0 +1,43 @@
+groups:
+  - name: eye-intelligence
+    interval: 1m
+    rules:
+      - alert: EyeIntelligenceModelDrifted
+        expr: eye_intelligence_drift_score >= 0.3
+        for: 10m
+        labels:
+          severity: warning
+          service: eye
+        annotations:
+          summary: "Eye intelligence model drift detected"
+          description: "Model {{ $labels.tenant }}/{{ $labels.label }} has drift score {{ $value | printf \"%.3f\" }}."
+
+      - alert: EyeIntelligenceModelUnhealthy
+        expr: eye_intelligence_health == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: eye
+        annotations:
+          summary: "Eye intelligence model is unhealthy"
+          description: "Model {{ $labels.tenant }}/{{ $labels.label }} is drifted and should not be promoted."
+
+      - alert: EyeIntelligenceCalibrationDegraded
+        expr: eye_intelligence_calibration_error >= 0.2
+        for: 15m
+        labels:
+          severity: warning
+          service: eye
+        annotations:
+          summary: "Eye intelligence confidence calibration degraded"
+          description: "Calibration error for {{ $labels.tenant }}/{{ $labels.label }} is {{ $value | printf \"%.3f\" }}."
+
+      - alert: EyeIntelligenceTrainingDataQualityLow
+        expr: eye_stored_events > 0 and eye_intelligence_profiles == 0
+        for: 15m
+        labels:
+          severity: warning
+          service: eye
+        annotations:
+          summary: "Eye intelligence has no usable profiles"
+          description: "Events exist but no intelligence profiles have been materialized."
