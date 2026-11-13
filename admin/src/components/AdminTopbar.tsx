@@ -9,6 +9,7 @@ const LABELS: Record<string, string> = {
   tenants: "Tenants", sessions: "Sessions", events: "Events", schemas: "Schemas", cohorts: "Cohorts", alerts: "Alerts",
   operations: "Operations", settings: "Settings", replay: "Replay", experiments: "Experiments", "feature-flags": "Feature Flags",
   aggregations: "Aggregations", anomalies: "Anomalies", "audit-log": "Audit Log", "dead-letters": "Dead Letters", "test-event": "Test Event", "cdn-test": "CDN Test",
+  intelligence: "Intelligence",
 };
 
 const HELP: Record<string, string> = {
