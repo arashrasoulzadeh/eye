@@ -61,6 +61,8 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 		if !globalReady || intelligenceModelNeedsRetraining(global, now) {
 			if _, err := svc.TrainUnsupervisedGlobal(now); err == nil {
 				globalReady = true
+			} else if logger != nil {
+				logger.Error("automatic global intelligence training failed", "err", err)
 			}
 		}
 		promoteHealthyUnsupervisedModel(svc, "", now, logger)
@@ -72,15 +74,23 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 				var tenantModel model.IntelligenceModel
 				hasTenantModel := svc.DB.Where("tenant_id = ? AND label = ?", tenant.ID, "behavior").Order("version desc").First(&tenantModel).Error == nil
 				if globalReady && (!hasTenantModel || intelligenceModelNeedsRetraining(tenantModel, now)) {
-					_, _ = svc.TrainUnsupervised(tenant.ID, now)
+					if _, err := svc.TrainUnsupervised(tenant.ID, now); err != nil && logger != nil {
+						logger.Error("automatic intelligence training failed", "tenant", tenant.ID, "err", err)
+					}
 				}
 				promoteHealthyUnsupervisedModel(svc, tenant.ID, now, logger)
-				_ = svc.ApplyBehaviorLayers(tenant.ID)
+				if err := svc.ApplyBehaviorLayers(tenant.ID); err != nil && logger != nil {
+					logger.Error("intelligence layer application failed", "tenant", tenant.ID, "err", err)
+				}
 				if registry != nil {
 					if artifact, manifest, err := registry.Artifact("tenants/"+tenant.ID, "buyer"); err == nil {
-						_ = svc.ApplyArtifact(tenant.ID, manifest.Task, artifact)
+						if applyErr := svc.ApplyArtifact(tenant.ID, manifest.Task, artifact); applyErr != nil && logger != nil {
+							logger.Error("tenant intelligence artifact application failed", "tenant", tenant.ID, "err", applyErr)
+						}
 					} else if artifact, manifest, err := registry.Artifact("global", "buyer"); err == nil {
-						_ = svc.ApplyArtifact(tenant.ID, manifest.Task, artifact)
+						if applyErr := svc.ApplyArtifact(tenant.ID, manifest.Task, artifact); applyErr != nil && logger != nil {
+							logger.Error("global intelligence artifact application failed", "tenant", tenant.ID, "err", applyErr)
+						}
 					}
 				}
 				if logger != nil {

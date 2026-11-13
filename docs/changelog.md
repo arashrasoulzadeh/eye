@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:43:11+03:30** — fix(intelligence): prevent candidate runtime scoring (`06a07a6`, `06a07a6689b1a54ff0b2b316536bdeeb1ec20858`)
 - **2026-11-13T16:41:08+03:30** — feat(intelligence): retrain stale behavior models (`1823508`, `1823508b7d0bc10cda91f59c57359dc28301e962`)
 - **2026-11-13T16:38:45+03:30** — fix(intelligence): report alert persistence failures (`e26aa30`, `e26aa30deab790e070fab56df837feef446d7e01`)
 - **2026-11-13T16:36:57+03:30** — feat(intelligence): surface and resolve quality alerts (`c9c3808`, `c9c3808cd3a87d8e82c2be51e74865e7a5eaa2f7`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:17:05+03:30** — feat(offline): apply registry models during refresh (`fc268d3`, `fc268d338967290bcfea6f61df79463fcc867e24`)
 - **2026-11-13T13:14:53+03:30** — feat(offline): export trained models as artifacts (`9b67eb0`, `9b67eb0252077b3b8bf0210ff56848f8a88e5fc2`)
 - **2026-11-13T13:13:34+03:30** — feat(offline): apply trained intelligence scores (`701ab98`, `701ab98236de57d8b39a2912683f55d25918c7b8`)
-- **2026-11-13T13:11:02+03:30** — feat(offline): wire global model registry (`ca8674e`, `ca8674e5ad824c173115e7dfc39f0e9f9142058c`)
