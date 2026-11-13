@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T21:27:24+03:30** — fix(config): read postgres url from environment (`38cb35b`, `38cb35b7f30c4dff21a389a372b8901ea562b076`)
 - **2026-11-13T21:21:12+03:30** — fix(deploy): include base compose with postgres override (`ce56d46`, `ce56d464cc5911222e07406c3161abff9812ce7b`)
 - **2026-11-13T21:07:40+03:30** — fix(deploy): cover legacy sqlite boolean columns (`a0c87a4`, `a0c87a41a3bfa0cd9fab284805e7e84c60bd97b6`)
 - **2026-11-13T21:04:23+03:30** — fix(deploy): convert sqlite booleans for postgres (`0cb6233`, `0cb62334118358634b828f7ec321baf63179fd09`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:13:38+03:30** — feat(intelligence): add training data quality assessments (`83e4285`, `83e428586350dcc6c2918b732ef9e1d802822a9b`)
 - **2026-11-13T15:04:20+03:30** — feat(intelligence): automate model evaluation and drift checks (`d37568b`, `d37568b5385660b2c6d8266bd228c5f38ef8c971`)
 - **2026-11-13T15:02:20+03:30** — fix(intelligence): gate runtime scoring on promoted models (`1fd0ac0`, `1fd0ac0a7ee071a3b02327addffc9a7b8ca8a23a`)
-- **2026-11-13T15:00:39+03:30** — feat(intelligence): add model promotion and rollback (`f33220d`, `f33220df5727a40d3bf0a30328ba4c8363358926`)
