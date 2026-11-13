@@ -11,6 +11,10 @@ import { translate, useLanguage } from "@/components/LanguageContext";
 
 type Snapshot = Awaited<ReturnType<typeof api.intelligence.list>>[number];
 
+function numberValue(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 export default function IntelligencePage() {
   const { tenantId: globalTenant } = useTenant();
   const { language } = useLanguage();
@@ -249,7 +253,7 @@ export default function IntelligencePage() {
                     >
                       <td className="px-5 py-3">
                         <div className="flex max-w-xs flex-wrap gap-1">
-                          {row.tags.map((tag) => (
+                          {(Array.isArray(row.tags) ? row.tags : []).map((tag) => (
                             <Badge
                               key={tag}
                               tone={
@@ -277,13 +281,13 @@ export default function IntelligencePage() {
                         {row.predicted_next_event || "—"}
                       </td>
                       <td className="px-5 py-3">
-                        {row.predicted_events_today.toLocaleString()}
+                        {numberValue(row.predicted_events_today).toLocaleString()}
                       </td>
                       <td className="px-5 py-3">
-                        {(row.anomaly_score * 100).toFixed(0)}%
+                        {(numberValue(row.anomaly_score) * 100).toFixed(0)}%
                       </td>
                       <td className="px-5 py-3">
-                        {(row.confidence * 100).toFixed(0)}%
+                        {(numberValue(row.confidence) * 100).toFixed(0)}%
                       </td>
                     </tr>
                   ))}

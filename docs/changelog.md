@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T20:58:25+03:30** — fix(deploy): keep migration errors readable (`94af950`, `94af950a0f44e9e5e7159850483b2609b51997e0`)
 - **2026-11-13T20:47:30+03:30** — fix(deploy): stream sqlite rows during postgres migration (`15cfb84`, `15cfb84fe75dfb770ba382561d4c07aee4a6bae6`)
 - **2026-11-13T20:43:39+03:30** — fix(deploy): preflight migration image (`44e5c82`, `44e5c820d477cc41c55c6aaf0f2a999cf678e8da`)
 - **2026-11-13T20:37:58+03:30** — feat(deploy): migrate sqlite data to postgres (`747fe45`, `747fe45feb821a43c6efcb066c7c38cdcdb31555`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:55:59+03:30** — ci: make changelog entries timestamped and traceable (`26ab25b`, `26ab25b34ecf79da8f67c0c4a690c189feed3dc1`)
 - **2026-11-13T14:54:46+03:30** — feat(intelligence): add model evaluation and drift monitoring (`719cdc8`, `719cdc8abdf9a6896f474674dbc0ff7c67f39a20`)
 - **2026-11-13T14:50:18+03:30** — feat(intelligence): add explainable label review queue (`d5e4aa4`, `d5e4aa4edf77d42988c9b59e6b888c1c67c04d21`)
-- **2026-11-13T14:44:47+03:30** — feat(observability): add route and ML metrics (`5c9f653`, `5c9f653363c842657c19c26296bd1caff66000ca`)
