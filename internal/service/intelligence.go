@@ -117,6 +117,11 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 	var latest model.IntelligenceModel
 	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&latest)
 	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:%s:%d", tenantID, label, latest.Version+1), TenantID: tenantID, Label: label, Version: latest.Version + 1, Algorithm: "gaussian_naive_bayes", Parameters: string(encoded), Metrics: fmt.Sprintf(`{"examples":%d}`, all), CreatedAt: now}
+	metrics, metricErr := s.evaluateModel(tenantID, label, params)
+	if metricErr != nil {
+		return model.IntelligenceModel{}, metricErr
+	}
+	trained.Metrics = metrics
 	if err := s.DB.Create(&trained).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
@@ -124,6 +129,67 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 		return model.IntelligenceModel{}, err
 	}
 	return trained, nil
+}
+
+func modelProbability(features map[string]float64, params trainedModelParameters) float64 {
+	likelihood := func(stats map[string]trainedFeatureStats) float64 {
+		value := 0.0
+		for key, feature := range features {
+			stat, ok := stats[key]
+			if !ok {
+				continue
+			}
+			value += -0.5*math.Log(2*math.Pi*stat.Variance) - ((feature-stat.Mean)*(feature-stat.Mean))/(2*stat.Variance)
+		}
+		return value
+	}
+	positive := math.Log(params.PositivePrior) + likelihood(params.Positive)
+	negative := math.Log(1-params.PositivePrior) + likelihood(params.Negative)
+	odds := math.Exp(math.Min(50, positive-negative))
+	return odds / (1 + odds)
+}
+
+func (s *UserIntelligenceService) evaluateModel(tenantID, label string, params trainedModelParameters) (string, error) {
+	var labels []model.UserIntelligenceLabel
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&labels).Error; err != nil {
+		return "", err
+	}
+	tp, tn, fp, fn := 0, 0, 0, 0
+	for _, row := range labels {
+		var snapshot model.UserIntelligence
+		if err := s.DB.Where("tenant_id = ? AND fingerprint = ?", tenantID, row.Fingerprint).First(&snapshot).Error; err != nil {
+			continue
+		}
+		var features map[string]float64
+		_ = json.Unmarshal([]byte(snapshot.Features), &features)
+		predicted := modelProbability(features, params) >= 0.5
+		actual := row.Label == label
+		switch {
+		case predicted && actual:
+			tp++
+		case predicted && !actual:
+			fp++
+		case !predicted && actual:
+			fn++
+		default:
+			tn++
+		}
+	}
+	total := tp + tn + fp + fn
+	accuracy, precision, recall, f1 := 0.0, 0.0, 0.0, 0.0
+	if total > 0 {
+		accuracy = float64(tp+tn) / float64(total)
+	}
+	if tp+fp > 0 {
+		precision = float64(tp) / float64(tp+fp)
+	}
+	if tp+fn > 0 {
+		recall = float64(tp) / float64(tp+fn)
+	}
+	if precision+recall > 0 {
+		f1 = 2 * precision * recall / (precision + recall)
+	}
+	return fmt.Sprintf(`{"examples":%d,"true_positive":%d,"true_negative":%d,"false_positive":%d,"false_negative":%d,"accuracy":%.6f,"precision":%.6f,"recall":%.6f,"f1":%.6f}`, total, tp, tn, fp, fn, accuracy, precision, recall, f1), nil
 }
 
 // ApplyModel scores every current tenant snapshot using the persisted model.
@@ -136,17 +202,6 @@ func (s *UserIntelligenceService) ApplyModel(trained model.IntelligenceModel) er
 	if err := s.DB.Where("tenant_id = ?", trained.TenantID).Find(&rows).Error; err != nil {
 		return err
 	}
-	probability := func(features map[string]float64, stats map[string]trainedFeatureStats) float64 {
-		logLikelihood := 0.0
-		for key, value := range features {
-			stat, ok := stats[key]
-			if !ok {
-				continue
-			}
-			logLikelihood += -0.5*math.Log(2*math.Pi*stat.Variance) - ((value-stat.Mean)*(value-stat.Mean))/(2*stat.Variance)
-		}
-		return logLikelihood
-	}
 	for _, row := range rows {
 		var features, scores map[string]float64
 		var tags []string
@@ -156,10 +211,7 @@ func (s *UserIntelligenceService) ApplyModel(trained model.IntelligenceModel) er
 		if scores == nil {
 			scores = map[string]float64{}
 		}
-		positive := math.Log(params.PositivePrior) + probability(features, params.Positive)
-		negative := math.Log(1-params.PositivePrior) + probability(features, params.Negative)
-		odds := math.Exp(math.Min(50, positive-negative))
-		score := odds / (1 + odds)
+		score := modelProbability(features, params)
 		scores[trained.Label] = score
 		if score >= 0.7 {
 			found := false
