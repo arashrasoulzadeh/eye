@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 )
 
 const batchSize = 500
@@ -23,11 +25,12 @@ func main() {
 	if *databaseURL == "" {
 		log.Fatal("-postgres or DATABASE_URL is required")
 	}
-	source, err := gorm.Open(sqlite.Open(*sourcePath+"?_busy_timeout=10000"), &gorm.Config{})
+	gormLogger := logger.New(log.New(io.Discard, "", 0), logger.Config{LogLevel: logger.Silent})
+	source, err := gorm.Open(sqlite.Open(*sourcePath+"?_busy_timeout=10000"), &gorm.Config{Logger: gormLogger})
 	if err != nil {
 		log.Fatal(err)
 	}
-	destination, err := gorm.Open(postgres.Open(*databaseURL), &gorm.Config{})
+	destination, err := gorm.Open(postgres.Open(*databaseURL), &gorm.Config{Logger: gormLogger})
 	if err != nil {
 		log.Fatal(err)
 	}
