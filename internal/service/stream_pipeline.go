@@ -143,6 +143,9 @@ func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 		if err := p.Repo.InsertEvent(ev); err != nil {
 			return err
 		}
+		if err := UpsertEventBuckets(p.DB, ev); err != nil {
+			return err
+		}
 		if sess, err := p.Repo.GetSession(ev.SessionID); err == nil {
 			sess.EventCount++
 			sess.LastSeen = time.Now()
@@ -169,6 +172,10 @@ func (p *StreamIngestPipeline) Consume(msg StreamMessage) error {
 	}
 	txRepo := repository.New(tx)
 	if err := txRepo.InsertEvent(ev); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := UpsertEventBuckets(tx, ev); err != nil {
 		tx.Rollback()
 		return err
 	}

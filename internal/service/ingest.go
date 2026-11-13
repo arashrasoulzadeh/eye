@@ -172,6 +172,9 @@ func (s *IngestService) insertAndUpdateSession(ev *model.Event, sess *model.Sess
 		if err := s.Repo.InsertEvent(ev); err != nil {
 			return err
 		}
+		if err := UpsertEventBuckets(s.Repo.DB, ev); err != nil {
+			return err
+		}
 		sess.EventCount++
 		sess.LastSeen = time.Now()
 		return s.Repo.UpdateSession(sess)
@@ -186,6 +189,10 @@ func (s *IngestService) insertAndUpdateSession(ev *model.Event, sess *model.Sess
 	}
 	txRepo := repository.New(tx)
 	if err := txRepo.InsertEvent(ev); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := UpsertEventBuckets(tx, ev); err != nil {
 		tx.Rollback()
 		return err
 	}

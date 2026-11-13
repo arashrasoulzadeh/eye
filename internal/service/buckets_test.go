@@ -13,13 +13,20 @@ func TestBucketServiceGroupsAndCachesCounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Event{}); err != nil {
+	if err := db.AutoMigrate(&model.Event{}, &model.EventBucket{}); err != nil {
 		t.Fatal(err)
 	}
 	db.Create(&model.Event{EventID: "a", TenantID: "t1", EventName: "click", ClientTS: 61_000})
 	db.Create(&model.Event{EventID: "b", TenantID: "t1", EventName: "click", ClientTS: 119_000})
 	db.Create(&model.Event{EventID: "c", TenantID: "t1", EventName: "click", ClientTS: 601_000})
 	svc := &BucketService{DB: db}
+	var events []model.Event
+	db.Find(&events)
+	for i := range events {
+		if err := UpsertEventBuckets(db, &events[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
 	points, err := svc.Events("t1", "click", "10minute", 0, 900_000)
 	if err != nil {
 		t.Fatal(err)

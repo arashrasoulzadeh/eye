@@ -69,6 +69,16 @@ type Event struct {
 	Variant       string
 }
 
+// EventBucket stores durable time-series counts for fast analytics reads.
+type EventBucket struct {
+	TenantID    string `gorm:"primaryKey;index"`
+	EventName   string `gorm:"primaryKey;index"`
+	Bucket      string `gorm:"primaryKey"`
+	BucketStart int64  `gorm:"primaryKey;index"`
+	Count       int64
+	UpdatedAt   time.Time
+}
+
 type PendingStreamEvent struct {
 	EventID   string `gorm:"primaryKey"`
 	Payload   string

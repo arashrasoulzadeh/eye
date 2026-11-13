@@ -44,8 +44,7 @@ func bucketWidth(name string) (int64, bool) {
 }
 
 func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
-	width, ok := bucketWidth(bucket)
-	if !ok {
+	if _, ok := bucketWidth(bucket); !ok {
 		return nil, gorm.ErrInvalidData
 	}
 	key := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%d", tenantID, eventName, bucket, fromTS, toTS)
@@ -57,17 +56,17 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 	}
 	s.mu.Unlock()
 
-	query := s.DB.Model(&model.Event{}).Select("client_ts").Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?", tenantID, fromTS, toTS)
+	var rows []model.EventBucket
+	query := s.DB.Where("tenant_id = ? AND bucket = ? AND bucket_start >= ? AND bucket_start <= ?", tenantID, bucket, fromTS, toTS)
 	if eventName != "" {
 		query = query.Where("event_name = ?", eventName)
 	}
-	var rows []struct{ ClientTS int64 }
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	counts := make(map[int64]int)
 	for _, row := range rows {
-		counts[(row.ClientTS/width)*width]++
+		counts[row.BucketStart] += int(row.Count)
 	}
 	points := make([]BucketPoint, 0, len(counts))
 	for bucketStart, count := range counts {
@@ -87,4 +86,44 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 	s.cache[key] = bucketCacheEntry{expires: time.Now().Add(10 * time.Second), points: append([]BucketPoint(nil), points...)}
 	s.mu.Unlock()
 	return points, nil
+}
+
+// UpsertEventBuckets updates all durable resolutions for one accepted event.
+func UpsertEventBuckets(db *gorm.DB, event *model.Event) error {
+	for _, spec := range []struct {
+		name  string
+		width int64
+	}{{"minute", 60_000}, {"10minute", 600_000}, {"hour", 3_600_000}} {
+		start := (event.ClientTS / spec.width) * spec.width
+		var row model.EventBucket
+		err := db.Where("tenant_id = ? AND event_name = ? AND bucket = ? AND bucket_start = ?", event.TenantID, event.EventName, spec.name, start).First(&row).Error
+		if err == gorm.ErrRecordNotFound {
+			if err := db.Create(&model.EventBucket{TenantID: event.TenantID, EventName: event.EventName, Bucket: spec.name, BucketStart: start, Count: 1, UpdatedAt: time.Now()}).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := db.Model(&row).Updates(map[string]any{"count": row.Count + 1, "updated_at": time.Now()}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Backfill creates missing durable buckets for events ingested before the
+// bucket table existed. Existing rows are rebuilt idempotently at startup.
+func (s *BucketService) Backfill() error {
+	var events []model.Event
+	if err := s.DB.Select("tenant_id, event_name, client_ts").Find(&events).Error; err != nil {
+		return err
+	}
+	for i := range events {
+		if err := UpsertEventBuckets(s.DB, &events[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
