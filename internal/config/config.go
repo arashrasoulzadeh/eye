@@ -78,6 +78,13 @@ func Load() (*Config, error) {
 	if value, ok := secretFromFile("API_KEY_SALT", c.APIKeySalt); ok {
 		c.APIKeySalt = value
 	}
+	// Viper's AutomaticEnv only resolves keys that have been bound or have a
+	// default. Keep DATABASE_URL explicit because production Compose injects it
+	// as an environment variable and an empty URL must never silently select the
+	// SQLite fallback when DB_DRIVER=postgres.
+	if value := strings.TrimSpace(os.Getenv("DATABASE_URL")); value != "" {
+		c.DatabaseURL = value
+	}
 	if value, ok := secretFromFile("DATABASE_URL", c.DatabaseURL); ok {
 		c.DatabaseURL = value
 	}
