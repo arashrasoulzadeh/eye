@@ -19,7 +19,7 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 docker compose version >/dev/null || { echo "docker compose plugin is required" >&2; exit 1; }
 
 cd "$ROOT"
-COMPOSE=(docker compose)
+COMPOSE=(docker compose -f docker-compose.yml)
 if [[ "${DB_DRIVER:-sqlite}" =~ ^(postgres|postgresql|timescale)$ ]]; then
   COMPOSE+=( -f docker-compose.postgres.yml )
 fi
