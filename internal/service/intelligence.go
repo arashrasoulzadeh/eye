@@ -233,6 +233,18 @@ func (s *UserIntelligenceService) LatestEvaluation(tenantID, label string) (mode
 	return evaluation, err
 }
 
+func (s *UserIntelligenceService) Models(tenantID, label string, limit int) ([]model.IntelligenceModel, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	query := s.DB.Where("tenant_id = ?", tenantID).Order("version desc").Limit(limit)
+	if label != "" {
+		query = query.Where("label = ?", label)
+	}
+	var models []model.IntelligenceModel
+	return models, query.Find(&models).Error
+}
+
 func (s *UserIntelligenceService) PromoteLatest(tenantID, label string, now time.Time) (model.IntelligenceModel, error) {
 	var candidate model.IntelligenceModel
 	if err := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&candidate).Error; err != nil {

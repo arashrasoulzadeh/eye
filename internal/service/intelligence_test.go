@@ -184,3 +184,21 @@ func TestQualityAlertsAreDeduplicatedAndScoped(t *testing.T) {
 		t.Fatalf("open=%#v err=%v", open, err)
 	}
 }
+
+func TestModelsAreReturnedNewestFirstAndTenantScoped(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligenceModel{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	db.Create(&model.IntelligenceModel{ID: "t1:behavior:1", TenantID: "t1", Label: "behavior", Version: 1, CreatedAt: now.Add(-time.Hour)})
+	db.Create(&model.IntelligenceModel{ID: "t1:behavior:2", TenantID: "t1", Label: "behavior", Version: 2, CreatedAt: now})
+	db.Create(&model.IntelligenceModel{ID: "t2:behavior:1", TenantID: "t2", Label: "behavior", Version: 1, CreatedAt: now})
+	models, err := (&UserIntelligenceService{DB: db}).Models("t1", "behavior", 10)
+	if err != nil || len(models) != 2 || models[0].Version != 2 {
+		t.Fatalf("models=%#v err=%v", models, err)
+	}
+}
