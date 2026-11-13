@@ -23,6 +23,7 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started/README.md
+  - Admin Guide: admin/README.md
   - API Reference: api/README.md
   - SDKs:
     - Web SDK: sdk/web-sdk.md

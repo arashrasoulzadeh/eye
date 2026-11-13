@@ -210,6 +210,24 @@ data: {"events": [{"EventID": "evt-001", "EventName": "click", ...}]}
 data: {"events": [{"EventID": "evt-002", "EventName": "scroll", ...}]}
 ```
 
+## Persistent analytics buckets
+
+Bucket counts are persisted during ingestion for fast historical charts. Existing events are backfilled when the server starts.
+
+```http
+GET /analytics/buckets?tenant_id=my-tenant&event_name=page_view&bucket=hour&from_ts=1705276800000&to_ts=1705363200000
+Cookie: admin_key=<admin_key>
+```
+
+`bucket` accepts `minute`, `10minute`, or `hour`. The response contains bucket start timestamps and counts:
+
+```json
+[
+  {"bucket": 1705276800000, "count": 42},
+  {"bucket": 1705280400000, "count": 57}
+]
+```
+
 ---
 
 ## Admin Endpoints

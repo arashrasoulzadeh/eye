@@ -12,6 +12,7 @@ Documentation is deployed automatically through GitHub Pages.
 ## Quick Links
 
 - [Getting Started](getting-started/README.md)
+- [Admin Guide](admin/README.md)
 - [API Reference](api/README.md)
 - [Web SDK](sdk/web-sdk.md)
 - [Go SDK](sdk/go-sdk.md)
