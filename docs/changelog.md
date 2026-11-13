@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13** — feat(observability): add route and ML metrics (`5c9f653`)
 - **2026-11-13** — feat(observability): expose full system metrics dashboard (`d56df64`)
 - **2026-11-13** — ci: run full validation suite before commits (`8c85756`)
 - **2026-11-13** — fix(admin): guard collection responses and automate changelog (`82fadf8`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. This page is reg
 - **2026-11-13** — feat(analytics): persist event time buckets (`6d0924a`)
 - **2026-11-13** — feat(analytics): add cached time buckets (`3a5cc4b`)
 - **2026-11-13** — fix(admin): apply time range without reload (`25891e4`)
-- **2026-11-13** — fix(admin): preserve analytics share tenant (`6a527c4`)

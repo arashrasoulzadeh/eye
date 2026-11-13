@@ -16,6 +16,90 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+type LabelSuggestion struct {
+	TenantID    string                   `json:"tenant_id"`
+	Fingerprint string                   `json:"fingerprint"`
+	Label       string                   `json:"label"`
+	Confidence  float64                  `json:"confidence"`
+	Reasons     []string                 `json:"reasons"`
+	Snapshot    UserIntelligenceSnapshot `json:"snapshot"`
+}
+
+func (s *UserIntelligenceService) LabelSuggestions(tenantID string, limit int) ([]LabelSuggestion, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 25
+	}
+	var rows []model.UserIntelligence
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	var labels []model.UserIntelligenceLabel
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&labels).Error; err != nil {
+		return nil, err
+	}
+	reviewed := map[string]bool{}
+	for _, row := range labels {
+		reviewed[row.Fingerprint+":"+row.Label] = true
+	}
+	result := make([]LabelSuggestion, 0)
+	for _, row := range rows {
+		var tags []string
+		var scores map[string]float64
+		_ = json.Unmarshal([]byte(row.Tags), &tags)
+		_ = json.Unmarshal([]byte(row.Scores), &scores)
+		candidates := []string{"buyer", "potential_buyer", "returning_user", "bot", "automation", "ai_crawler", "high_intent", "inactive"}
+		for _, label := range candidates {
+			if reviewed[row.Fingerprint+":"+label] {
+				continue
+			}
+			confidence := scores[label]
+			if confidence == 0 {
+				for _, tag := range tags {
+					if tag == label {
+						confidence = 0.85
+					}
+				}
+			}
+			if confidence < 0.7 {
+				continue
+			}
+			reasons := make([]string, 0, 3)
+			for _, tag := range tags {
+				if tag == label {
+					reasons = append(reasons, "behavioral profile contains "+label)
+				}
+			}
+			if label == "bot" || label == "automation" || label == "ai_crawler" {
+				reasons = append(reasons, "user-agent classification indicates automated traffic")
+			}
+			if label == "buyer" || label == "potential_buyer" || label == "high_intent" {
+				reasons = append(reasons, "purchase and intent events were observed")
+			}
+			if label == "returning_user" {
+				reasons = append(reasons, "multiple sessions were observed")
+			}
+			if label == "inactive" {
+				reasons = append(reasons, "last activity is outside the active window")
+			}
+			result = append(result, LabelSuggestion{TenantID: tenantID, Fingerprint: row.Fingerprint, Label: label, Confidence: confidence, Reasons: reasons, Snapshot: snapshotOf(row)})
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Confidence > result[j].Confidence })
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+func snapshotOf(row model.UserIntelligence) UserIntelligenceSnapshot {
+	var tags []string
+	var scores, features map[string]float64
+	_ = json.Unmarshal([]byte(row.Tags), &tags)
+	_ = json.Unmarshal([]byte(row.Scores), &scores)
+	_ = json.Unmarshal([]byte(row.Features), &features)
+	return UserIntelligenceSnapshot{TenantID: row.TenantID, Fingerprint: row.Fingerprint, IP: row.IP, UserAgent: row.UserAgent, Tags: tags, Scores: scores, Features: features, AnomalyScore: row.AnomalyScore, PredictedNextEvent: row.PredictedNextEvent, PredictedEventsToday: row.PredictedEventsToday, Confidence: row.Confidence, ComputedAt: row.ComputedAt}
+}
+
 // TrainUnsupervised builds a tenant baseline from the explainable snapshots
 // already produced by Refresh. It needs no hand-labelled users: the existing
 // behavioral tags and anomaly scores become the initial segments, while the
@@ -116,16 +200,35 @@ func (s *UserIntelligenceService) AddLabel(tenantID, fingerprint, label, source 
 		source = "admin"
 	}
 	id := tenantID + ":" + fingerprint + ":" + label
-	return s.DB.Where("id = ?", id).Assign(model.UserIntelligenceLabel{ID: id, TenantID: tenantID, Fingerprint: fingerprint, Label: label, Source: source, CreatedAt: time.Now()}).FirstOrCreate(&model.UserIntelligenceLabel{}).Error
+	return s.DB.Where("id = ?", id).Assign(model.UserIntelligenceLabel{ID: id, TenantID: tenantID, Fingerprint: fingerprint, Label: label, Source: source, Decision: "accepted", CreatedAt: time.Now()}).FirstOrCreate(&model.UserIntelligenceLabel{}).Error
+}
+
+func (s *UserIntelligenceService) ReviewSuggestion(tenantID, fingerprint, label, decision string) error {
+	if decision != "accepted" && decision != "denied" {
+		return fmt.Errorf("decision must be accepted or denied")
+	}
+	if !allowedIntelligenceLabels[label] {
+		return fmt.Errorf("unsupported intelligence label: %s", label)
+	}
+	id := tenantID + ":" + fingerprint + ":" + label
+	row := model.UserIntelligenceLabel{}
+	err := s.DB.Where("id = ?", id).First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return s.DB.Create(&model.UserIntelligenceLabel{ID: id, TenantID: tenantID, Fingerprint: fingerprint, Label: label, Source: "suggestion", Decision: decision, CreatedAt: time.Now()}).Error
+	}
+	if err != nil {
+		return err
+	}
+	return s.DB.Model(&row).Updates(map[string]any{"source": "suggestion", "decision": decision, "created_at": time.Now()}).Error
 }
 
 func (s *UserIntelligenceService) TrainingReadiness(tenantID, label string) (map[string]any, error) {
 	var positive, total int64
-	q := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ? AND label = ?", tenantID, label)
+	q := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ? AND label = ? AND (decision IS NULL OR decision <> ?)", tenantID, label, "denied")
 	if err := q.Count(&positive).Error; err != nil {
 		return nil, err
 	}
-	if err := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ?", tenantID).Count(&total).Error; err != nil {
+	if err := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Count(&total).Error; err != nil {
 		return nil, err
 	}
 	return map[string]any{"tenant_id": tenantID, "label": label, "examples": total, "positive": positive, "negative": total - positive, "ready": total >= 20 && positive >= 5 && total-positive >= 5}, nil
@@ -148,7 +251,7 @@ func (s *UserIntelligenceService) TrainingRuns(tenantID, label string, limit int
 // heavier model can consume the same labels and feature contract.
 func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (model.IntelligenceModel, error) {
 	var labels []model.UserIntelligenceLabel
-	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&labels).Error; err != nil {
+	if err := s.DB.Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Find(&labels).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
 	positive := map[string][]float64{}
@@ -247,7 +350,7 @@ func modelProbability(features map[string]float64, params trainedModelParameters
 
 func (s *UserIntelligenceService) evaluateModel(tenantID, label string, params trainedModelParameters) (string, error) {
 	var labels []model.UserIntelligenceLabel
-	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&labels).Error; err != nil {
+	if err := s.DB.Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Find(&labels).Error; err != nil {
 		return "", err
 	}
 	tp, tn, fp, fn := 0, 0, 0, 0

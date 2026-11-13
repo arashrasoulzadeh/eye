@@ -82,6 +82,7 @@ type UserIntelligenceLabel struct {
 	Fingerprint string `gorm:"index"`
 	Label       string `gorm:"index"`
 	Source      string
+	Decision    string `gorm:"index"` // accepted, denied; empty means legacy accepted
 	CreatedAt   time.Time
 }
 

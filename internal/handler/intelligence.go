@@ -38,6 +38,32 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+	if r.URL.Query().Get("action") == "suggestions" {
+		rows, err := h.Svc.LabelSuggestions(tenantID, 50)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(rows)
+		return
+	}
+	if r.URL.Query().Get("action") == "review" && r.Method == http.MethodPost {
+		var body struct {
+			Fingerprint string `json:"fingerprint"`
+			Label       string `json:"label"`
+			Decision    string `json:"decision"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid review", http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.ReviewSuggestion(tenantID, body.Fingerprint, body.Label, body.Decision); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if r.URL.Query().Get("action") == "readiness" {
 		label := r.URL.Query().Get("label")
 		if label == "" {

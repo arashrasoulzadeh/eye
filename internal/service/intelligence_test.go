@@ -99,3 +99,26 @@ func TestUnsupervisedTrainingUsesGlobalBaseAndTenantLayer(t *testing.T) {
 		t.Fatalf("layer scores missing: %s", snapshot.Scores)
 	}
 }
+
+func TestLabelSuggestionsAreExplainableAndDenialsDisappear(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.UserIntelligence{}, &model.UserIntelligenceLabel{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	db.Create(&model.UserIntelligence{ID: "t1:u1", TenantID: "t1", Fingerprint: "u1", IP: "1.2.3.4", UserAgent: "browser", Tags: `["buyer"]`, Scores: `{"buyer":0.95}`})
+	suggestions, err := svc.LabelSuggestions("t1", 10)
+	if err != nil || len(suggestions) != 1 || suggestions[0].Label != "buyer" || len(suggestions[0].Reasons) == 0 {
+		t.Fatalf("suggestions=%#v err=%v", suggestions, err)
+	}
+	if err := svc.ReviewSuggestion("t1", "u1", "buyer", "denied"); err != nil {
+		t.Fatal(err)
+	}
+	suggestions, err = svc.LabelSuggestions("t1", 10)
+	if err != nil || len(suggestions) != 0 {
+		t.Fatalf("denied suggestion remained: %#v err=%v", suggestions, err)
+	}
+}
