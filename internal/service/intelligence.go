@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/arashrasoulzadeh/eye/internal/metrics"
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"gorm.io/gorm"
 )
@@ -164,6 +165,15 @@ func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now tim
 	} else if evaluation.DriftScore >= 0.15 {
 		evaluation.Status = "warning"
 	}
+	metrics.IntelligenceDriftScore.WithLabelValues(tenantID, label).Set(evaluation.DriftScore)
+	metrics.IntelligenceCalibrationError.WithLabelValues(tenantID, label).Set(evaluation.CalibrationError)
+	health := 1.0
+	if evaluation.Status == "warning" {
+		health = 0.5
+	} else if evaluation.Status == "drifted" {
+		health = 0
+	}
+	metrics.IntelligenceHealth.WithLabelValues(tenantID, label).Set(health)
 	details, _ := json.Marshal(map[string]any{"algorithm": trained.Algorithm, "model_version": trained.Version, "scope": map[bool]string{true: "tenant", false: "global"}[tenantID != ""], "brier_score": evaluation.BrierScore, "calibration_error": evaluation.CalibrationError})
 	evaluation.Details = string(details)
 	if err := s.DB.Create(&evaluation).Error; err != nil {

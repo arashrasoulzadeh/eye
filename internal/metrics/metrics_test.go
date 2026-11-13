@@ -30,6 +30,9 @@ func TestInit(t *testing.T) {
 	prometheus.Unregister(MLTrainingNegativeExamples)
 	prometheus.Unregister(MLAnomalyScoreAverage)
 	prometheus.Unregister(MLPredictionConfidenceAverage)
+	prometheus.Unregister(IntelligenceDriftScore)
+	prometheus.Unregister(IntelligenceCalibrationError)
+	prometheus.Unregister(IntelligenceHealth)
 
 	Init()
 

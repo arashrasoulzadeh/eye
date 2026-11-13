@@ -56,6 +56,9 @@ var MLTrainingPositiveExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: 
 var MLTrainingNegativeExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_training_negative_examples", Help: "Negative examples in persisted ML training runs."})
 var MLAnomalyScoreAverage = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_anomaly_score_average", Help: "Average anomaly score across user intelligence snapshots."})
 var MLPredictionConfidenceAverage = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_prediction_confidence_average", Help: "Average prediction confidence across user intelligence snapshots."})
+var IntelligenceDriftScore = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_intelligence_drift_score", Help: "Latest model drift score by tenant and label."}, []string{"tenant", "label"})
+var IntelligenceCalibrationError = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_intelligence_calibration_error", Help: "Latest model calibration error by tenant and label."}, []string{"tenant", "label"})
+var IntelligenceHealth = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_intelligence_health", Help: "Latest model health: 1 healthy, 0.5 warning, 0 drifted."}, []string{"tenant", "label"})
 
 var httpRequests atomic.Int64
 var httpErrors atomic.Int64
@@ -140,5 +143,5 @@ func RefreshDatabaseStats(db *gorm.DB) {
 func HTTPRequestSnapshot() (total, errors int64) { return httpRequests.Load(), httpErrors.Load() }
 
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows, HTTPRouteDuration, MLTrainingExamples, MLTrainingPositiveExamples, MLTrainingNegativeExamples, MLAnomalyScoreAverage, MLPredictionConfidenceAverage)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows, HTTPRouteDuration, MLTrainingExamples, MLTrainingPositiveExamples, MLTrainingNegativeExamples, MLAnomalyScoreAverage, MLPredictionConfidenceAverage, IntelligenceDriftScore, IntelligenceCalibrationError, IntelligenceHealth)
 }
