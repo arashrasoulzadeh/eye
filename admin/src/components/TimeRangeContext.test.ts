@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { formatTimeRange, parseTimeRange } from "./TimeRangeContext";
 
 describe("global time range queries", () => {
@@ -22,5 +24,10 @@ describe("global time range queries", () => {
     expect(formatTimeRange("0.0666667")).toBe("Last 4 minutes");
     expect(formatTimeRange("0.5")).toBe("Last 30 minutes");
     expect(formatTimeRange("720")).toBe("Last 30 days");
+  });
+
+  it("updates the range without forcing a full page reload", () => {
+    const source = readFileSync(join(process.cwd(), "src", "components", "TimeRangeContext.tsx"), "utf8");
+    expect(source).not.toContain("window.location.reload()");
   });
 });
