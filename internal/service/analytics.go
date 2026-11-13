@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,7 +19,16 @@ import (
 // directly from raw events — there's no materialized read model for these
 // yet (unlike AggregateCount for simple counts), so both scan Event rows
 // for the requested tenant/time range on each call.
-type AnalyticsService struct{ DB *gorm.DB }
+type analyticsFunnelCacheEntry struct {
+	expires time.Time
+	value   []FunnelStepResult
+}
+
+type AnalyticsService struct {
+	DB          *gorm.DB
+	cacheMu     sync.Mutex
+	funnelCache map[string]analyticsFunnelCacheEntry
+}
 
 type SessionEventCount struct {
 	SessionID string `json:"session_id"`
@@ -374,6 +384,14 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 	if len(steps) == 0 {
 		return nil, nil
 	}
+	key := fmt.Sprintf("%s|%s|%v|%v", tenantID, strings.Join(steps, "\x00"), fromTS, toTS)
+	a.cacheMu.Lock()
+	if entry, ok := a.funnelCache[key]; ok && time.Now().Before(entry.expires) {
+		value := append([]FunnelStepResult(nil), entry.value...)
+		a.cacheMu.Unlock()
+		return value, nil
+	}
+	a.cacheMu.Unlock()
 
 	query := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND is_aggregated = ?", tenantID, false).Where("event_name IN ?", steps)
 	if fromTS != nil {
@@ -419,6 +437,18 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 		}
 		results[i] = FunnelStepResult{EventName: s, Sessions: counts[i], ConversionRate: rate}
 	}
+	a.cacheMu.Lock()
+	if a.funnelCache == nil {
+		a.funnelCache = make(map[string]analyticsFunnelCacheEntry)
+	}
+	if len(a.funnelCache) >= 128 {
+		for oldKey := range a.funnelCache {
+			delete(a.funnelCache, oldKey)
+			break
+		}
+	}
+	a.funnelCache[key] = analyticsFunnelCacheEntry{expires: time.Now().Add(10 * time.Second), value: append([]FunnelStepResult(nil), results...)}
+	a.cacheMu.Unlock()
 	return results, nil
 }
 
