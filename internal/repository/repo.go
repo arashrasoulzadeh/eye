@@ -10,13 +10,21 @@ type Repo struct{ DB *gorm.DB }
 func New(db *gorm.DB) *Repo { return &Repo{DB: db} }
 
 func (r *Repo) Migrate() error {
-	return r.DB.AutoMigrate(
-		&model.Tenant{}, &model.Session{}, &model.Event{}, &model.Schema{},
+	models := []any{
+		&model.Tenant{}, &model.Session{}, &model.Schema{},
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 		&model.AggregateCount{}, &model.AlertRule{}, &model.RuntimeSettings{},
 		&model.WebhookDeadLetter{}, &model.AuditLog{}, &model.AdminUser{}, &model.FeatureFlag{}, &model.DashboardCache{}, &model.Question{},
 		&model.PendingStreamEvent{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceTrainingRun{}, &model.IntelligencePipelineRun{}, &model.IntelligenceModel{}, &model.IntelligenceEvaluation{}, &model.IntelligenceDataQuality{}, &model.IntelligenceAlert{}, &model.AdminTeam{}, &model.AdminTeamMember{}, &model.AdminSession{},
-	)
+	}
+	// Timescale hypertables must not be rewritten by GORM on every restart:
+	// AutoMigrate attempts to alter ingest_ts and Timescale rejects that ALTER.
+	// The event table is created here on first boot, then managed by the
+	// Timescale feature migration thereafter.
+	if r.DB.Dialector.Name() != "postgres" || !r.DB.Migrator().HasTable("events") {
+		models = append([]any{&model.Event{}}, models...)
+	}
+	return r.DB.AutoMigrate(models...)
 }
 
 // GetSettings returns the singleton runtime-settings row, or
