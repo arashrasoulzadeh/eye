@@ -24,7 +24,11 @@ MODEL_IMAGE=ghcr.io/arashrasoulzadeh/eye-models:latest ./deploy/update-models.sh
 ```
 
 This does not rebuild, remove, or reset application containers or data. The
-intelligence scheduler consumes the new validated model on its next refresh.
+The script validates every manifest and referenced artifact before activation,
+backs up the current `eye-models` volume, and restores that backup if the
+activation copy fails. The intelligence scheduler consumes the new validated
+model on its next refresh. A failed update leaves the previous model set in
+place; inspect the script output and retry after correcting the artifact.
 
 To create the GHCR credentials, open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Grant `read:packages` to pull private images, copy the token once, and add this to `.env`:
 
