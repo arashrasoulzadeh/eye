@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/repository"
@@ -60,6 +62,16 @@ func main() {
 // the source and destination schemas are compatible but the migration must
 // preserve every column (including columns added after this binary was built).
 func copyTable(source, destination *gorm.DB, table string) error {
+	boolColumns := map[string]bool{}
+	if columnTypes, err := destination.Migrator().ColumnTypes(table); err == nil {
+		for _, column := range columnTypes {
+			databaseType := column.DatabaseTypeName()
+			if strings.EqualFold(databaseType, "boolean") || strings.EqualFold(databaseType, "bool") {
+				name := column.Name()
+				boolColumns[name] = true
+			}
+		}
+	}
 	rows, err := source.Table(table).Rows()
 	if err != nil {
 		return fmt.Errorf("read %s: %w", table, err)
@@ -83,7 +95,13 @@ func copyTable(source, destination *gorm.DB, table string) error {
 			record := make(map[string]any, len(columns))
 			for i, column := range columns {
 				// SQLite drivers may return []byte backed by a reused buffer.
-				if bytes, ok := values[i].([]byte); ok {
+				if boolColumns[column] {
+					converted, err := sqliteBool(values[i])
+					if err != nil {
+						return fmt.Errorf("convert %s.%s to boolean: %w", table, column, err)
+					}
+					record[column] = converted
+				} else if bytes, ok := values[i].([]byte); ok {
 					record[column] = append([]byte(nil), bytes...)
 				} else {
 					record[column] = values[i]
@@ -100,4 +118,32 @@ func copyTable(source, destination *gorm.DB, table string) error {
 		log.Printf("migrated %s batch %d (%d rows)", table, batch, len(records))
 	}
 	return rows.Err()
+}
+
+func sqliteBool(value any) (any, error) {
+	if value == nil {
+		return nil, nil
+	}
+	switch typed := value.(type) {
+	case bool:
+		return typed, nil
+	case int64:
+		return typed != 0, nil
+	case int:
+		return typed != 0, nil
+	case []byte:
+		return sqliteBool(string(typed))
+	case string:
+		parsed, err := strconv.ParseBool(typed)
+		if err == nil {
+			return parsed, nil
+		}
+		integer, integerErr := strconv.ParseInt(typed, 10, 64)
+		if integerErr == nil {
+			return integer != 0, nil
+		}
+		return nil, fmt.Errorf("invalid value %q", typed)
+	default:
+		return nil, fmt.Errorf("unsupported value type %T", value)
+	}
 }
