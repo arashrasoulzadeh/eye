@@ -15,7 +15,7 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.UserIntelligence{}); err != nil {
+	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
@@ -82,5 +82,15 @@ func TestUnsupervisedTrainingUsesGlobalBaseAndTenantLayer(t *testing.T) {
 	}
 	if !strings.Contains(local.Metrics, `"base_model_version":1`) {
 		t.Fatalf("tenant model did not inherit global base: %s", local.Metrics)
+	}
+	if err := svc.ApplyBehaviorLayers("t1"); err != nil {
+		t.Fatal(err)
+	}
+	var snapshot model.UserIntelligence
+	if err := db.First(&snapshot, "id = ?", "t1:u1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(snapshot.Scores, "global_behavior") || !strings.Contains(snapshot.Scores, "tenant_behavior") {
+		t.Fatalf("layer scores missing: %s", snapshot.Scores)
 	}
 }

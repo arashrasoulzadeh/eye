@@ -461,7 +461,115 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 		count++
 		_ = key
 	}
+	if err := s.ApplyBehaviorLayers(tenantID); err != nil {
+		return count, err
+	}
 	return count, nil
+}
+
+// ApplyBehaviorLayers combines the shared global behavioral baseline with the
+// latest tenant adaptation. The model stores aggregate segment frequencies,
+// so runtime scoring remains explainable and deterministic for every profile.
+func (s *UserIntelligenceService) ApplyBehaviorLayers(tenantID string) error {
+	var global, local model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&local)
+	globalMetrics := behaviorMetrics(global.Metrics)
+	localMetrics := behaviorMetrics(local.Metrics)
+	var rows []model.UserIntelligence
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		var tags []string
+		var scores map[string]float64
+		_ = json.Unmarshal([]byte(row.Tags), &tags)
+		_ = json.Unmarshal([]byte(row.Scores), &scores)
+		if scores == nil {
+			scores = map[string]float64{}
+		}
+		common, rare := false, false
+		for _, tag := range tags {
+			frequency := globalMetrics.segmentFrequency(tag)
+			if frequency >= 0.5 {
+				common = true
+			}
+			if frequency > 0 && frequency < 0.1 {
+				rare = true
+			}
+		}
+		if common && !containsTag(tags, "common_behavior") {
+			tags = append(tags, "common_behavior")
+		}
+		if rare && !containsTag(tags, "rare_behavior") {
+			tags = append(tags, "rare_behavior")
+		}
+		globalRate := globalMetrics.anomalyRate()
+		localRate := localMetrics.anomalyRate()
+		combinedRate := globalRate
+		if local.Version > 0 {
+			combinedRate = (globalRate + localRate) / 2
+			scores["tenant_behavior"] = localRate
+		}
+		scores["global_behavior"] = globalRate
+		row.AnomalyScore = math.Max(row.AnomalyScore, combinedRate)
+		row.Confidence = math.Min(1, row.Confidence+0.1)
+		encodedTags, _ := json.Marshal(tags)
+		encodedScores, _ := json.Marshal(scores)
+		row.Tags, row.Scores = string(encodedTags), string(encodedScores)
+		if err := s.DB.Save(&row).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type behaviorModelMetrics struct {
+	Profiles  float64
+	Anomalies float64
+	Segments  map[string]float64
+}
+
+func behaviorMetrics(raw string) behaviorModelMetrics {
+	var value struct {
+		Profiles  float64        `json:"profiles"`
+		Anomalies float64        `json:"anomalies"`
+		Segments  map[string]int `json:"segments"`
+	}
+	_ = json.Unmarshal([]byte(raw), &value)
+	segments := map[string]float64{}
+	for key, count := range value.Segments {
+		segments[key] = float64(count)
+	}
+	return behaviorModelMetrics{Profiles: value.Profiles, Anomalies: value.Anomalies, Segments: segments}
+}
+
+func (m behaviorModelMetrics) anomalyRate() float64 {
+	if m.Profiles <= 0 {
+		return 0
+	}
+	return math.Min(1, m.Anomalies/m.Profiles)
+}
+
+func (m behaviorModelMetrics) segmentFrequency(tag string) float64 {
+	if m.Profiles <= 0 {
+		return 0
+	}
+	return m.Segments[tag] / m.Profiles
+}
+
+func containsTag(tags []string, wanted string) bool {
+	for _, tag := range tags {
+		if tag == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *UserIntelligenceService) List(tenantID string, limit int) ([]UserIntelligenceSnapshot, error) {
