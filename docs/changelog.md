@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T21:41:44+03:30** — fix(postgres): make event key hypertable compatible (`4865b5f`, `4865b5fcf447c10ff8e3349836fa66aff29e0f46`)
 - **2026-11-13T21:34:17+03:30** — fix(postgres): migrate existing events into hypertable (`a78c717`, `a78c7172013cec5a19f84f1cd62ad097ac1b4e44`)
 - **2026-11-13T21:27:24+03:30** — fix(config): read postgres url from environment (`38cb35b`, `38cb35b7f30c4dff21a389a372b8901ea562b076`)
 - **2026-11-13T21:21:12+03:30** — fix(deploy): include base compose with postgres override (`ce56d46`, `ce56d464cc5911222e07406c3161abff9812ce7b`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:19:09+03:30** — feat(intelligence): measure confidence calibration (`94f76c9`, `94f76c956f1d6c2cc248fc71175d8ccb4a17f7ee`)
 - **2026-11-13T16:16:51+03:30** — feat(intelligence): persist explicit user identity (`5813ca8`, `5813ca814b89de695006689e1eb971768e9e2d86`)
 - **2026-11-13T16:13:38+03:30** — feat(intelligence): add training data quality assessments (`83e4285`, `83e428586350dcc6c2918b732ef9e1d802822a9b`)
-- **2026-11-13T15:04:20+03:30** — feat(intelligence): automate model evaluation and drift checks (`d37568b`, `d37568b5385660b2c6d8266bd228c5f38ef8c971`)

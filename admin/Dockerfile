@@ -14,6 +14,8 @@ RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 FROM node:22-bookworm-slim
 WORKDIR /app
+ARG NEXT_PUBLIC_RELEASE=development
+LABEL org.opencontainers.image.revision=$NEXT_PUBLIC_RELEASE
 ENV NODE_ENV=production
 # Optional OIDC settings are read at runtime by the server routes:
 # OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI,

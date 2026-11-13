@@ -13,6 +13,7 @@ if [[ -f "$ROOT/.env" ]]; then
   source "$ROOT/.env"
   set +a
 fi
+: "${GITHUB_SHA:=$(git -C "$ROOT" rev-parse HEAD)}"
 : "${ADMIN_KEY:?ADMIN_KEY is required}"
 : "${API_KEY_SALT:?API_KEY_SALT is required}"
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
@@ -32,6 +33,25 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 "${COMPOSE[@]}" pull --quiet
+
+# Never restart with a stale `latest` image when the registry is still
+# building the commit that was checked out on this server. The publish
+# workflow writes this OCI revision label for every service image.
+if [[ "${WAIT_FOR_IMAGE:-true}" == "true" && -n "${GITHUB_SHA:-}" ]]; then
+  for attempt in {1..60}; do
+    "${COMPOSE[@]}" pull --quiet server admin collector >/dev/null 2>&1 || true
+    server_revision="$(docker image inspect "${EYE_SERVER_IMAGE:-ghcr.io/arashrasoulzadeh/eye-server:latest}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+    admin_revision="$(docker image inspect "${EYE_ADMIN_IMAGE:-ghcr.io/arashrasoulzadeh/eye-admin:latest}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+    if [[ "$server_revision" == "$GITHUB_SHA" || "$server_revision" == "${GITHUB_SHA:0:7}" ]] && [[ "$admin_revision" == "sha-${GITHUB_SHA}" || "$admin_revision" == "sha-${GITHUB_SHA:0:7}" ]]; then
+      break
+    fi
+    if [[ "$attempt" -eq 60 ]]; then
+      echo "GHCR images are not published for commit $GITHUB_SHA yet; refusing stale deployment." >&2
+      exit 1
+    fi
+    sleep 10
+  done
+fi
 # Optional standalone model artifact. This updates only the persistent model
 # volume; leaving MODEL_IMAGE unset keeps deployments application-only.
 if [[ -n "${MODEL_IMAGE:-}" ]]; then
