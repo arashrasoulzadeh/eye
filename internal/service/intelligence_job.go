@@ -14,6 +14,26 @@ func intelligenceModelNeedsRetraining(model model.IntelligenceModel, now time.Ti
 	return model.ID == "" || model.CreatedAt.IsZero() || now.Sub(model.CreatedAt) >= intelligenceRetrainAfter
 }
 
+func promoteHealthyUnsupervisedModel(svc *UserIntelligenceService, tenantID string, now time.Time, logger *slog.Logger) {
+	var candidate model.IntelligenceModel
+	if err := svc.DB.Where("tenant_id = ? AND label = ? AND status = ? AND algorithm = ?", tenantID, "behavior", "candidate", "unsupervised_behavior_v1").Order("version desc").First(&candidate).Error; err != nil {
+		return
+	}
+	evaluation, err := svc.EvaluateLatest(tenantID, "behavior", now)
+	if err != nil {
+		if logger != nil {
+			logger.Error("automatic intelligence evaluation failed", "tenant", tenantID, "err", err)
+		}
+		return
+	}
+	if evaluation.Status == "drifted" {
+		return
+	}
+	if _, err := svc.PromoteLatest(tenantID, "behavior", now); err != nil && logger != nil {
+		logger.Error("automatic intelligence promotion failed", "tenant", tenantID, "err", err)
+	}
+}
+
 // RunUserIntelligenceJob refreshes every tenant's explainable snapshot on a
 // schedule. A later supervised trainer can consume the same stored features.
 func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, registry *ModelRegistry, interval time.Duration, logger *slog.Logger) {
@@ -43,6 +63,7 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 				globalReady = true
 			}
 		}
+		promoteHealthyUnsupervisedModel(svc, "", now, logger)
 		for _, tenant := range tenants {
 			if _, ok := counts[tenant.ID]; !ok {
 				continue
@@ -53,6 +74,7 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 				if globalReady && (!hasTenantModel || intelligenceModelNeedsRetraining(tenantModel, now)) {
 					_, _ = svc.TrainUnsupervised(tenant.ID, now)
 				}
+				promoteHealthyUnsupervisedModel(svc, tenant.ID, now, logger)
 				_ = svc.ApplyBehaviorLayers(tenant.ID)
 				if registry != nil {
 					if artifact, manifest, err := registry.Artifact("tenants/"+tenant.ID, "buyer"); err == nil {

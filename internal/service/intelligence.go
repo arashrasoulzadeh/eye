@@ -907,15 +907,15 @@ func (s *UserIntelligenceService) ApplyBehaviorLayers(tenantID string) error {
 	var global, local model.IntelligenceModel
 	globalQuery := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", "", "behavior", "promoted").Order("version desc")
 	if err := globalQuery.First(&global).Error; err != nil {
-		if err := s.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return nil
-			}
-			return err
+		if err == gorm.ErrRecordNotFound {
+			return nil
 		}
+		return err
 	}
 	if err := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", tenantID, "behavior", "promoted").Order("version desc").First(&local).Error; err != nil {
-		_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&local)
+		if err != gorm.ErrRecordNotFound {
+			return err
+		}
 	}
 	globalMetrics := behaviorMetrics(global.Metrics)
 	localMetrics := behaviorMetrics(local.Metrics)

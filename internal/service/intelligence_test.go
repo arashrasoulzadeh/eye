@@ -88,6 +88,9 @@ func TestUnsupervisedTrainingUsesGlobalBaseAndTenantLayer(t *testing.T) {
 	if !strings.Contains(local.Metrics, `"base_model_version":1`) {
 		t.Fatalf("tenant model did not inherit global base: %s", local.Metrics)
 	}
+	if err := db.Model(&model.IntelligenceModel{}).Where("tenant_id IN ? AND label = ?", []string{"", "t1"}, "behavior").Update("status", "promoted").Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := svc.ApplyBehaviorLayers("t1"); err != nil {
 		t.Fatal(err)
 	}
