@@ -81,6 +81,7 @@ func main() {
 		logger.Error("geoip database open failed", "path", cfg.GeoIPDatabasePath, "err", err)
 		os.Exit(1)
 	}
+	intelligenceSvc := &service.UserIntelligenceService{DB: db}
 	defer geoIP.Close()
 	if updated, backfillErr := geoIP.Backfill(db); backfillErr != nil {
 		logger.Error("geoip backfill failed", "err", backfillErr)
@@ -154,6 +155,7 @@ func main() {
 		setTenantContext = nil
 	}
 	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP})))
+	mux.Handle("/intelligence/users", adminAuth(&handler.IntelligenceHandler{Svc: intelligenceSvc}))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})

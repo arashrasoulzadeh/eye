@@ -57,6 +57,25 @@ type Session struct {
 	DeviceInfo string
 }
 
+// UserIntelligence is the durable, explainable feature/prediction snapshot for
+// one tenant-scoped IP + user-agent fingerprint. ML jobs can replace the
+// scores later without changing the API contract.
+type UserIntelligence struct {
+	ID                   string `gorm:"primaryKey"`
+	TenantID             string `gorm:"index"`
+	Fingerprint          string `gorm:"index"`
+	IP                   string
+	UserAgent            string
+	Tags                 string
+	Scores               string
+	Features             string
+	AnomalyScore         float64
+	PredictedNextEvent   string
+	PredictedEventsToday int64
+	Confidence           float64
+	ComputedAt           time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`
