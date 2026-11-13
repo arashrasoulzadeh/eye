@@ -106,6 +106,9 @@ type IntelligenceModel struct {
 	Algorithm  string
 	Parameters string
 	Metrics    string
+	Status     string `gorm:"index"` // candidate, promoted, rolled_back
+	PromotedAt *time.Time
+	ParentID   string
 	CreatedAt  time.Time
 }
 

@@ -74,6 +74,54 @@ func (s *UserIntelligenceService) LatestEvaluation(tenantID, label string) (mode
 	return evaluation, err
 }
 
+func (s *UserIntelligenceService) PromoteLatest(tenantID, label string, now time.Time) (model.IntelligenceModel, error) {
+	var candidate model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&candidate).Error; err != nil {
+		return candidate, err
+	}
+	var evaluation model.IntelligenceEvaluation
+	if err := s.DB.Where("tenant_id = ? AND label = ? AND model_version = ?", tenantID, label, candidate.Version).Order("created_at desc").First(&evaluation).Error; err != nil {
+		return candidate, fmt.Errorf("model must be evaluated before promotion: %w", err)
+	}
+	if evaluation.Status == "drifted" {
+		return candidate, fmt.Errorf("model has drift score %.3f and cannot be promoted", evaluation.DriftScore)
+	}
+	var active model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", tenantID, label, "promoted").First(&active).Error; err == nil && active.ID != candidate.ID {
+		_ = s.DB.Model(&active).Updates(map[string]any{"status": "rolled_back"})
+		candidate.ParentID = active.ID
+	}
+	candidate.Status = "promoted"
+	candidate.PromotedAt = &now
+	if err := s.DB.Model(&candidate).Updates(map[string]any{"status": candidate.Status, "promoted_at": candidate.PromotedAt, "parent_id": candidate.ParentID}).Error; err != nil {
+		return candidate, err
+	}
+	return candidate, nil
+}
+
+func (s *UserIntelligenceService) Rollback(tenantID, label string) (model.IntelligenceModel, error) {
+	var active model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ? AND status = ?", tenantID, label, "promoted").First(&active).Error; err != nil {
+		return active, err
+	}
+	if active.ParentID == "" {
+		return active, fmt.Errorf("no previous promoted model is available")
+	}
+	var previous model.IntelligenceModel
+	if err := s.DB.Where("id = ?", active.ParentID).First(&previous).Error; err != nil {
+		return active, err
+	}
+	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&active).Update("status", "rolled_back").Error; err != nil {
+			return err
+		}
+		return tx.Model(&previous).Updates(map[string]any{"status": "promoted", "promoted_at": time.Now()}).Error
+	}); err != nil {
+		return active, err
+	}
+	return previous, nil
+}
+
 type LabelSuggestion struct {
 	TenantID    string                   `json:"tenant_id"`
 	Fingerprint string                   `json:"fingerprint"`
@@ -227,7 +275,7 @@ func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now ti
 	encoded, _ := json.Marshal(metrics)
 	var latest model.IntelligenceModel
 	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&latest)
-	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:behavior:%d", tenantID, latest.Version+1), TenantID: tenantID, Label: "behavior", Version: latest.Version + 1, Algorithm: "unsupervised_behavior_v1", Parameters: string(encoded), Metrics: string(encoded), CreatedAt: now}
+	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:behavior:%d", tenantID, latest.Version+1), TenantID: tenantID, Label: "behavior", Version: latest.Version + 1, Algorithm: "unsupervised_behavior_v1", Parameters: string(encoded), Metrics: string(encoded), Status: "candidate", CreatedAt: now}
 	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: len(events), Status: "completed", Metrics: string(encoded), CreatedAt: now}
 	if err := s.DB.Create(&run).Error; err != nil {
 		return model.IntelligenceModel{}, err
@@ -369,7 +417,7 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 	encoded, _ := json.Marshal(params)
 	var latest model.IntelligenceModel
 	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&latest)
-	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:%s:%d", tenantID, label, latest.Version+1), TenantID: tenantID, Label: label, Version: latest.Version + 1, Algorithm: "gaussian_naive_bayes", Parameters: string(encoded), Metrics: fmt.Sprintf(`{"examples":%d}`, all), CreatedAt: now}
+	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:%s:%d", tenantID, label, latest.Version+1), TenantID: tenantID, Label: label, Version: latest.Version + 1, Algorithm: "gaussian_naive_bayes", Parameters: string(encoded), Metrics: fmt.Sprintf(`{"examples":%d}`, all), Status: "candidate", CreatedAt: now}
 	metrics, metricErr := s.evaluateModel(tenantID, label, params)
 	if metricErr != nil {
 		return model.IntelligenceModel{}, metricErr

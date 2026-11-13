@@ -147,6 +147,32 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.URL.Query().Get("action") == "promote" && r.Method == http.MethodPost {
+		label := r.URL.Query().Get("label")
+		if label == "" {
+			label = "behavior"
+		}
+		result, err := h.Svc.PromoteLatest(tenantID, label, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+		return
+	}
+	if r.URL.Query().Get("action") == "rollback" && r.Method == http.MethodPost {
+		label := r.URL.Query().Get("label")
+		if label == "" {
+			label = "behavior"
+		}
+		result, err := h.Svc.Rollback(tenantID, label)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+		return
+	}
 	if r.URL.Query().Get("action") == "export" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {

@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T14:57:36+03:30** — fix(intelligence): surface label review failures (`2477623`, `2477623740ef1fbc758116ccea0ce2e9a2ad181c`)
 - **2026-11-13T14:55:59+03:30** — ci: make changelog entries timestamped and traceable (`26ab25b`, `26ab25b34ecf79da8f67c0c4a690c189feed3dc1`)
 - **2026-11-13T14:54:46+03:30** — feat(intelligence): add model evaluation and drift monitoring (`719cdc8`, `719cdc8abdf9a6896f474674dbc0ff7c67f39a20`)
 - **2026-11-13T14:50:18+03:30** — feat(intelligence): add explainable label review queue (`d5e4aa4`, `d5e4aa4edf77d42988c9b59e6b888c1c67c04d21`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T12:25:02+03:30** — docs: add admin guide and populated screenshots (`0119d30`, `0119d30693842a47a9d6eb1fa82c60a8dc99d504`)
 - **2026-11-13T03:51:57+03:30** — perf(analytics): cache suggested funnels (`e3851a9`, `e3851a972081f576be8edd7a65a342e808cf58d5`)
 - **2026-11-13T03:51:24+03:30** — perf(analytics): cache funnel results (`1d6b820`, `1d6b8209538a60e9521f5e3239c6eb15558d6000`)
-- **2026-11-13T03:44:50+03:30** — fix(analytics): exclude derived events from buckets (`8c6fa02`, `8c6fa02faa24bfb1a030789765e521c0e91b31a0`)
