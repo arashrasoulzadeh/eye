@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-14T01:20:01+03:30** — fix(postgres): preserve hypertable schema on restart (`4705543`, `470554315313013ee75b78300cfc4e087fe0d0bd`)
 - **2026-11-13T22:34:06+03:30** — fix(ci): use go version from module without cache (`e64d3a6`, `e64d3a6af18bb9cf1a704662400faabb89431d9e`)
 - **2026-11-13T22:26:11+03:30** — fix(ci): remove flaky go cache restore (`5714fa6`, `5714fa6cfda6a6eb982dfbc86cba6dc790fefdd2`)
 - **2026-11-13T22:15:23+03:30** — fix(deploy): wait for images matching checked out commit (`7c889f2`, `7c889f2e107bd5589a439550c7fac04696856be0`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:32:20+03:30** — fix(intelligence): persist label review and quality alerts (`965db5f`, `965db5fa0451aa3cbcc2636a567d892b344acafa`)
 - **2026-11-13T16:27:05+03:30** — feat(ops): add intelligence alert rules (`84a3c80`, `84a3c80ef7e91f7e4fc7aa93887390c4a3f0805b`)
 - **2026-11-13T16:24:16+03:30** — feat(intelligence): expose prediction evidence (`fb6cc0d`, `fb6cc0dab19a5e3efebfa5f68146fe10037d5865`)
-- **2026-11-13T16:21:02+03:30** — feat(intelligence): export model quality metrics (`5115b44`, `5115b446311a45f05a92c5048000c0a26ae2ede0`)

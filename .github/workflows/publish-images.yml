@@ -10,6 +10,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: arashrasoulzadeh
@@ -51,6 +55,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=eye-go-images
@@ -62,6 +68,8 @@ jobs:
           context: ./admin
           file: ./admin/Dockerfile
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/eye-admin:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/eye-admin:sha-${{ github.sha }}
