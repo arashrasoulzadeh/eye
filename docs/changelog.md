@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:06:25+03:30** — fix(intelligence): promote safe manual auto-training (`58b85be`, `58b85be35c148d9b69591d115c709d80f907bd11`)
 - **2026-11-13T17:04:26+03:30** — feat(intelligence): show global and tenant model layers (`60ade64`, `60ade6403218e6a76da15416b03a0055c789b27d`)
 - **2026-11-13T16:59:14+03:30** — feat(intelligence): expose evaluation history (`71159fe`, `71159fee6f0e1daf99c48dd87af8d4adb37163b6`)
 - **2026-11-13T16:55:24+03:30** — feat(intelligence): expose model version history (`7430c7d`, `7430c7d1883baa7ea790ce51026cf6374fdc754c`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:26:09+03:30** — feat(offline): audit intelligence training runs (`5132c6a`, `5132c6ac0d952a50e8d9f47809363188c24e848c`)
 - **2026-11-13T13:25:33+03:30** — feat(offline): persist model evaluation metrics (`675a707`, `675a707c0e71b0e4a6c520bddfdb3a6d535f2e32`)
 - **2026-11-13T13:24:32+03:30** — ci(models): publish standalone GHCR artifacts (`15bd077`, `15bd077e8d20b06dfa4a3be03f594e6323d45dcf`)
-- **2026-11-13T13:23:15+03:30** — feat(deploy): install model image during deploy (`860d619`, `860d619e1a70eefa5f0cc6ec480a959985b8b946`)

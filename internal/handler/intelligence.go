@@ -62,7 +62,42 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		w.Header().Set("content-type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true, "fingerprint": body.Fingerprint, "label": body.Label, "decision": body.Decision})
+		return
+	}
+	if r.URL.Query().Get("action") == "pipeline" && r.Method == http.MethodPost {
+		refreshed, err := h.Svc.Refresh(tenantID, time.Now())
+		if err != nil {
+			http.Error(w, "intelligence refresh failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.TrainUnsupervisedGlobal(time.Now()); err != nil {
+			http.Error(w, "global training failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.EvaluateLatest("", "behavior", time.Now()); err != nil {
+			http.Error(w, "global evaluation failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.PromoteLatest("", "behavior", time.Now()); err != nil {
+			http.Error(w, "global promotion failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.TrainUnsupervised(tenantID, time.Now()); err != nil {
+			http.Error(w, "tenant training failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.EvaluateLatest(tenantID, "behavior", time.Now()); err != nil {
+			http.Error(w, "tenant evaluation failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if _, err := h.Svc.PromoteLatest(tenantID, "behavior", time.Now()); err != nil {
+			http.Error(w, "tenant promotion failed: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true, "tenant_id": tenantID, "refreshed": refreshed, "steps": []string{"refresh", "global_train", "global_evaluate", "global_promote", "tenant_train", "tenant_evaluate", "tenant_promote"}})
 		return
 	}
 	if r.URL.Query().Get("action") == "readiness" {
