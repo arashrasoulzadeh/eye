@@ -7,6 +7,19 @@ on:
     branches: [main]
 
 jobs:
+  deployment-scripts:
+    name: Deployment Script Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment shell scripts
+        run: |
+          set -euo pipefail
+          for script in deploy/*.sh deploy/backup/*.sh; do
+            test -x "$script"
+            bash -n "$script"
+          done
+
   go-test:
     name: Go Tests
     runs-on: ubuntu-latest

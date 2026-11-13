@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:35:11+03:30** — fix(intelligence): serialize pipeline starts (`a978e45`, `a978e459785078e3d86ab6e4cf57d0dba84c1b5f`)
 - **2026-11-13T17:33:19+03:30** — test(intelligence): verify async pipeline completion (`b0a69f4`, `b0a69f45a4532d67aeefb2a2e1575099a318919f`)
 - **2026-11-13T17:29:38+03:30** — docs(deploy): document model rollback (`dc016a4`, `dc016a4fe32280759d75ff199c5266b4d1175bbf`)
 - **2026-11-13T17:28:12+03:30** — feat(intelligence): report pipeline stage progress (`1e2aec3`, `1e2aec321ca418c9e7595cd46d67e2c79bc68c52`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:05:26+03:30** — feat(admin): add intelligence section tabs (`36c3b35`, `36c3b355de8a44fb35e600fa82eee3bfdf681845`)
 - **2026-11-13T14:02:24+03:30** — fix(admin): normalize training run fields (`667dc33`, `667dc331bb441df9d0e8c3451b7788508dce9fa2`)
 - **2026-11-13T13:54:52+03:30** — feat(intelligence): layer tenant models over global baseline (`750605d`, `750605d928efc8515f83ea96a3c591d191fbc6d0`)
-- **2026-11-13T13:51:36+03:30** — feat(intelligence): add smart unsupervised first-run training (`372f5a4`, `372f5a4ff6d6acaccf3aa9822736a6412ecded6e`)
