@@ -82,6 +82,9 @@ func main() {
 		os.Exit(1)
 	}
 	intelligenceSvc := &service.UserIntelligenceService{DB: db}
+	intelligenceCtx, cancelIntelligence := context.WithCancel(context.Background())
+	defer cancelIntelligence()
+	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, 15*time.Minute, logger)
 	defer geoIP.Close()
 	if updated, backfillErr := geoIP.Backfill(db); backfillErr != nil {
 		logger.Error("geoip backfill failed", "err", backfillErr)

@@ -17,6 +17,7 @@ const NAV = [
   { href: "/tenants", label: "Tenants", icon: "◆" },
   { href: "/sessions", label: "Sessions", icon: "⎘" },
   { href: "/users", label: "Users", icon: "♙" },
+  { href: "/intelligence", label: "Intelligence", icon: "✦" },
   { href: "/events", label: "Events", icon: "▤" },
   { href: "/alerts", label: "Alerts", icon: "!" },
   { href: "/operations", label: "Operations", icon: "⚑" },

@@ -193,6 +193,10 @@ export const api = {
     saveView: (tenantId: string, name: string, query: string) => req<unknown>(`analytics/views?tenant_id=${encodeURIComponent(tenantId)}`, { method: "POST", body: JSON.stringify({ name, query }) }),
     deleteView: (tenantId: string, id: string) => req<void>(`analytics/views/${encodeURIComponent(id)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: "DELETE" }),
   },
+  intelligence: {
+    list: (tenantId: string, limit = 100) => req<Array<{ tenant_id: string; fingerprint: string; ip: string; user_agent: string; tags: string[]; scores: Record<string, number>; features: Record<string, number>; anomaly_score: number; predicted_next_event: string; predicted_events_today: number; confidence: number; computed_at: string }>>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&limit=${limit}`).then((value) => Array.isArray(value) ? value : []),
+    refresh: (tenantId: string) => req<{ refreshed: number }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=refresh`, { method: "POST" }),
+  },
 
   schemas: {
     list: (tenantId: string, params: { filter?: string; dir?: string } = {}) => req<Schema[]>(`schemas?tenant_id=${encodeURIComponent(tenantId)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
