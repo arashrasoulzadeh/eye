@@ -19,12 +19,24 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 			}
 			return
 		}
+		var global model.IntelligenceModel
+		globalReady := svc.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error == nil
 		for _, tenant := range tenants {
 			if count, err := svc.Refresh(tenant.ID, time.Now()); err != nil {
 				if logger != nil {
 					logger.Error("intelligence refresh failed", "tenant", tenant.ID, "err", err)
 				}
 			} else {
+				if !globalReady {
+					if _, err := svc.TrainUnsupervisedGlobal(time.Now()); err == nil {
+						globalReady = true
+					}
+				}
+				var tenantModel model.IntelligenceModel
+				if svc.DB.Where("tenant_id = ? AND label = ?", tenant.ID, "behavior").First(&tenantModel).Error != nil && globalReady {
+					_, _ = svc.TrainUnsupervised(tenant.ID, time.Now())
+				}
+				_ = svc.ApplyBehaviorLayers(tenant.ID)
 				if registry != nil {
 					if artifact, manifest, err := registry.Artifact("tenants/"+tenant.ID, "buyer"); err == nil {
 						_ = svc.ApplyArtifact(tenant.ID, manifest.Task, artifact)
