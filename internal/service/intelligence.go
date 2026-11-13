@@ -122,6 +122,10 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 		return model.IntelligenceModel{}, metricErr
 	}
 	trained.Metrics = metrics
+	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:%s:%d", tenantID, label, now.UnixNano()), TenantID: tenantID, Label: label, Examples: all, Positive: positiveCount, Negative: negativeCount, Status: "completed", Metrics: metrics, CreatedAt: now}
+	if err := s.DB.Create(&run).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
 	if err := s.DB.Create(&trained).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
