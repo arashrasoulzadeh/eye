@@ -165,6 +165,15 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.URL.Query().Get("action") == "alerts" && r.Method == http.MethodGet {
+		alerts, err := h.Svc.IntelligenceAlerts(tenantID, r.URL.Query().Get("status"), 100)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(alerts)
+		return
+	}
 	if r.URL.Query().Get("action") == "promote" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {

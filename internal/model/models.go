@@ -146,6 +146,18 @@ type IntelligenceDataQuality struct {
 	CreatedAt       time.Time
 }
 
+type IntelligenceAlert struct {
+	ID         string `gorm:"primaryKey"`
+	TenantID   string `gorm:"index"`
+	Label      string `gorm:"index"`
+	Kind       string `gorm:"index"`
+	Severity   string
+	Status     string `gorm:"index"` // open, resolved
+	Message    string
+	CreatedAt  time.Time
+	ResolvedAt *time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`

@@ -122,3 +122,33 @@ func TestLabelSuggestionsAreExplainableAndDenialsDisappear(t *testing.T) {
 		t.Fatalf("denied suggestion remained: %#v err=%v", suggestions, err)
 	}
 }
+
+func TestReviewSuggestionAcceptsAndPersistsDecision(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.UserIntelligence{}, &model.UserIntelligenceLabel{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	db.Create(&model.UserIntelligence{ID: "t1:u1", TenantID: "t1", Fingerprint: "u1", Tags: `["buyer"]`, Scores: `{"buyer":0.95}`})
+
+	if err := svc.ReviewSuggestion("t1", "u1", "buyer", "accepted"); err != nil {
+		t.Fatal(err)
+	}
+	var label model.UserIntelligenceLabel
+	if err := db.First(&label, "tenant_id = ? AND fingerprint = ? AND label = ?", "t1", "u1", "buyer").Error; err != nil {
+		t.Fatal(err)
+	}
+	if label.Decision != "accepted" || label.Source != "suggestion" {
+		t.Fatalf("label=%#v", label)
+	}
+	suggestions, err := svc.LabelSuggestions("t1", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(suggestions) != 0 {
+		t.Fatalf("accepted suggestion remained: %#v", suggestions)
+	}
+}

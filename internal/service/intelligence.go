@@ -82,6 +82,40 @@ func (s *UserIntelligenceService) LatestDataQuality(tenantID string) (model.Inte
 	return quality, err
 }
 
+func (s *UserIntelligenceService) RecordQualityAlert(evaluation model.IntelligenceEvaluation) error {
+	kind, severity, message := "", "warning", ""
+	if evaluation.DriftScore >= 0.3 {
+		kind, severity, message = "model_drift", "critical", fmt.Sprintf("model drift score %.3f exceeds threshold", evaluation.DriftScore)
+	} else if evaluation.CalibrationError >= 0.2 {
+		kind, severity, message = "calibration", "warning", fmt.Sprintf("calibration error %.3f exceeds threshold", evaluation.CalibrationError)
+	}
+	if kind == "" {
+		return nil
+	}
+	var open model.IntelligenceAlert
+	err := s.DB.Where("tenant_id = ? AND label = ? AND kind = ? AND status = ?", evaluation.TenantID, evaluation.Label, kind, "open").First(&open).Error
+	if err == nil {
+		return nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return err
+	}
+	alert := model.IntelligenceAlert{ID: fmt.Sprintf("%s:%s:%s:%d", evaluation.TenantID, evaluation.Label, kind, evaluation.CreatedAt.UnixNano()), TenantID: evaluation.TenantID, Label: evaluation.Label, Kind: kind, Severity: severity, Status: "open", Message: message, CreatedAt: evaluation.CreatedAt}
+	return s.DB.Create(&alert).Error
+}
+
+func (s *UserIntelligenceService) IntelligenceAlerts(tenantID, status string, limit int) ([]model.IntelligenceAlert, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	query := s.DB.Where("tenant_id = ?", tenantID).Order("created_at desc").Limit(limit)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	var alerts []model.IntelligenceAlert
+	return alerts, query.Find(&alerts).Error
+}
+
 func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now time.Time) (model.IntelligenceEvaluation, error) {
 	var trained model.IntelligenceModel
 	query := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc")

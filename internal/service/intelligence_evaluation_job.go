@@ -28,8 +28,12 @@ func RunIntelligenceEvaluationJob(ctx context.Context, svc *UserIntelligenceServ
 				continue
 			}
 			seen[key] = true
-			if _, err := svc.EvaluateLatest(candidate.TenantID, candidate.Label, time.Now()); err != nil && logger != nil {
+			if evaluation, err := svc.EvaluateLatest(candidate.TenantID, candidate.Label, time.Now()); err != nil && logger != nil {
 				logger.Error("intelligence evaluation failed", "tenant", candidate.TenantID, "label", candidate.Label, "err", err)
+			} else if err == nil {
+				if alertErr := svc.RecordQualityAlert(evaluation); alertErr != nil && logger != nil {
+					logger.Error("intelligence quality alert failed", "tenant", candidate.TenantID, "err", alertErr)
+				}
 			}
 		}
 	}

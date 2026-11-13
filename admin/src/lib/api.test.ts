@@ -93,4 +93,16 @@ describe("api client", () => {
     const result = await api.tenants.remove("t1");
     expect(result).toBeNull();
   });
+
+  it("submits an accepted label review to the intelligence endpoint", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 204, text: async () => "" } as Response);
+    await api.intelligence.reviewSuggestion("t1", "user-1", "buyer", "accepted");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/proxy/intelligence/users?tenant_id=t1&action=review",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ fingerprint: "user-1", label: "buyer", decision: "accepted" }),
+      }),
+    );
+  });
 });
