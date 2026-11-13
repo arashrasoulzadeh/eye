@@ -76,6 +76,17 @@ func main() {
 		logger.Error("migrate failed", "err", err)
 		os.Exit(1)
 	}
+	geoIP, err := service.OpenGeoIP(cfg.GeoIPDatabasePath)
+	if err != nil {
+		logger.Error("geoip database open failed", "path", cfg.GeoIPDatabasePath, "err", err)
+		os.Exit(1)
+	}
+	defer geoIP.Close()
+	if updated, backfillErr := geoIP.Backfill(db); backfillErr != nil {
+		logger.Error("geoip backfill failed", "err", backfillErr)
+	} else if updated > 0 {
+		logger.Info("geoip sessions backfilled", "updated", updated)
+	}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		if err := storage.ApplyPostgresFeatures(db); err != nil {
 			logger.Error("postgres migrations failed", "err", err)
@@ -142,7 +153,7 @@ func main() {
 	if cfg.DBDriver != "postgres" && cfg.DBDriver != "postgresql" && cfg.DBDriver != "timescale" {
 		setTenantContext = nil
 	}
-	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext})))
+	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP})))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})

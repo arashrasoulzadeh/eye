@@ -35,6 +35,7 @@ type Config struct {
 	SMTPUser            string `mapstructure:"smtp_user"`
 	SMTPPassword        string `mapstructure:"smtp_password"`
 	OTLPEndpoint        string `mapstructure:"otlp_exporter_endpoint"`
+	GeoIPDatabasePath   string `mapstructure:"geoip_database_path"`
 }
 
 var envFiles []string
@@ -61,6 +62,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("admin_key", "dev-insecure-admin-key")
 	viper.SetDefault("retention_hours", 24*30)
 	viper.SetDefault("snapshot_dir", "./snapshots")
+	viper.SetDefault("geoip_database_path", "")
 	viper.SetDefault("broker_stream", "eye-events")
 	viper.SetDefault("broker_group", "eye-consumers")
 	viper.SetDefault("broker_consumer", "eye-server")

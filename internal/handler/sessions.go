@@ -13,11 +13,13 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 type SessionsHandler struct {
 	DB               *gorm.DB
 	SetTenantContext func(*gorm.DB, string) error
+	GeoIP            *service.GeoIPService
 }
 
 // clientIP prefers the leftmost X-Forwarded-For entry (the original client,
@@ -61,6 +63,9 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			UserAgent:  r.Header.Get("User-Agent"),
 			IP:         clientIP(r),
 			DeviceInfo: string(deviceJSON),
+		}
+		if h.GeoIP != nil {
+			h.GeoIP.Enrich(s)
 		}
 		err := h.DB.Transaction(func(tx *gorm.DB) error {
 			if h.SetTenantContext != nil {

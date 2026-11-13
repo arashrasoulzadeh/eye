@@ -43,6 +43,12 @@ type Session struct {
 	// without needing to compute or send it.
 	UserAgent string
 	IP        string
+	Country   string
+	Region    string
+	City      string
+	Latitude  float64
+	Longitude float64
+	Timezone  string
 	// DeviceInfo is a JSON blob of whatever structured client-side fields
 	// the caller supplied (screen/viewport size, language, timezone, OS,
 	// etc.) — only things the server genuinely can't derive from the
