@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
 const intelligenceRetrainAfter = 6 * time.Hour
+
+var intelligencePipelineStartMu sync.Mutex
 
 func intelligenceModelNeedsRetraining(model model.IntelligenceModel, now time.Time) bool {
 	return model.ID == "" || model.CreatedAt.IsZero() || now.Sub(model.CreatedAt) >= intelligenceRetrainAfter
@@ -89,6 +92,8 @@ type PipelineResult struct {
 }
 
 func (s *UserIntelligenceService) StartPipeline(tenantID string, now time.Time) (model.IntelligencePipelineRun, error) {
+	intelligencePipelineStartMu.Lock()
+	defer intelligencePipelineStartMu.Unlock()
 	var active model.IntelligencePipelineRun
 	if err := s.DB.Where("tenant_id = ? AND status IN ?", tenantID, []string{"queued", "running"}).Order("created_at desc").First(&active).Error; err == nil {
 		return active, fmt.Errorf("intelligence pipeline already running: %s", active.ID)

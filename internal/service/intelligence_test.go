@@ -2,6 +2,7 @@ package service
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -112,6 +113,43 @@ func TestStartPipelinePersistsAsyncCompletion(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("pipeline did not complete asynchronously")
+}
+
+func TestStartPipelineDeduplicatesConcurrentStarts(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:pipeline-dedupe-test?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligencePipelineRun{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	results := make(chan error, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); _, callErr := svc.StartPipeline("dedupe", time.Now()); results <- callErr }()
+	}
+	wg.Wait()
+	close(results)
+	var success, rejected int
+	for callErr := range results {
+		if callErr == nil {
+			success++
+		} else {
+			rejected++
+		}
+	}
+	if success != 1 || rejected != 1 {
+		t.Fatalf("success=%d rejected=%d", success, rejected)
+	}
+	var runs []model.IntelligencePipelineRun
+	if err := db.Where("tenant_id = ?", "dedupe").Find(&runs).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs=%d", len(runs))
+	}
 }
 
 func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {

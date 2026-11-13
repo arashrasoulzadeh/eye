@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:33:19+03:30** — test(intelligence): verify async pipeline completion (`b0a69f4`, `b0a69f45a4532d67aeefb2a2e1575099a318919f`)
 - **2026-11-13T17:29:38+03:30** — docs(deploy): document model rollback (`dc016a4`, `dc016a4fe32280759d75ff199c5266b4d1175bbf`)
 - **2026-11-13T17:28:12+03:30** — feat(intelligence): report pipeline stage progress (`1e2aec3`, `1e2aec321ca418c9e7595cd46d67e2c79bc68c52`)
 - **2026-11-13T17:26:12+03:30** — fix(deploy): stage and rollback model artifacts (`7c5c580`, `7c5c58036d845585baf0986d33abd44dbe4f97bf`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:02:24+03:30** — fix(admin): normalize training run fields (`667dc33`, `667dc331bb441df9d0e8c3451b7788508dce9fa2`)
 - **2026-11-13T13:54:52+03:30** — feat(intelligence): layer tenant models over global baseline (`750605d`, `750605d928efc8515f83ea96a3c591d191fbc6d0`)
 - **2026-11-13T13:51:36+03:30** — feat(intelligence): add smart unsupervised first-run training (`372f5a4`, `372f5a4ff6d6acaccf3aa9822736a6412ecded6e`)
-- **2026-11-13T13:49:38+03:30** — fix(dashboard): honor full selected time window (`a73418b`, `a73418b44fc5d24ae2329bb6df56b17f3820d0e5`)
