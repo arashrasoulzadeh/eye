@@ -115,18 +115,20 @@ type IntelligenceModel struct {
 }
 
 type IntelligenceEvaluation struct {
-	ID           string `gorm:"primaryKey"`
-	TenantID     string `gorm:"index"`
-	Label        string `gorm:"index"`
-	ModelVersion int
-	Accuracy     float64
-	Precision    float64
-	Recall       float64
-	F1           float64
-	DriftScore   float64
-	Status       string
-	Details      string
-	CreatedAt    time.Time
+	ID               string `gorm:"primaryKey"`
+	TenantID         string `gorm:"index"`
+	Label            string `gorm:"index"`
+	ModelVersion     int
+	Accuracy         float64
+	Precision        float64
+	Recall           float64
+	F1               float64
+	BrierScore       float64
+	CalibrationError float64
+	DriftScore       float64
+	Status           string
+	Details          string
+	CreatedAt        time.Time
 }
 
 type IntelligenceDataQuality struct {

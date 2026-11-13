@@ -95,6 +95,45 @@ func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now tim
 			*target = value
 		}
 	}
+	if label != "behavior" {
+		var labels []model.UserIntelligenceLabel
+		if err := s.DB.Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Find(&labels).Error; err != nil {
+			return evaluation, err
+		}
+		if len(labels) > 0 {
+			var brier float64
+			bins := make([][]float64, 10)
+			for _, labeled := range labels {
+				var snapshot model.UserIntelligence
+				if s.DB.Where("tenant_id = ? AND fingerprint = ?", tenantID, labeled.Fingerprint).First(&snapshot).Error != nil {
+					continue
+				}
+				var scores map[string]float64
+				_ = json.Unmarshal([]byte(snapshot.Scores), &scores)
+				probability := math.Max(0, math.Min(1, scores[label]))
+				actual := 0.0
+				if labeled.Label == label {
+					actual = 1
+				}
+				brier += (probability - actual) * (probability - actual)
+				bin := int(probability * 10)
+				if bin == 10 {
+					bin = 9
+				}
+				bins[bin] = append(bins[bin], probability)
+			}
+			evaluation.BrierScore = brier / float64(len(labels))
+			for _, values := range bins {
+				if len(values) > 0 {
+					var sum float64
+					for _, value := range values {
+						sum += value
+					}
+					evaluation.CalibrationError += math.Abs(sum/float64(len(values))-0.5) * float64(len(values)) / float64(len(labels))
+				}
+			}
+		}
+	}
 	if label == "behavior" {
 		var rows []model.UserIntelligence
 		if err := s.DB.Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
@@ -125,7 +164,7 @@ func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now tim
 	} else if evaluation.DriftScore >= 0.15 {
 		evaluation.Status = "warning"
 	}
-	details, _ := json.Marshal(map[string]any{"algorithm": trained.Algorithm, "model_version": trained.Version, "scope": map[bool]string{true: "tenant", false: "global"}[tenantID != ""]})
+	details, _ := json.Marshal(map[string]any{"algorithm": trained.Algorithm, "model_version": trained.Version, "scope": map[bool]string{true: "tenant", false: "global"}[tenantID != ""], "brier_score": evaluation.BrierScore, "calibration_error": evaluation.CalibrationError})
 	evaluation.Details = string(details)
 	if err := s.DB.Create(&evaluation).Error; err != nil {
 		return model.IntelligenceEvaluation{}, err
