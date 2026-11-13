@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/service"
 	"gorm.io/gorm"
 )
@@ -67,7 +68,14 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if r.URL.Query().Get("action") == "pipeline" && r.Method == http.MethodPost {
-		run, err := h.Svc.StartPipeline(tenantID, time.Now())
+		retryID := strings.TrimSpace(r.URL.Query().Get("retry_id"))
+		var run model.IntelligencePipelineRun
+		var err error
+		if retryID != "" {
+			run, err = h.Svc.RetryPipeline(tenantID, retryID, time.Now())
+		} else {
+			run, err = h.Svc.StartPipeline(tenantID, time.Now())
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return

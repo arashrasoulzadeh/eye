@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:19:27+03:30** — feat(intelligence): observe pipeline runs (`54f5f1a`, `54f5f1af03e50b5b659e95452a7251da350d6eff`)
 - **2026-11-13T17:15:51+03:30** — feat(intelligence): complete one-click pipeline (`b4b2531`, `b4b2531cde344f37d3a006647f73172403652e1d`)
 - **2026-11-13T17:12:42+03:30** — fix(intelligence): add one-click pipeline and label review feedback (`660c375`, `660c375e934b3ba0c639b00549d99e306c738390`)
 - **2026-11-13T17:06:25+03:30** — fix(intelligence): promote safe manual auto-training (`58b85be`, `58b85be35c148d9b69591d115c709d80f907bd11`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:37:21+03:30** — feat(admin): add model registry controls (`3fdbb13`, `3fdbb135923dc91b8c97370c3e6a48c1becfe1ff`)
 - **2026-11-13T13:35:35+03:30** — feat(admin): add model training history page (`0ac7da3`, `0ac7da3d2002ef981e2c936a4d011fa1cce64024`)
 - **2026-11-13T13:33:51+03:30** — feat(offline): expose intelligence training history (`e965540`, `e9655407078dae4e9a1deef2c7368fdbcb50b452`)
-- **2026-11-13T13:26:09+03:30** — feat(offline): audit intelligence training runs (`5132c6a`, `5132c6ac0d952a50e8d9f47809363188c24e848c`)

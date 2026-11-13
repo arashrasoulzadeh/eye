@@ -89,6 +89,10 @@ type PipelineResult struct {
 }
 
 func (s *UserIntelligenceService) StartPipeline(tenantID string, now time.Time) (model.IntelligencePipelineRun, error) {
+	var active model.IntelligencePipelineRun
+	if err := s.DB.Where("tenant_id = ? AND status IN ?", tenantID, []string{"queued", "running"}).Order("created_at desc").First(&active).Error; err == nil {
+		return active, fmt.Errorf("intelligence pipeline already running: %s", active.ID)
+	}
 	run := model.IntelligencePipelineRun{ID: fmt.Sprintf("pipeline:%s:%d", tenantID, now.UnixNano()), TenantID: tenantID, Status: "queued", Progress: 0, Stage: "queued", CreatedAt: now}
 	if err := s.DB.Create(&run).Error; err != nil {
 		return run, err
@@ -111,6 +115,17 @@ func (s *UserIntelligenceService) StartPipeline(tenantID string, now time.Time) 
 		s.DB.Model(&model.IntelligencePipelineRun{}).Where("id = ?", run.ID).Updates(updates)
 	}()
 	return run, nil
+}
+
+func (s *UserIntelligenceService) RetryPipeline(tenantID, runID string, now time.Time) (model.IntelligencePipelineRun, error) {
+	var failed model.IntelligencePipelineRun
+	if err := s.DB.Where("id = ? AND tenant_id = ?", runID, tenantID).First(&failed).Error; err != nil {
+		return failed, err
+	}
+	if failed.Status != "failed" {
+		return failed, fmt.Errorf("pipeline %s is not failed and cannot be retried", runID)
+	}
+	return s.StartPipeline(tenantID, now)
 }
 
 func (s *UserIntelligenceService) PipelineRuns(tenantID string, limit int) ([]model.IntelligencePipelineRun, error) {

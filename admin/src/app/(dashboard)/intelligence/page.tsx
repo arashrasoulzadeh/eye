@@ -17,7 +17,9 @@ export default function IntelligencePage() {
   const [tenant, setTenant] = useState(globalTenant),
     [tenants, setTenants] = useState<Tenant[]>([]),
     [rows, setRows] = useState<Snapshot[]>([]),
-    [pipelineRuns, setPipelineRuns] = useState<Awaited<ReturnType<typeof api.intelligence.pipelineRuns>>>([]),
+    [pipelineRuns, setPipelineRuns] = useState<
+      Awaited<ReturnType<typeof api.intelligence.pipelineRuns>>
+    >([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -49,8 +51,15 @@ export default function IntelligencePage() {
     return () => window.clearInterval(timer);
   }, [load]);
   useEffect(() => {
-    if (!tenant) { setPipelineRuns([]); return; }
-    const poll = () => api.intelligence.pipelineRuns(tenant).then(setPipelineRuns).catch(() => undefined);
+    if (!tenant) {
+      setPipelineRuns([]);
+      return;
+    }
+    const poll = () =>
+      api.intelligence
+        .pipelineRuns(tenant)
+        .then(setPipelineRuns)
+        .catch(() => undefined);
     void poll();
     const timer = window.setInterval(poll, 2500);
     return () => window.clearInterval(timer);
@@ -81,6 +90,23 @@ export default function IntelligencePage() {
     } catch (e) {
       setError(
         e instanceof ApiError ? e.message : "Intelligence pipeline failed",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function retryPipeline() {
+    if (!tenant || !pipelineRuns[0] || pipelineRuns[0].Status !== "failed")
+      return;
+    setLoading(true);
+    setError("");
+    try {
+      await api.intelligence.retryPipeline(tenant, pipelineRuns[0].ID);
+    } catch (e) {
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : "Could not retry intelligence pipeline",
       );
     } finally {
       setLoading(false);
@@ -127,8 +153,35 @@ export default function IntelligencePage() {
       {pipelineRuns[0] && (
         <Card className="mt-4">
           <div className="flex items-center justify-between gap-4 p-4 text-sm">
-            <div><p className="font-medium text-fg">Intelligence pipeline</p><p className="text-xs text-fg-muted">{pipelineRuns[0].Stage || pipelineRuns[0].Status}{pipelineRuns[0].Error ? ` · ${pipelineRuns[0].Error}` : ""}</p></div>
-            <span className={pipelineRuns[0].Status === "failed" ? "text-danger" : pipelineRuns[0].Status === "completed" ? "text-success" : "text-accent"}>{pipelineRuns[0].Status} · {pipelineRuns[0].Progress}%</span>
+            <div>
+              <p className="font-medium text-fg">Intelligence pipeline</p>
+              <p className="text-xs text-fg-muted">
+                {pipelineRuns[0].Stage || pipelineRuns[0].Status}
+                {pipelineRuns[0].Error ? ` · ${pipelineRuns[0].Error}` : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span
+                className={
+                  pipelineRuns[0].Status === "failed"
+                    ? "text-danger"
+                    : pipelineRuns[0].Status === "completed"
+                      ? "text-success"
+                      : "text-accent"
+                }
+              >
+                {pipelineRuns[0].Status} · {pipelineRuns[0].Progress}%
+              </span>
+              {pipelineRuns[0].Status === "failed" && (
+                <Button
+                  variant="secondary"
+                  onClick={() => void retryPipeline()}
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
       )}
