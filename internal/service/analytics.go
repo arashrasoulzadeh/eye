@@ -24,10 +24,16 @@ type analyticsFunnelCacheEntry struct {
 	value   []FunnelStepResult
 }
 
+type analyticsSuggestedCacheEntry struct {
+	expires time.Time
+	value   []SuggestedFunnelStep
+}
+
 type AnalyticsService struct {
-	DB          *gorm.DB
-	cacheMu     sync.Mutex
-	funnelCache map[string]analyticsFunnelCacheEntry
+	DB             *gorm.DB
+	cacheMu        sync.Mutex
+	funnelCache    map[string]analyticsFunnelCacheEntry
+	suggestedCache map[string]analyticsSuggestedCacheEntry
 }
 
 type SessionEventCount struct {
@@ -274,7 +280,15 @@ type SuggestedFunnelStep struct {
 // operator to guess event names. It chooses the most common first event, then
 // greedily follows the most common next distinct event across sessions.
 func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64) ([]SuggestedFunnelStep, error) {
-	q := a.DB.Where("tenant_id = ?", tenantID)
+	key := fmt.Sprintf("%s|%v|%v", tenantID, fromTS, toTS)
+	a.cacheMu.Lock()
+	if entry, ok := a.suggestedCache[key]; ok && time.Now().Before(entry.expires) {
+		value := append([]SuggestedFunnelStep(nil), entry.value...)
+		a.cacheMu.Unlock()
+		return value, nil
+	}
+	a.cacheMu.Unlock()
+	q := a.DB.Where("tenant_id = ? AND is_aggregated = ?", tenantID, false)
 	if fromTS != nil {
 		q = q.Where("client_ts >= ?", *fromTS)
 	}
@@ -297,7 +311,7 @@ func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64)
 	}
 	current := mostCommonEvent(firstCounts)
 	if current == "" {
-		return []SuggestedFunnelStep{}, nil
+		return a.cacheSuggested(key, []SuggestedFunnelStep{}), nil
 	}
 	result := make([]SuggestedFunnelStep, 0, 5)
 	remaining := map[string]bool{}
@@ -350,7 +364,23 @@ func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64)
 		}
 		current = next
 	}
-	return result, nil
+	return a.cacheSuggested(key, result), nil
+}
+
+func (a *AnalyticsService) cacheSuggested(key string, value []SuggestedFunnelStep) []SuggestedFunnelStep {
+	a.cacheMu.Lock()
+	defer a.cacheMu.Unlock()
+	if a.suggestedCache == nil {
+		a.suggestedCache = make(map[string]analyticsSuggestedCacheEntry)
+	}
+	if len(a.suggestedCache) >= 128 {
+		for oldKey := range a.suggestedCache {
+			delete(a.suggestedCache, oldKey)
+			break
+		}
+	}
+	a.suggestedCache[key] = analyticsSuggestedCacheEntry{expires: time.Now().Add(10 * time.Second), value: append([]SuggestedFunnelStep(nil), value...)}
+	return append([]SuggestedFunnelStep(nil), value...)
 }
 
 func mostCommonEvent(counts map[string]int) string {

@@ -13,8 +13,13 @@ import { useTimeRange } from "@/components/TimeRangeContext";
 
 type UserRow = { id: string; sessions: number; events: number; lastSeen: string; online: boolean; browser: string; location: string; ip: string; userAgent: string };
 
-function detail(session: Session, key: string): string {
-  try { const value = JSON.parse(session.DeviceInfo || "{}")[key]; return value == null || value === "" ? "Unknown" : String(value); } catch { return "Unknown"; }
+function location(session: Session): string {
+  try {
+    const device = JSON.parse(session.DeviceInfo || "{}") as Record<string, unknown>;
+    const nested = (device.location || device.geo) as Record<string, unknown> | undefined;
+    const value = (key: string) => device[key] ?? nested?.[key];
+    return [value("city"), value("region"), value("country")].filter((item) => item !== undefined && item !== null && String(item).trim() !== "").map(String).join(", ") || "Location not provided";
+  } catch { return "Location not provided"; }
 }
 function browser(ua: string): string {
   if (/edg\//i.test(ua)) return "Edge";
@@ -47,7 +52,7 @@ export default function UsersPage() {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     safeSessions.forEach((session) => {
       const id = `${session.IP || "unknown"}|${session.UserAgent || "unknown"}`;
-      const current = grouped.get(id) || { id, sessions: 0, events: 0, lastSeen: session.LastSeen, online: false, browser: browser(session.UserAgent), location: [detail(session, "city"), detail(session, "country")].filter((x) => x !== "Unknown").join(", ") || "Unknown", ip: session.IP || "Unknown", userAgent: session.UserAgent || "Unknown" };
+      const current = grouped.get(id) || { id, sessions: 0, events: 0, lastSeen: session.LastSeen, online: false, browser: browser(session.UserAgent), location: location(session), ip: session.IP || "Unknown", userAgent: session.UserAgent || "Unknown" };
       current.sessions += 1; current.events += session.EventCount || 0; current.lastSeen = new Date(current.lastSeen).getTime() > new Date(session.LastSeen).getTime() ? current.lastSeen : session.LastSeen; current.online = new Date(current.lastSeen).getTime() >= Date.now() - 5 * 60 * 1000;
       grouped.set(id, current);
     });
