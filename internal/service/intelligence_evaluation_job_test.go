@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunIntelligenceEvaluationJobPersistsEvaluation(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:intelligence-job-test?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,4 +46,41 @@ func TestIntelligenceModelNeedsRetrainingWhenStale(t *testing.T) {
 	if !intelligenceModelNeedsRetraining(model.IntelligenceModel{}, now) {
 		t.Fatal("missing model was not marked for retraining")
 	}
+}
+
+func TestRunUserIntelligenceJobPromotesHealthyAutomaticLayers(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:intelligence-layer-job-test?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Tenant{}, &model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.Create(&model.Tenant{ID: "t1", Name: "Tenant 1"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Session{ID: "s1", TenantID: "t1", IP: "127.0.0.1", UserAgent: "browser", StartedAt: now, LastSeen: now}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Event{EventID: "e1", TenantID: "t1", SessionID: "s1", EventName: "page_view", ClientTS: now.UnixMilli()}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go RunUserIntelligenceJob(ctx, &UserIntelligenceService{DB: db}, nil, time.Hour, nil)
+	defer cancel()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		var global, local model.IntelligenceModel
+		globalErr := db.Where("tenant_id = ? AND label = ?", "", "behavior").First(&global).Error
+		localErr := db.Where("tenant_id = ? AND label = ?", "t1", "behavior").First(&local).Error
+		if globalErr == nil && localErr == nil && global.Status == "promoted" && local.Status == "promoted" {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	var models []model.IntelligenceModel
+	db.Find(&models)
+	t.Fatalf("automatic layers were not promoted: %#v", models)
 }

@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:45:40+03:30** — fix(intelligence): log background pipeline failures (`9bc8ac9`, `9bc8ac9b561c8c13eaa5410f3c97ee4065c93d84`)
 - **2026-11-13T16:43:11+03:30** — fix(intelligence): prevent candidate runtime scoring (`06a07a6`, `06a07a6689b1a54ff0b2b316536bdeeb1ec20858`)
 - **2026-11-13T16:41:08+03:30** — feat(intelligence): retrain stale behavior models (`1823508`, `1823508b7d0bc10cda91f59c57359dc28301e962`)
 - **2026-11-13T16:38:45+03:30** — fix(intelligence): report alert persistence failures (`e26aa30`, `e26aa30deab790e070fab56df837feef446d7e01`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:17:56+03:30** — docs(deploy): persist offline model registry (`a6a8cc9`, `a6a8cc9dba8b593c3cf558d94f63a070eed1e8cd`)
 - **2026-11-13T13:17:05+03:30** — feat(offline): apply registry models during refresh (`fc268d3`, `fc268d338967290bcfea6f61df79463fcc867e24`)
 - **2026-11-13T13:14:53+03:30** — feat(offline): export trained models as artifacts (`9b67eb0`, `9b67eb0252077b3b8bf0210ff56848f8a88e5fc2`)
-- **2026-11-13T13:13:34+03:30** — feat(offline): apply trained intelligence scores (`701ab98`, `701ab98236de57d8b39a2912683f55d25918c7b8`)
