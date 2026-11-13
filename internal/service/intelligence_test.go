@@ -52,12 +52,16 @@ func TestRunPipelineCompletesGlobalTenantAndQualityStages(t *testing.T) {
 	if err := db.Create(&model.Event{EventID: "pipeline-event", TenantID: "t1", SessionID: "pipeline-session", EventName: "page_view", ClientTS: now.UnixMilli()}).Error; err != nil {
 		t.Fatal(err)
 	}
-	result, err := (&UserIntelligenceService{DB: db}).RunPipeline("t1", now)
+	progress := []string{}
+	result, err := (&UserIntelligenceService{DB: db}).runPipeline("t1", now, func(_ int, stage string) { progress = append(progress, stage) })
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.Refreshed != 1 || result.QualityStatus == "" || len(result.Steps) < 9 {
 		t.Fatalf("unexpected pipeline result: %#v", result)
+	}
+	if len(progress) != 10 || progress[0] != "refresh" || progress[len(progress)-1] != "apply_layers" {
+		t.Fatalf("unexpected progress: %#v", progress)
 	}
 	var global, tenant model.IntelligenceModel
 	if err := db.Where("tenant_id = ? AND label = ?", "", "behavior").First(&global).Error; err != nil {

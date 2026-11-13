@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:26:12+03:30** — fix(deploy): stage and rollback model artifacts (`7c5c580`, `7c5c58036d845585baf0986d33abd44dbe4f97bf`)
 - **2026-11-13T17:24:18+03:30** — fix(intelligence): harden model artifact writes (`d07926b`, `d07926bdb13f7117fdee91989ff31554073ac934`)
 - **2026-11-13T17:22:05+03:30** — feat(intelligence): add safe pipeline retries (`9f85cd0`, `9f85cd023a627ba3e2484b28e27d0f9b262179c0`)
 - **2026-11-13T17:19:27+03:30** — feat(intelligence): observe pipeline runs (`54f5f1a`, `54f5f1af03e50b5b659e95452a7251da350d6eff`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:49:38+03:30** — fix(dashboard): honor full selected time window (`a73418b`, `a73418b44fc5d24ae2329bb6df56b17f3820d0e5`)
 - **2026-11-13T13:42:24+03:30** — feat(offline): detect AI crawler user agents (`56ccb7c`, `56ccb7c3ffef9d1ac92680b241f9358bb7bee171`)
 - **2026-11-13T13:39:58+03:30** — feat(admin): add supervised user labeling (`cdc0f86`, `cdc0f86e1c2e60942d597b186bdc9981bc0e8da2`)
-- **2026-11-13T13:37:21+03:30** — feat(admin): add model registry controls (`3fdbb13`, `3fdbb135923dc91b8c97370c3e6a48c1becfe1ff`)

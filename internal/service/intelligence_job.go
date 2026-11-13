@@ -100,7 +100,9 @@ func (s *UserIntelligenceService) StartPipeline(tenantID string, now time.Time) 
 	go func() {
 		started := time.Now()
 		s.DB.Model(&model.IntelligencePipelineRun{}).Where("id = ?", run.ID).Updates(map[string]any{"status": "running", "stage": "running", "started_at": started})
-		_, err := s.RunPipeline(tenantID, started)
+		_, err := s.runPipeline(tenantID, started, func(progress int, stage string) {
+			s.DB.Model(&model.IntelligencePipelineRun{}).Where("id = ?", run.ID).Updates(map[string]any{"progress": progress, "stage": stage})
+		})
 		finished := time.Now()
 		updates := map[string]any{"finished_at": finished}
 		if err != nil {
@@ -141,49 +143,68 @@ func (s *UserIntelligenceService) PipelineRuns(tenantID string, limit int) ([]mo
 // tenant. The scheduled job uses the same individual operations, while this
 // method gives the admin a single auditable action with explicit stages.
 func (s *UserIntelligenceService) RunPipeline(tenantID string, now time.Time) (PipelineResult, error) {
+	return s.runPipeline(tenantID, now, nil)
+}
+
+func (s *UserIntelligenceService) runPipeline(tenantID string, now time.Time, progress func(int, string)) (PipelineResult, error) {
 	result := PipelineResult{TenantID: tenantID, Steps: make([]string, 0, 9)}
+	mark := func(value int, stage string) {
+		if progress != nil {
+			progress(value, stage)
+		}
+	}
+	mark(5, "refresh")
 	refreshed, err := s.Refresh(tenantID, now)
 	if err != nil {
 		return result, fmt.Errorf("refresh: %w", err)
 	}
 	result.Refreshed = refreshed
 	result.Steps = append(result.Steps, "refresh")
+	mark(15, "global_train")
 	if _, err = s.TrainUnsupervisedGlobal(now); err != nil {
 		return result, fmt.Errorf("global training: %w", err)
 	}
 	result.Steps = append(result.Steps, "global_train")
+	mark(25, "global_evaluate")
 	if evaluation, evalErr := s.EvaluateLatest("", "behavior", now); evalErr != nil {
 		return result, fmt.Errorf("global evaluation: %w", evalErr)
 	} else if evaluation.Status == "drifted" {
 		return result, fmt.Errorf("global evaluation drifted")
 	}
 	result.Steps = append(result.Steps, "global_evaluate")
+	mark(35, "global_promote")
 	if _, err = s.PromoteLatest("", "behavior", now); err != nil {
 		return result, fmt.Errorf("global promotion: %w", err)
 	}
 	result.Steps = append(result.Steps, "global_promote")
+	mark(50, "tenant_train")
 	if _, err = s.TrainUnsupervised(tenantID, now); err != nil {
 		return result, fmt.Errorf("tenant training: %w", err)
 	}
 	result.Steps = append(result.Steps, "tenant_train")
+	mark(60, "tenant_evaluate")
 	if evaluation, evalErr := s.EvaluateLatest(tenantID, "behavior", now); evalErr != nil {
 		return result, fmt.Errorf("tenant evaluation: %w", evalErr)
 	} else if evaluation.Status == "drifted" {
 		return result, fmt.Errorf("tenant evaluation drifted")
 	}
 	result.Steps = append(result.Steps, "tenant_evaluate")
+	mark(70, "tenant_promote")
 	if _, err = s.PromoteLatest(tenantID, "behavior", now); err != nil {
 		return result, fmt.Errorf("tenant promotion: %w", err)
 	}
 	result.Steps = append(result.Steps, "tenant_promote")
+	mark(82, "supervised_train")
 	result.SupervisedTrained = trainEligibleSupervisedModels(s, tenantID, now, nil)
 	result.Steps = append(result.Steps, "supervised_train")
+	mark(92, "quality_assess")
 	if quality, qualityErr := s.AssessDataQuality(tenantID, now); qualityErr != nil {
 		return result, fmt.Errorf("quality assessment: %w", qualityErr)
 	} else {
 		result.QualityStatus = quality.Status
 	}
 	result.Steps = append(result.Steps, "quality_assess")
+	mark(97, "apply_layers")
 	if err = s.ApplyBehaviorLayers(tenantID); err != nil {
 		return result, fmt.Errorf("apply behavior layers: %w", err)
 	}
