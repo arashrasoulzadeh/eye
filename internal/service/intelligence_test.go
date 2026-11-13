@@ -38,6 +38,39 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 	}
 }
 
+func TestAssessDataQualityUsesStoredCountsAndDuplicateIdentityStats(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceDataQuality{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	rows := []model.UserIntelligence{
+		{ID: "1", TenantID: "t1", Fingerprint: "same", IP: "1.2.3.4", UserAgent: "browser", Features: `{"events":1}`},
+		{ID: "2", TenantID: "t1", Fingerprint: "same", IP: "1.2.3.4", UserAgent: "browser", Features: `{"events":2}`},
+		{ID: "3", TenantID: "t1", Fingerprint: "missing", Features: "{}"},
+		{ID: "4", TenantID: "other", Fingerprint: "other", Features: `{"events":1}`},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Session{ID: "s1", TenantID: "t1"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Event{EventID: "e1", TenantID: "t1", SessionID: "s1", IsAggregated: false}).Error; err != nil {
+		t.Fatal(err)
+	}
+	quality, err := (&UserIntelligenceService{DB: db}).AssessDataQuality("t1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if quality.Profiles != 3 || quality.Events != 1 || quality.Sessions != 1 || quality.MissingIdentity != 1 || quality.MissingFeatures != 1 || quality.DuplicateUsers != 1 {
+		t.Fatalf("unexpected quality: %#v", quality)
+	}
+}
+
 func TestRunPipelineCompletesGlobalTenantAndQualityStages(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

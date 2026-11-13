@@ -19,43 +19,62 @@ type UserIntelligenceService struct{ DB *gorm.DB }
 
 func (s *UserIntelligenceService) AssessDataQuality(tenantID string, now time.Time) (model.IntelligenceDataQuality, error) {
 	quality := model.IntelligenceDataQuality{ID: fmt.Sprintf("%s:%d", tenantID, now.UnixNano()), TenantID: tenantID, CreatedAt: now}
-	var profiles []model.UserIntelligence
 	query := s.DB
 	if tenantID != "" {
 		query = query.Where("tenant_id = ?", tenantID)
 	}
-	if err := query.Find(&profiles).Error; err != nil {
+	var profileCount int64
+	if err := query.Model(&model.UserIntelligence{}).Count(&profileCount).Error; err != nil {
 		return quality, err
 	}
-	quality.Profiles = len(profiles)
-	seen := map[string]bool{}
-	for _, profile := range profiles {
-		if profile.IP == "" && profile.UserAgent == "" {
-			quality.MissingIdentity++
-		}
-		if strings.TrimSpace(profile.Features) == "" || profile.Features == "{}" || profile.Features == "null" {
-			quality.MissingFeatures++
-		}
-		if seen[profile.Fingerprint] {
-			quality.DuplicateUsers++
-		}
-		seen[profile.Fingerprint] = true
+	quality.Profiles = int(profileCount)
+	missingIdentity := query.Model(&model.UserIntelligence{}).Where("ip = ? AND user_agent = ?", "", "").Count(new(int64))
+	if missingIdentity.Error != nil {
+		return quality, missingIdentity.Error
 	}
-	eventQuery := s.DB.Where("is_aggregated = ?", false)
-	sessionQuery := s.DB
+	var missingIdentityCount int64
+	if err := query.Model(&model.UserIntelligence{}).Where("ip = ? AND user_agent = ?", "", "").Count(&missingIdentityCount).Error; err != nil {
+		return quality, err
+	}
+	quality.MissingIdentity = int(missingIdentityCount)
+	var missingFeatureCount int64
+	if err := query.Model(&model.UserIntelligence{}).Where("trim(features) = '' OR features IN ?", []string{"{}", "null"}).Count(&missingFeatureCount).Error; err != nil {
+		return quality, err
+	}
+	quality.MissingFeatures = int(missingFeatureCount)
+	var duplicateFingerprints []string
+	duplicateQuery := s.DB.Table("user_intelligences").Select("fingerprint")
+	if tenantID != "" {
+		duplicateQuery = duplicateQuery.Where("tenant_id = ?", tenantID)
+	}
+	if err := duplicateQuery.Group("fingerprint").Having("COUNT(*) > 1").Pluck("fingerprint", &duplicateFingerprints).Error; err != nil {
+		return quality, err
+	}
+	for _, fingerprint := range duplicateFingerprints {
+		var duplicateCount int64
+		duplicateCountQuery := s.DB.Model(&model.UserIntelligence{}).Where("fingerprint = ?", fingerprint)
+		if tenantID != "" {
+			duplicateCountQuery = duplicateCountQuery.Where("tenant_id = ?", tenantID)
+		}
+		if err := duplicateCountQuery.Count(&duplicateCount).Error; err != nil {
+			return quality, err
+		}
+		quality.DuplicateUsers += int(duplicateCount - 1)
+	}
+	eventQuery := s.DB.Model(&model.Event{}).Where("is_aggregated = ?", false)
+	sessionQuery := s.DB.Model(&model.Session{})
 	if tenantID != "" {
 		eventQuery = eventQuery.Where("tenant_id = ?", tenantID)
 		sessionQuery = sessionQuery.Where("tenant_id = ?", tenantID)
 	}
-	var events []model.Event
-	var sessions []model.Session
-	if err := eventQuery.Find(&events).Error; err != nil {
+	var eventCount, sessionCount int64
+	if err := eventQuery.Count(&eventCount).Error; err != nil {
 		return quality, err
 	}
-	if err := sessionQuery.Find(&sessions).Error; err != nil {
+	if err := sessionQuery.Count(&sessionCount).Error; err != nil {
 		return quality, err
 	}
-	quality.Events, quality.Sessions = len(events), len(sessions)
+	quality.Events, quality.Sessions = int(eventCount), int(sessionCount)
 	denominator := float64(quality.Profiles * 2)
 	missing := float64(quality.MissingIdentity + quality.MissingFeatures)
 	quality.CoverageScore = 1
