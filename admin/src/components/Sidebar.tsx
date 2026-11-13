@@ -33,6 +33,7 @@ const NAV = [
   { href: "/aggregations", label: "Aggregations", icon: "Σ" },
   { href: "/anomalies", label: "Anomalies", icon: "△" },
   { href: "/intelligence/training", label: "Model Training", icon: "▣" },
+  { href: "/intelligence/models", label: "Model Registry", icon: "◈" },
   { href: "/audit-log", label: "Audit Log", icon: "≡" },
   { href: "/dead-letters", label: "Dead Letters", icon: "!" },
   { href: "/replay", label: "Replay", icon: "↻" },
