@@ -90,6 +90,7 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 		}
 		payload, _ := json.Marshal(RedactPII(e["payload"], piiFields))
 		dims, _ := json.Marshal(e["dims"])
+		userID := eventUserID(e)
 		source, _ := e["source"].(string)
 		if source == "" {
 			source = "client"
@@ -98,6 +99,7 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			EventID: eid, SessionID: sid, EventName: eventName,
 			ClientTS: int64(clientTS), EventVersion: eventVersion, IngestTS: time.Now(),
 			Payload: string(payload), Dims: string(dims),
+			UserID: userID,
 			Source: source, IsAggregated: false,
 		}
 		if s.ExpSvc != nil {

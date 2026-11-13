@@ -275,7 +275,7 @@ func snapshotOf(row model.UserIntelligence) UserIntelligenceSnapshot {
 	_ = json.Unmarshal([]byte(row.Tags), &tags)
 	_ = json.Unmarshal([]byte(row.Scores), &scores)
 	_ = json.Unmarshal([]byte(row.Features), &features)
-	return UserIntelligenceSnapshot{TenantID: row.TenantID, Fingerprint: row.Fingerprint, IP: row.IP, UserAgent: row.UserAgent, Tags: tags, Scores: scores, Features: features, AnomalyScore: row.AnomalyScore, PredictedNextEvent: row.PredictedNextEvent, PredictedEventsToday: row.PredictedEventsToday, Confidence: row.Confidence, ComputedAt: row.ComputedAt}
+	return UserIntelligenceSnapshot{TenantID: row.TenantID, Fingerprint: row.Fingerprint, UserID: row.UserID, IP: row.IP, UserAgent: row.UserAgent, Tags: tags, Scores: scores, Features: features, AnomalyScore: row.AnomalyScore, PredictedNextEvent: row.PredictedNextEvent, PredictedEventsToday: row.PredictedEventsToday, Confidence: row.Confidence, ComputedAt: row.ComputedAt}
 }
 
 // TrainUnsupervised builds a tenant baseline from the explainable snapshots
@@ -626,6 +626,7 @@ func (s *UserIntelligenceService) ExportModel(tenantID, label string, registry M
 type UserIntelligenceSnapshot struct {
 	TenantID             string             `json:"tenant_id"`
 	Fingerprint          string             `json:"fingerprint"`
+	UserID               string             `json:"user_id"`
 	IP                   string             `json:"ip"`
 	UserAgent            string             `json:"user_agent"`
 	Tags                 []string           `json:"tags"`
@@ -664,15 +665,28 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 		lastSeen                 time.Time
 		names                    map[string]int64
 		timestamps               []int64
-		ip, ua                   string
+		ip, ua, userID           string
 	}
 	groups := map[string]*aggregate{}
 	sessionKeys := map[string]string{}
+	sessionUserIDs := map[string]string{}
+	for _, event := range events {
+		if event.UserID != "" {
+			sessionUserIDs[event.SessionID] = event.UserID
+		}
+	}
 	for _, session := range sessions {
+		userID := session.UserID
+		if userID == "" {
+			userID = sessionUserIDs[session.ID]
+		}
 		key := session.IP + "\x00" + session.UserAgent
+		if userID != "" {
+			key = "user:" + userID
+		}
 		sessionKeys[session.ID] = key
 		if groups[key] == nil {
-			groups[key] = &aggregate{names: map[string]int64{}, ip: session.IP, ua: session.UserAgent}
+			groups[key] = &aggregate{names: map[string]int64{}, ip: session.IP, ua: session.UserAgent, userID: userID}
 		}
 		g := groups[key]
 		g.sessionCount++
@@ -745,7 +759,11 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 		}
 		predicted := int64(math.Round(float64(g.eventCount) * 2))
 		confidence := math.Min(1, float64(g.eventCount)/10)
-		row := model.UserIntelligence{ID: tenantID + ":" + UserFingerprint(g.ip, g.ua), TenantID: tenantID, Fingerprint: UserFingerprint(g.ip, g.ua), IP: g.ip, UserAgent: g.ua, AnomalyScore: anomaly, PredictedNextEvent: next, PredictedEventsToday: predicted, Confidence: confidence, ComputedAt: now}
+		identityKey := g.ip + "\x00" + g.ua
+		if g.userID != "" {
+			identityKey = "user:" + g.userID
+		}
+		row := model.UserIntelligence{ID: tenantID + ":" + UserFingerprint(identityKey, ""), TenantID: tenantID, UserID: g.userID, Fingerprint: UserFingerprint(identityKey, ""), IP: g.ip, UserAgent: g.ua, AnomalyScore: anomaly, PredictedNextEvent: next, PredictedEventsToday: predicted, Confidence: confidence, ComputedAt: now}
 		encodedTags, _ := json.Marshal(tags)
 		encodedScores, _ := json.Marshal(scores)
 		encodedFeatures, _ := json.Marshal(features)

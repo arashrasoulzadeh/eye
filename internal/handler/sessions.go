@@ -45,6 +45,7 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		var b struct {
 			TenantID string         `json:"tenant_id"`
+			UserID   string         `json:"user_id"`
 			Device   map[string]any `json:"device"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.TenantID == "" {
@@ -58,6 +59,7 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s := &model.Session{
 			ID:         hex.EncodeToString(idBytes),
 			TenantID:   b.TenantID,
+			UserID:     strings.TrimSpace(b.UserID),
 			StartedAt:  now,
 			LastSeen:   now,
 			UserAgent:  r.Header.Get("User-Agent"),

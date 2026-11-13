@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:13:38+03:30** — feat(intelligence): add training data quality assessments (`83e4285`, `83e428586350dcc6c2918b732ef9e1d802822a9b`)
 - **2026-11-13T15:04:20+03:30** — feat(intelligence): automate model evaluation and drift checks (`d37568b`, `d37568b5385660b2c6d8266bd228c5f38ef8c971`)
 - **2026-11-13T15:02:20+03:30** — fix(intelligence): gate runtime scoring on promoted models (`1fd0ac0`, `1fd0ac0a7ee071a3b02327addffc9a7b8ca8a23a`)
 - **2026-11-13T15:00:39+03:30** — feat(intelligence): add model promotion and rollback (`f33220d`, `f33220df5727a40d3bf0a30328ba4c8363358926`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T12:49:41+03:30** — feat(offline): expose persisted session location (`58c1046`, `58c1046b7ff4e82b6d9a03acad7f7ed1d9aa9080`)
 - **2026-11-13T12:46:17+03:30** — feat(offline): add GeoLite2 session enrichment (`833e982`, `833e9829556b35dc683f31a6eeef8e21b4c75e81`)
 - **2026-11-13T12:36:45+03:30** — fix(dashboard): limit hourly chart to selected range (`08d1a60`, `08d1a60301d72fa8b241cd11d89bc7decf5d97c8`)
-- **2026-11-13T12:26:31+03:30** — fix(admin): link user profiles (`b71187e`, `b71187e205279df216747f5095630092e520fd03`)

@@ -35,6 +35,7 @@ type FeatureFlag struct {
 type Session struct {
 	ID         string `gorm:"primaryKey"`
 	TenantID   string `gorm:"index"`
+	UserID     string `gorm:"index"`
 	StartedAt  time.Time
 	LastSeen   time.Time
 	EventCount int64
@@ -64,6 +65,7 @@ type UserIntelligence struct {
 	ID                   string `gorm:"primaryKey"`
 	TenantID             string `gorm:"index"`
 	Fingerprint          string `gorm:"index"`
+	UserID               string `gorm:"index"`
 	IP                   string
 	UserAgent            string
 	Tags                 string
@@ -148,6 +150,7 @@ type Event struct {
 	EventVersion  int
 	SessionID     string `gorm:"index"`
 	TenantID      string `gorm:"index"`
+	UserID        string `gorm:"index"`
 	EventName     string
 	ClientTS      int64
 	IngestTS      time.Time
