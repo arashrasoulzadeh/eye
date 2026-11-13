@@ -17,6 +17,8 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+const intelligenceRefreshBatchSize = 500
+
 func (s *UserIntelligenceService) AssessDataQuality(tenantID string, now time.Time) (model.IntelligenceDataQuality, error) {
 	quality := model.IntelligenceDataQuality{ID: fmt.Sprintf("%s:%d", tenantID, now.UnixNano()), TenantID: tenantID, CreatedAt: now}
 	query := s.DB
@@ -820,21 +822,6 @@ func UserFingerprint(ip, userAgent string) string {
 }
 
 func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, error) {
-	var sessions []model.Session
-	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&sessions).Error; err != nil {
-		return 0, err
-	}
-	if len(sessions) == 0 {
-		return 0, nil
-	}
-	ids := make([]string, 0, len(sessions))
-	for _, session := range sessions {
-		ids = append(ids, session.ID)
-	}
-	var events []model.Event
-	if err := s.DB.Where("session_id IN ? AND is_aggregated = ?", ids, false).Find(&events).Error; err != nil {
-		return 0, err
-	}
 	type aggregate struct {
 		sessionCount, eventCount int64
 		lastSeen                 time.Time
@@ -845,37 +832,61 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 	groups := map[string]*aggregate{}
 	sessionKeys := map[string]string{}
 	sessionUserIDs := map[string]string{}
-	for _, event := range events {
-		if event.UserID != "" {
-			sessionUserIDs[event.SessionID] = event.UserID
-		}
+	var sessionUsers []struct {
+		SessionID string
+		UserID    string
 	}
-	for _, session := range sessions {
-		userID := session.UserID
-		if userID == "" {
-			userID = sessionUserIDs[session.ID]
-		}
-		key := session.IP + "\x00" + session.UserAgent
-		if userID != "" {
-			key = "user:" + userID
-		}
-		sessionKeys[session.ID] = key
-		if groups[key] == nil {
-			groups[key] = &aggregate{names: map[string]int64{}, ip: session.IP, ua: session.UserAgent, userID: userID}
-		}
-		g := groups[key]
-		g.sessionCount++
-		if session.LastSeen.After(g.lastSeen) {
-			g.lastSeen = session.LastSeen
-		}
+	if err := s.DB.Model(&model.Event{}).Select("session_id, MAX(user_id) AS user_id").Where("tenant_id = ? AND user_id <> ?", tenantID, "").Group("session_id").Scan(&sessionUsers).Error; err != nil {
+		return 0, err
 	}
-	for _, event := range events {
-		if key, ok := sessionKeys[event.SessionID]; ok {
+	for _, sessionUser := range sessionUsers {
+		sessionUserIDs[sessionUser.SessionID] = sessionUser.UserID
+	}
+	var totalSessions int64
+	if err := s.DB.Model(&model.Session{}).Where("tenant_id = ?", tenantID).Count(&totalSessions).Error; err != nil {
+		return 0, err
+	}
+	if totalSessions == 0 {
+		return 0, nil
+	}
+	var sessionBatch []model.Session
+	if err := s.DB.Where("tenant_id = ?", tenantID).FindInBatches(&sessionBatch, intelligenceRefreshBatchSize, func(_ *gorm.DB, _ int) error {
+		for _, session := range sessionBatch {
+			userID := session.UserID
+			if userID == "" {
+				userID = sessionUserIDs[session.ID]
+			}
+			key := session.IP + "\x00" + session.UserAgent
+			if userID != "" {
+				key = "user:" + userID
+			}
+			sessionKeys[session.ID] = key
+			if groups[key] == nil {
+				groups[key] = &aggregate{names: map[string]int64{}, ip: session.IP, ua: session.UserAgent, userID: userID}
+			}
 			g := groups[key]
-			g.eventCount++
-			g.names[event.EventName]++
-			g.timestamps = append(g.timestamps, event.ClientTS)
+			g.sessionCount++
+			if session.LastSeen.After(g.lastSeen) {
+				g.lastSeen = session.LastSeen
+			}
 		}
+		return nil
+	}).Error; err != nil {
+		return 0, err
+	}
+	var eventBatch []model.Event
+	if err := s.DB.Where("tenant_id = ? AND is_aggregated = ?", tenantID, false).FindInBatches(&eventBatch, intelligenceRefreshBatchSize, func(_ *gorm.DB, _ int) error {
+		for _, event := range eventBatch {
+			if key, ok := sessionKeys[event.SessionID]; ok {
+				g := groups[key]
+				g.eventCount++
+				g.names[event.EventName]++
+				g.timestamps = append(g.timestamps, event.ClientTS)
+			}
+		}
+		return nil
+	}).Error; err != nil {
+		return 0, err
 	}
 	count := 0
 	for key, g := range groups {

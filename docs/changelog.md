@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:50:26+03:30** — perf(intelligence): aggregate data quality in database (`b5c0ae5`, `b5c0ae50048f02a2a7245f78a88da36c5776775d`)
 - **2026-11-13T17:46:57+03:30** — ci: validate intelligence alert manifests (`a0fe3ab`, `a0fe3ab06dd5e116a8893c6d10e3c5aa7db92354`)
 - **2026-11-13T17:45:16+03:30** — feat(observability): complete Grafana metric dashboard (`0ca6925`, `0ca6925aa6d4dc3f5bdd8ad13451a347591cc841`)
 - **2026-11-13T17:43:40+03:30** — fix(intelligence): recover abandoned pipeline runs (`78233b3`, `78233b3886722c725780a052bc7196f3ffae88e2`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:24:51+03:30** — fix(admin): inspect layered behavior models (`3dffa59`, `3dffa59e6aa1d60b7462160268dea5f6189539af`)
 - **2026-11-13T14:23:36+03:30** — chore(admin): remove training page lint warning (`14b34c1`, `14b34c1dbbc71898d0ad182c7cf439c0f535826f`)
 - **2026-11-13T14:20:05+03:30** — feat(admin): visualize training event distributions (`209b185`, `209b185230663cc7bd5fde5d36dcabf0a4f8946a`)
-- **2026-11-13T14:18:16+03:30** — feat(intelligence): train from all events and show metrics (`11c24ed`, `11c24eddf0d9549c9eabb498e9d132ed2216d2d8`)
