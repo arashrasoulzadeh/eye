@@ -18,7 +18,7 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now()
-	db.Create(&model.Session{ID: "s1", TenantID: "t1", IP: "1.2.3.4", UserAgent: "Googlebot", StartedAt: now, LastSeen: now})
+	db.Create(&model.Session{ID: "s1", TenantID: "t1", IP: "1.2.3.4", UserAgent: "GPTBot/1.0", StartedAt: now, LastSeen: now})
 	db.Create(&model.Event{EventID: "e1", SessionID: "s1", TenantID: "t1", EventName: "purchase", ClientTS: now.UnixMilli()})
 	if _, err := (&UserIntelligenceService{DB: db}).Refresh("t1", now); err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 	for _, tag := range rows[0].Tags {
 		seen[tag] = true
 	}
-	if !seen["buyer"] || !seen["bot"] {
+	if !seen["buyer"] || !seen["bot"] || !seen["ai_crawler"] {
 		t.Fatalf("tags=%v", rows[0].Tags)
 	}
 }

@@ -338,9 +338,14 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 		if g.sessionCount > 1 {
 			tags = append(tags, "returning_user")
 		}
-		if strings.Contains(strings.ToLower(g.ua), "bot") || strings.Contains(strings.ToLower(g.ua), "crawler") || strings.Contains(strings.ToLower(g.ua), "spider") {
+		uaLower := strings.ToLower(g.ua)
+		if strings.Contains(uaLower, "bot") || strings.Contains(uaLower, "crawler") || strings.Contains(uaLower, "spider") {
 			tags = append(tags, "bot", "automation")
 			scores["bot"] = 1
+		}
+		if strings.Contains(uaLower, "gptbot") || strings.Contains(uaLower, "claudebot") || strings.Contains(uaLower, "anthropic") || strings.Contains(uaLower, "perplexitybot") || strings.Contains(uaLower, "google-extended") || strings.Contains(uaLower, "bytespider") {
+			tags = append(tags, "ai_crawler")
+			scores["ai_crawler"] = 1
 		}
 		buyer, intent := false, 0.0
 		for name, n := range g.names {
