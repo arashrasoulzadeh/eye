@@ -28,6 +28,15 @@ type ModelManifest struct {
 type ModelRegistry struct{ Root string }
 
 func (r ModelRegistry) Store(scope, task string, manifest ModelManifest, artifact []byte) error {
+	if strings.TrimSpace(scope) == "" || strings.Contains(scope, "..") || filepath.IsAbs(scope) || strings.TrimSpace(task) == "" || strings.Contains(task, "..") {
+		return fmt.Errorf("invalid model scope or task")
+	}
+	if manifest.Name == "" || manifest.Version == "" || manifest.Task != task || manifest.Algorithm == "" || manifest.FeatureSchema == "" || strings.TrimSpace(manifest.Source) == "" {
+		return fmt.Errorf("model manifest is missing required fields")
+	}
+	if filepath.Base(manifest.Artifact) != manifest.Artifact || manifest.Artifact == "" || manifest.Artifact == "." || manifest.Artifact == ".." {
+		return fmt.Errorf("invalid model artifact filename")
+	}
 	dir := filepath.Join(r.Root, scope, task)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -39,10 +48,44 @@ func (r ModelRegistry) Store(scope, task string, manifest ModelManifest, artifac
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, manifest.Artifact), artifact, 0644); err != nil {
+	artifactTemp, err := os.CreateTemp(dir, ".artifact-*")
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "manifest.json"), encoded, 0644)
+	tempArtifact := artifactTemp.Name()
+	defer os.Remove(tempArtifact)
+	if err := artifactTemp.Chmod(0644); err != nil {
+		artifactTemp.Close()
+		return err
+	}
+	if _, err := artifactTemp.Write(artifact); err != nil {
+		artifactTemp.Close()
+		return err
+	}
+	if err := artifactTemp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempArtifact, filepath.Join(dir, manifest.Artifact)); err != nil {
+		return err
+	}
+	manifestTemp, err := os.CreateTemp(dir, ".manifest-*")
+	if err != nil {
+		return err
+	}
+	tempManifest := manifestTemp.Name()
+	defer os.Remove(tempManifest)
+	if err := manifestTemp.Chmod(0644); err != nil {
+		manifestTemp.Close()
+		return err
+	}
+	if _, err := manifestTemp.Write(encoded); err != nil {
+		manifestTemp.Close()
+		return err
+	}
+	if err := manifestTemp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tempManifest, filepath.Join(dir, "manifest.json"))
 }
 
 func (r ModelRegistry) manifestPath(scope, task string) string {
@@ -60,6 +103,9 @@ func (r ModelRegistry) Load(scope, task string) (ModelManifest, error) {
 	}
 	if manifest.Name == "" || manifest.Version == "" || manifest.Task == "" || manifest.Artifact == "" {
 		return ModelManifest{}, fmt.Errorf("model manifest is missing required fields")
+	}
+	if filepath.Base(manifest.Artifact) != manifest.Artifact || manifest.Artifact == "." || manifest.Artifact == ".." {
+		return ModelManifest{}, fmt.Errorf("model manifest contains unsafe artifact filename")
 	}
 	if manifest.Task != task {
 		return ModelManifest{}, fmt.Errorf("model task %q does not match requested task %q", manifest.Task, task)

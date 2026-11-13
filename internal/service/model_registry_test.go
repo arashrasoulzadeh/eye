@@ -46,3 +46,20 @@ func TestModelRegistryRejectsChangedArtifact(t *testing.T) {
 		t.Fatal("expected checksum mismatch")
 	}
 }
+
+func TestModelRegistryRejectsUnsafeAndIncompleteModels(t *testing.T) {
+	registry := ModelRegistry{Root: t.TempDir()}
+	artifact := []byte("model")
+	valid := NewManifest("buyer", "1", "buyer", "nb", "v1", "model.json", "ghcr", artifact, time.Now())
+	if err := registry.Store("../escape", "buyer", valid, artifact); err == nil {
+		t.Fatal("unsafe scope accepted")
+	}
+	valid.Artifact = "../escape"
+	if err := registry.Store("global", "buyer", valid, artifact); err == nil {
+		t.Fatal("unsafe artifact path accepted")
+	}
+	valid = ModelManifest{Name: "buyer", Version: "1", Task: "buyer", Artifact: "model.json"}
+	if err := registry.Store("global", "buyer", valid, artifact); err == nil {
+		t.Fatal("incomplete manifest accepted")
+	}
+}
