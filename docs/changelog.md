@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T22:26:11+03:30** — fix(ci): remove flaky go cache restore (`5714fa6`, `5714fa6cfda6a6eb982dfbc86cba6dc790fefdd2`)
 - **2026-11-13T22:15:23+03:30** — fix(deploy): wait for images matching checked out commit (`7c889f2`, `7c889f2e107bd5589a439550c7fac04696856be0`)
 - **2026-11-13T21:41:44+03:30** — fix(postgres): make event key hypertable compatible (`4865b5f`, `4865b5fcf447c10ff8e3349836fa66aff29e0f46`)
 - **2026-11-13T21:34:17+03:30** — fix(postgres): migrate existing events into hypertable (`a78c717`, `a78c7172013cec5a19f84f1cd62ad097ac1b4e44`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:24:16+03:30** — feat(intelligence): expose prediction evidence (`fb6cc0d`, `fb6cc0dab19a5e3efebfa5f68146fe10037d5865`)
 - **2026-11-13T16:21:02+03:30** — feat(intelligence): export model quality metrics (`5115b44`, `5115b446311a45f05a92c5048000c0a26ae2ede0`)
 - **2026-11-13T16:19:09+03:30** — feat(intelligence): measure confidence calibration (`94f76c9`, `94f76c956f1d6c2cc248fc71175d8ccb4a17f7ee`)
-- **2026-11-13T16:16:51+03:30** — feat(intelligence): persist explicit user identity (`5813ca8`, `5813ca814b89de695006689e1eb971768e9e2d86`)
