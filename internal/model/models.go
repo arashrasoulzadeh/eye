@@ -127,6 +127,21 @@ type IntelligenceEvaluation struct {
 	CreatedAt    time.Time
 }
 
+type IntelligenceDataQuality struct {
+	ID              string `gorm:"primaryKey"`
+	TenantID        string `gorm:"index"`
+	Profiles        int
+	Events          int
+	Sessions        int
+	MissingIdentity int
+	MissingFeatures int
+	DuplicateUsers  int
+	CoverageScore   float64
+	Status          string
+	Details         string
+	CreatedAt       time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`

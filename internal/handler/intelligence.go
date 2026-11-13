@@ -147,6 +147,24 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.URL.Query().Get("action") == "quality" {
+		if r.Method == http.MethodPost {
+			result, err := h.Svc.AssessDataQuality(tenantID, time.Now())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(result)
+			return
+		}
+		result, err := h.Svc.LatestDataQuality(tenantID)
+		if err != nil {
+			http.Error(w, "data quality unavailable", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+		return
+	}
 	if r.URL.Query().Get("action") == "promote" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {

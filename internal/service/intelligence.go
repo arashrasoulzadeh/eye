@@ -16,6 +16,71 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+func (s *UserIntelligenceService) AssessDataQuality(tenantID string, now time.Time) (model.IntelligenceDataQuality, error) {
+	quality := model.IntelligenceDataQuality{ID: fmt.Sprintf("%s:%d", tenantID, now.UnixNano()), TenantID: tenantID, CreatedAt: now}
+	var profiles []model.UserIntelligence
+	query := s.DB
+	if tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	if err := query.Find(&profiles).Error; err != nil {
+		return quality, err
+	}
+	quality.Profiles = len(profiles)
+	seen := map[string]bool{}
+	for _, profile := range profiles {
+		if profile.IP == "" && profile.UserAgent == "" {
+			quality.MissingIdentity++
+		}
+		if strings.TrimSpace(profile.Features) == "" || profile.Features == "{}" || profile.Features == "null" {
+			quality.MissingFeatures++
+		}
+		if seen[profile.Fingerprint] {
+			quality.DuplicateUsers++
+		}
+		seen[profile.Fingerprint] = true
+	}
+	eventQuery := s.DB.Where("is_aggregated = ?", false)
+	sessionQuery := s.DB
+	if tenantID != "" {
+		eventQuery = eventQuery.Where("tenant_id = ?", tenantID)
+		sessionQuery = sessionQuery.Where("tenant_id = ?", tenantID)
+	}
+	var events []model.Event
+	var sessions []model.Session
+	if err := eventQuery.Find(&events).Error; err != nil {
+		return quality, err
+	}
+	if err := sessionQuery.Find(&sessions).Error; err != nil {
+		return quality, err
+	}
+	quality.Events, quality.Sessions = len(events), len(sessions)
+	denominator := float64(quality.Profiles * 2)
+	missing := float64(quality.MissingIdentity + quality.MissingFeatures)
+	quality.CoverageScore = 1
+	if denominator > 0 {
+		quality.CoverageScore = math.Max(0, 1-missing/denominator)
+	}
+	quality.Status = "healthy"
+	if quality.CoverageScore < 0.7 {
+		quality.Status = "poor"
+	} else if quality.CoverageScore < 0.9 {
+		quality.Status = "warning"
+	}
+	details, _ := json.Marshal(map[string]any{"identity_coverage": 1 - float64(quality.MissingIdentity)/math.Max(1, float64(quality.Profiles)), "feature_coverage": 1 - float64(quality.MissingFeatures)/math.Max(1, float64(quality.Profiles)), "checked_at": now})
+	quality.Details = string(details)
+	if err := s.DB.Create(&quality).Error; err != nil {
+		return quality, err
+	}
+	return quality, nil
+}
+
+func (s *UserIntelligenceService) LatestDataQuality(tenantID string) (model.IntelligenceDataQuality, error) {
+	var quality model.IntelligenceDataQuality
+	err := s.DB.Where("tenant_id = ?", tenantID).Order("created_at desc").First(&quality).Error
+	return quality, err
+}
+
 func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now time.Time) (model.IntelligenceEvaluation, error) {
 	var trained model.IntelligenceModel
 	query := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc")
