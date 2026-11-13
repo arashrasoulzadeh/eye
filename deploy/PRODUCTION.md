@@ -17,6 +17,15 @@ To publish the mounted registry as a standalone GHCR OCI artifact, set
 artifact from `MODEL_REGISTRY_DIR` and pushes it independently of the server,
 collector, and admin images.
 
+On the server, update only the model volume with:
+
+```sh
+MODEL_IMAGE=ghcr.io/arashrasoulzadeh/eye-models:latest ./deploy/update-models.sh
+```
+
+This does not rebuild, remove, or reset application containers or data. The
+intelligence scheduler consumes the new validated model on its next refresh.
+
 To create the GHCR credentials, open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Grant `read:packages` to pull private images, copy the token once, and add this to `.env`:
 
 ```dotenv
