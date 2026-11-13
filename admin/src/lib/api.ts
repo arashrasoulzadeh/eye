@@ -197,6 +197,7 @@ export const api = {
     list: (tenantId: string, limit = 100) => req<Array<{ tenant_id: string; fingerprint: string; ip: string; user_agent: string; tags: string[]; scores: Record<string, number>; features: Record<string, number>; anomaly_score: number; predicted_next_event: string; predicted_events_today: number; confidence: number; computed_at: string }>>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&limit=${limit}`).then((value) => Array.isArray(value) ? value : []),
     refresh: (tenantId: string) => req<{ refreshed: number }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=refresh`, { method: "POST" }),
     train: (tenantId: string, label = "buyer") => req<{ id: string; version: number; algorithm: string; metrics: string }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=train&label=${encodeURIComponent(label)}`, { method: "POST" }),
+    model: (tenantId: string, task = "buyer") => req<{ scope: string; manifest: { name: string; version: string; task: string; algorithm: string; source: string; created_at: string } }>(`intelligence/users?tenant_id=${encodeURIComponent(tenantId)}&action=model&task=${encodeURIComponent(task)}`),
   },
 
   schemas: {

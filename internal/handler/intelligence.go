@@ -11,7 +11,8 @@ import (
 )
 
 type IntelligenceHandler struct {
-	Svc *service.UserIntelligenceService
+	Svc      *service.UserIntelligenceService
+	Registry service.ModelRegistry
 }
 
 func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +62,19 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		json.NewEncoder(w).Encode(trained)
+		return
+	}
+	if r.URL.Query().Get("action") == "model" {
+		task := r.URL.Query().Get("task")
+		if task == "" {
+			task = "buyer"
+		}
+		manifest, scope, err := h.Registry.Resolve(tenantID, task)
+		if err != nil {
+			http.Error(w, "offline model unavailable", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"scope": scope, "manifest": manifest})
 		return
 	}
 	if r.Method == http.MethodPost && r.URL.Query().Get("action") == "refresh" {

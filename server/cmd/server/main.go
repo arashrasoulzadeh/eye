@@ -82,6 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 	intelligenceSvc := &service.UserIntelligenceService{DB: db}
+	modelRegistry := service.ModelRegistry{Root: cfg.ModelRegistryDir}
 	intelligenceCtx, cancelIntelligence := context.WithCancel(context.Background())
 	defer cancelIntelligence()
 	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, 15*time.Minute, logger)
@@ -158,7 +159,7 @@ func main() {
 		setTenantContext = nil
 	}
 	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP})))
-	mux.Handle("/intelligence/users", adminAuth(&handler.IntelligenceHandler{Svc: intelligenceSvc}))
+	mux.Handle("/intelligence/users", adminAuth(&handler.IntelligenceHandler{Svc: intelligenceSvc, Registry: modelRegistry}))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})
