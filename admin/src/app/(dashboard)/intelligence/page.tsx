@@ -17,6 +17,7 @@ export default function IntelligencePage() {
   const [tenant, setTenant] = useState(globalTenant),
     [tenants, setTenants] = useState<Tenant[]>([]),
     [rows, setRows] = useState<Snapshot[]>([]),
+    [pipelineRuns, setPipelineRuns] = useState<Awaited<ReturnType<typeof api.intelligence.pipelineRuns>>>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -47,6 +48,13 @@ export default function IntelligencePage() {
     const timer = window.setInterval(() => void load(), 60000);
     return () => window.clearInterval(timer);
   }, [load]);
+  useEffect(() => {
+    if (!tenant) { setPipelineRuns([]); return; }
+    const poll = () => api.intelligence.pipelineRuns(tenant).then(setPipelineRuns).catch(() => undefined);
+    void poll();
+    const timer = window.setInterval(poll, 2500);
+    return () => window.clearInterval(timer);
+  }, [tenant]);
   const tagCounts = useMemo(
     () =>
       rows
@@ -116,6 +124,14 @@ export default function IntelligencePage() {
           </Button>
         </div>
       </div>
+      {pipelineRuns[0] && (
+        <Card className="mt-4">
+          <div className="flex items-center justify-between gap-4 p-4 text-sm">
+            <div><p className="font-medium text-fg">Intelligence pipeline</p><p className="text-xs text-fg-muted">{pipelineRuns[0].Stage || pipelineRuns[0].Status}{pipelineRuns[0].Error ? ` · ${pipelineRuns[0].Error}` : ""}</p></div>
+            <span className={pipelineRuns[0].Status === "failed" ? "text-danger" : pipelineRuns[0].Status === "completed" ? "text-success" : "text-accent"}>{pipelineRuns[0].Status} · {pipelineRuns[0].Progress}%</span>
+          </div>
+        </Card>
+      )}
       {error && (
         <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           {error}

@@ -67,13 +67,23 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if r.URL.Query().Get("action") == "pipeline" && r.Method == http.MethodPost {
-		result, err := h.Svc.RunPipeline(tenantID, time.Now())
+		run, err := h.Svc.StartPipeline(tenantID, time.Now())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 		w.Header().Set("content-type", "application/json")
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode(run)
+		return
+	}
+	if r.URL.Query().Get("action") == "pipeline-status" && r.Method == http.MethodGet {
+		runs, err := h.Svc.PipelineRuns(tenantID, 20)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		json.NewEncoder(w).Encode(runs)
 		return
 	}
 	if r.URL.Query().Get("action") == "readiness" {

@@ -88,6 +88,40 @@ type PipelineResult struct {
 	Steps             []string `json:"steps"`
 }
 
+func (s *UserIntelligenceService) StartPipeline(tenantID string, now time.Time) (model.IntelligencePipelineRun, error) {
+	run := model.IntelligencePipelineRun{ID: fmt.Sprintf("pipeline:%s:%d", tenantID, now.UnixNano()), TenantID: tenantID, Status: "queued", Progress: 0, Stage: "queued", CreatedAt: now}
+	if err := s.DB.Create(&run).Error; err != nil {
+		return run, err
+	}
+	go func() {
+		started := time.Now()
+		s.DB.Model(&model.IntelligencePipelineRun{}).Where("id = ?", run.ID).Updates(map[string]any{"status": "running", "stage": "running", "started_at": started})
+		_, err := s.RunPipeline(tenantID, started)
+		finished := time.Now()
+		updates := map[string]any{"finished_at": finished}
+		if err != nil {
+			updates["status"] = "failed"
+			updates["stage"] = "failed"
+			updates["error"] = err.Error()
+		} else {
+			updates["status"] = "completed"
+			updates["progress"] = 100
+			updates["stage"] = "completed"
+		}
+		s.DB.Model(&model.IntelligencePipelineRun{}).Where("id = ?", run.ID).Updates(updates)
+	}()
+	return run, nil
+}
+
+func (s *UserIntelligenceService) PipelineRuns(tenantID string, limit int) ([]model.IntelligencePipelineRun, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	var runs []model.IntelligencePipelineRun
+	err := s.DB.Where("tenant_id = ?", tenantID).Order("created_at desc").Limit(limit).Find(&runs).Error
+	return runs, err
+}
+
 // RunPipeline executes the complete synchronous intelligence lifecycle for one
 // tenant. The scheduled job uses the same individual operations, while this
 // method gives the admin a single auditable action with explicit stages.

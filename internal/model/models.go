@@ -100,6 +100,21 @@ type IntelligenceTrainingRun struct {
 	CreatedAt time.Time
 }
 
+// IntelligencePipelineRun records the lifecycle of an operator-triggered
+// end-to-end intelligence run so the admin can observe it after the request
+// returns and recover from failures without guessing.
+type IntelligencePipelineRun struct {
+	ID         string `gorm:"primaryKey"`
+	TenantID   string `gorm:"index"`
+	Status     string `gorm:"index"` // queued, running, completed, failed
+	Progress   int
+	Stage      string
+	Error      string
+	StartedAt  time.Time
+	FinishedAt *time.Time
+	CreatedAt  time.Time
+}
+
 type IntelligenceModel struct {
 	ID         string `gorm:"primaryKey"`
 	TenantID   string `gorm:"index"`
