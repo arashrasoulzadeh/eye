@@ -29,3 +29,17 @@ spec:
           annotations:
             summary: Eye async stream is backed up
             description: The in-process stream queue has remained above 200 events.
+        - alert: EyeIntelligencePipelineFailed
+          expr: eye_intelligence_pipeline_failed > 0
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: Eye intelligence pipeline failed
+            description: At least one intelligence pipeline is failed and requires retry or investigation.
+        - alert: EyeIntelligencePipelineStuck
+          expr: eye_intelligence_pipeline_active > 0
+          for: 30m
+          labels: { severity: warning }
+          annotations:
+            summary: Eye intelligence pipeline is running unusually long
+            description: An intelligence pipeline has remained active for more than thirty minutes.

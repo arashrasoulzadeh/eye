@@ -19,6 +19,14 @@ jobs:
             test -x "$script"
             bash -n "$script"
           done
+      - name: Validate observability manifests
+        run: |
+          set -euo pipefail
+          jq empty deploy/grafana/eye-dashboard.json
+          grep -q 'EyeIntelligencePipelineFailed' deploy/prometheus/eye-intelligence-alerts.yml
+          grep -q 'EyeIntelligencePipelineStuck' deploy/prometheus/eye-intelligence-alerts.yml
+          grep -q 'EyeIntelligencePipelineFailed' deploy/k8s/prometheus-rules.yaml
+          grep -q 'EyeIntelligencePipelineStuck' deploy/k8s/prometheus-rules.yaml
 
   go-test:
     name: Go Tests
