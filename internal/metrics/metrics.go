@@ -3,7 +3,9 @@ package metrics
 import (
 	"sync/atomic"
 
+	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/prometheus/client_golang/prometheus"
+	"gorm.io/gorm"
 )
 
 // IngestTotal counts ingest requests by outcome: "accepted"/"rejected" for
@@ -38,6 +40,16 @@ var StreamQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{Name: "stream_qu
 var IngestSampleRate = prometheus.NewGauge(prometheus.GaugeOpts{Name: "ingest_sample_rate"})
 
 var HTTPRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_request_duration_seconds", Help: "HTTP request duration by method and status."}, []string{"method", "status"})
+var HTTPRequestsTotal = prometheus.NewGauge(prometheus.GaugeOpts{Name: "http_requests_total", Help: "Total HTTP requests observed by the process."})
+var HTTPErrorsTotal = prometheus.NewGauge(prometheus.GaugeOpts{Name: "http_errors_total", Help: "Total HTTP 5xx responses observed by the process."})
+var StoredEvents = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_stored_events", Help: "Non-aggregated events currently stored."})
+var StoredSessions = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_stored_sessions", Help: "Sessions currently stored."})
+var StoredTenants = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_stored_tenants", Help: "Tenants currently stored."})
+var StoredBuckets = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_stored_event_buckets", Help: "Durable event buckets currently stored."})
+var IntelligenceProfiles = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_profiles", Help: "User intelligence snapshots currently stored."})
+var IntelligenceModels = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_models", Help: "Persisted intelligence models."})
+var IntelligenceTrainingRuns = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_training_runs", Help: "Persisted intelligence training runs."})
+var DatabaseRows = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_database_rows", Help: "Rows currently stored in each Eye database table."}, []string{"table"})
 
 var httpRequests atomic.Int64
 var httpErrors atomic.Int64
@@ -49,8 +61,56 @@ func RecordHTTPRequest(status int) {
 	}
 }
 
+func RefreshDatabaseStats(db *gorm.DB) {
+	var count int64
+	if db.Model(&model.Event{}).Where("is_aggregated = ?", false).Count(&count).Error == nil {
+		StoredEvents.Set(float64(count))
+	}
+	if db.Model(&model.Session{}).Count(&count).Error == nil {
+		StoredSessions.Set(float64(count))
+	}
+	if db.Model(&model.Tenant{}).Count(&count).Error == nil {
+		StoredTenants.Set(float64(count))
+	}
+	if db.Model(&model.EventBucket{}).Count(&count).Error == nil {
+		StoredBuckets.Set(float64(count))
+	}
+	if db.Model(&model.UserIntelligence{}).Count(&count).Error == nil {
+		IntelligenceProfiles.Set(float64(count))
+	}
+	if db.Model(&model.IntelligenceModel{}).Count(&count).Error == nil {
+		IntelligenceModels.Set(float64(count))
+	}
+	if db.Model(&model.IntelligenceTrainingRun{}).Count(&count).Error == nil {
+		IntelligenceTrainingRuns.Set(float64(count))
+	}
+	rows := []struct {
+		name  string
+		value any
+	}{
+		{"tenants", &model.Tenant{}}, {"feature_flags", &model.FeatureFlag{}}, {"sessions", &model.Session{}},
+		{"events", &model.Event{}}, {"event_buckets", &model.EventBucket{}}, {"pending_stream_events", &model.PendingStreamEvent{}},
+		{"aggregations", &model.Aggregation{}}, {"aggregate_counts", &model.AggregateCount{}}, {"schemas", &model.Schema{}},
+		{"cohorts", &model.Cohort{}}, {"cohort_memberships", &model.CohortMembership{}}, {"experiments", &model.Experiment{}},
+		{"experiment_assignments", &model.ExperimentAssignment{}}, {"alert_rules", &model.AlertRule{}}, {"runtime_settings", &model.RuntimeSettings{}},
+		{"webhook_dead_letters", &model.WebhookDeadLetter{}}, {"audit_logs", &model.AuditLog{}}, {"admin_users", &model.AdminUser{}},
+		{"admin_teams", &model.AdminTeam{}}, {"admin_team_members", &model.AdminTeamMember{}}, {"admin_sessions", &model.AdminSession{}},
+		{"dashboard_caches", &model.DashboardCache{}}, {"questions", &model.Question{}}, {"analytics_views", &model.AnalyticsView{}},
+		{"user_intelligence", &model.UserIntelligence{}}, {"user_intelligence_labels", &model.UserIntelligenceLabel{}},
+		{"intelligence_training_runs", &model.IntelligenceTrainingRun{}}, {"intelligence_models", &model.IntelligenceModel{}},
+	}
+	for _, row := range rows {
+		if db.Model(row.value).Count(&count).Error == nil {
+			DatabaseRows.WithLabelValues(row.name).Set(float64(count))
+		}
+	}
+	total, errors := HTTPRequestSnapshot()
+	HTTPRequestsTotal.Set(float64(total))
+	HTTPErrorsTotal.Set(float64(errors))
+}
+
 func HTTPRequestSnapshot() (total, errors int64) { return httpRequests.Load(), httpErrors.Load() }
 
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows)
 }

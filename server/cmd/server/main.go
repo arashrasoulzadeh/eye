@@ -283,11 +283,14 @@ func main() {
 	// than overloading one path with two incompatible response formats).
 	metrics.Init()
 	mux.Handle("/metrics/prometheus", promhttp.Handler())
+	metrics.RefreshDatabaseStats(db)
 	queueCtx, cancelQueue := context.WithCancel(context.Background())
 	defer cancelQueue()
 	go func() {
 		ticker := time.NewTicker(time.Second)
+		statsTicker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
+		defer statsTicker.Stop()
 		for {
 			select {
 			case <-queueCtx.Done():
@@ -296,6 +299,8 @@ func main() {
 				depth := queueDepth()
 				metrics.StreamQueueDepth.Set(float64(depth))
 				metrics.IngestSampleRate.Set(sampler.UpdateRate(depth))
+			case <-statsTicker.C:
+				metrics.RefreshDatabaseStats(db)
 			}
 		}
 	}()

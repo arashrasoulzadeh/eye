@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13** — ci: run full validation suite before commits (`8c85756`)
 - **2026-11-13** — fix(admin): guard collection responses and automate changelog (`82fadf8`)
 - **2026-11-13** — fix(admin): inspect layered behavior models (`3dffa59`)
 - **2026-11-13** — chore(admin): remove training page lint warning (`14b34c1`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. This page is reg
 - **2026-11-13** — fix(admin): apply time range without reload (`25891e4`)
 - **2026-11-13** — fix(admin): preserve analytics share tenant (`6a527c4`)
 - **2026-11-13** — test(admin): enforce global time coverage (`c98a2da`)
-- **2026-11-13** — fix(admin): translate dynamic Persian labels (`f691018`)

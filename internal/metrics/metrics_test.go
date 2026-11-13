@@ -10,6 +10,20 @@ func TestInit(t *testing.T) {
 	// Reset prometheus registry for testing
 	prometheus.Unregister(StreamQueueDepth)
 	prometheus.Unregister(IngestSampleRate)
+	prometheus.Unregister(HTTPRequestDuration)
+	prometheus.Unregister(IngestTotal)
+	prometheus.Unregister(IngestLatency)
+	prometheus.Unregister(IngestErrorsTotal)
+	prometheus.Unregister(HTTPRequestsTotal)
+	prometheus.Unregister(HTTPErrorsTotal)
+	prometheus.Unregister(StoredEvents)
+	prometheus.Unregister(StoredSessions)
+	prometheus.Unregister(StoredTenants)
+	prometheus.Unregister(StoredBuckets)
+	prometheus.Unregister(IntelligenceProfiles)
+	prometheus.Unregister(IntelligenceModels)
+	prometheus.Unregister(IntelligenceTrainingRuns)
+	prometheus.Unregister(DatabaseRows)
 
 	Init()
 

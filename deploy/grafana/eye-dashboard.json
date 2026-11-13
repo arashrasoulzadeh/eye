@@ -1,7 +1,7 @@
 {
   "title": "eye — ingest & stream",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "timezone": "browser",
   "time": { "from": "now-6h", "to": "now" },
@@ -78,6 +78,65 @@
           "expr": "stream_queue_depth",
           "refId": "A"
         }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "title": "HTTP traffic and errors",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "http_requests_total", "legendFormat": "requests", "refId": "A" },
+        { "expr": "http_errors_total", "legendFormat": "5xx errors", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "title": "Stored data",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_stored_events", "legendFormat": "events", "refId": "A" },
+        { "expr": "eye_stored_sessions", "legendFormat": "sessions", "refId": "B" },
+        { "expr": "eye_stored_tenants", "legendFormat": "tenants", "refId": "C" },
+        { "expr": "eye_stored_event_buckets", "legendFormat": "buckets", "refId": "D" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "title": "Intelligence state",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_intelligence_profiles", "legendFormat": "profiles", "refId": "A" },
+        { "expr": "eye_intelligence_models", "legendFormat": "models", "refId": "B" },
+        { "expr": "eye_intelligence_training_runs", "legendFormat": "training runs", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "title": "Adaptive ingest sampling",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [ { "expr": "ingest_sample_rate", "legendFormat": "accept rate", "refId": "A" } ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] }
+    },
+    {
+      "id": 9,
+      "title": "All database tables",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_database_rows", "legendFormat": "{{table}}", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
     }
