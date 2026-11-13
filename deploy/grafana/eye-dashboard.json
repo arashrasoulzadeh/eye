@@ -177,6 +177,18 @@
         { "expr": "eye_intelligence_health", "legendFormat": "health {{tenant}}/{{label}}", "refId": "C" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 }, "overrides": [] }
+    },
+    {
+      "id": 13,
+      "title": "Intelligence pipeline health",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 58 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "eye_intelligence_pipeline_active", "legendFormat": "active", "refId": "A" },
+        { "expr": "eye_intelligence_pipeline_failed", "legendFormat": "failed", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] }
     }
   ],
   "templating": {

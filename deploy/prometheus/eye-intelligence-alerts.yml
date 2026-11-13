@@ -41,3 +41,23 @@ groups:
         annotations:
           summary: "Eye intelligence has no usable profiles"
           description: "Events exist but no intelligence profiles have been materialized."
+
+      - alert: EyeIntelligencePipelineFailed
+        expr: eye_intelligence_pipeline_failed > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: eye
+        annotations:
+          summary: "Eye intelligence pipeline failed"
+          description: "At least one intelligence pipeline is failed and requires retry or investigation."
+
+      - alert: EyeIntelligencePipelineStuck
+        expr: eye_intelligence_pipeline_active > 0
+        for: 30m
+        labels:
+          severity: warning
+          service: eye
+        annotations:
+          summary: "Eye intelligence pipeline is running unusually long"
+          description: "An intelligence pipeline has remained active for more than thirty minutes."
