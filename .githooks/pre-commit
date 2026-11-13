@@ -4,7 +4,29 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 "$ROOT/scripts/update-changelog.sh"
 git -C "$ROOT" add docs/changelog.md
-if git diff --cached --name-only | grep -q '^admin/'; then
-  echo "Running admin null-safety checks..."
+
+echo "Running staged diff checks..."
+git -C "$ROOT" diff --cached --check
+
+echo "Running shell syntax checks..."
+while IFS= read -r -d '' script; do bash -n "$script"; done < <(find "$ROOT" -path '*/node_modules' -prune -o -name '*.sh' -type f -print0)
+
+echo "Running full Go test suite..."
+(cd "$ROOT" && go test ./...)
+
+if [ -f "$ROOT/web-sdk/package.json" ]; then
+  echo "Running Web SDK tests..."
+  (cd "$ROOT/web-sdk" && npm test -- --run)
+fi
+
+if [ -f "$ROOT/admin/package.json" ]; then
+  echo "Running admin tests, lint, and production build..."
   (cd "$ROOT/admin" && npm test -- --run && npm run lint && npm run build)
+fi
+
+if command -v mkdocs >/dev/null 2>&1; then
+  echo "Running strict documentation build..."
+  (cd "$ROOT" && mkdocs build --strict)
+else
+  echo "Skipping strict documentation build: mkdocs is not installed locally."
 fi
