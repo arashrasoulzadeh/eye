@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T21:04:23+03:30** — fix(deploy): convert sqlite booleans for postgres (`0cb6233`, `0cb62334118358634b828f7ec321baf63179fd09`)
 - **2026-11-13T21:00:24+03:30** — fix(admin): guard incomplete intelligence snapshots (`267c836`, `267c836e04788c6c2cbb40bfd5a44e1085867267`)
 - **2026-11-13T20:58:25+03:30** — fix(deploy): keep migration errors readable (`94af950`, `94af950a0f44e9e5e7159850483b2609b51997e0`)
 - **2026-11-13T20:47:30+03:30** — fix(deploy): stream sqlite rows during postgres migration (`15cfb84`, `15cfb84fe75dfb770ba382561d4c07aee4a6bae6`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T15:00:39+03:30** — feat(intelligence): add model promotion and rollback (`f33220d`, `f33220df5727a40d3bf0a30328ba4c8363358926`)
 - **2026-11-13T14:57:36+03:30** — fix(intelligence): surface label review failures (`2477623`, `2477623740ef1fbc758116ccea0ce2e9a2ad181c`)
 - **2026-11-13T14:55:59+03:30** — ci: make changelog entries timestamped and traceable (`26ab25b`, `26ab25b34ecf79da8f67c0c4a690c189feed3dc1`)
-- **2026-11-13T14:54:46+03:30** — feat(intelligence): add model evaluation and drift monitoring (`719cdc8`, `719cdc8abdf9a6896f474674dbc0ff7c67f39a20`)

@@ -62,7 +62,13 @@ func main() {
 // the source and destination schemas are compatible but the migration must
 // preserve every column (including columns added after this binary was built).
 func copyTable(source, destination *gorm.DB, table string) error {
-	boolColumns := map[string]bool{}
+	// Keep explicit names for legacy SQLite databases. ColumnTypes is normally
+	// enough, but older Postgres drivers can report an empty type before the
+	// first row is inserted.
+	boolColumns := map[string]bool{
+		"enabled":       true,
+		"is_aggregated": true,
+	}
 	if columnTypes, err := destination.Migrator().ColumnTypes(table); err == nil {
 		for _, column := range columnTypes {
 			databaseType := column.DatabaseTypeName()
