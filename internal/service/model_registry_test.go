@@ -30,3 +30,19 @@ func TestModelRegistryResolvesTenantBeforeGlobal(t *testing.T) {
 		t.Fatalf("manifest=%+v scope=%s err=%v", manifest, scope, err)
 	}
 }
+
+func TestModelRegistryRejectsChangedArtifact(t *testing.T) {
+	root := t.TempDir()
+	artifact := []byte(`{"algorithm":"test"}`)
+	registry := ModelRegistry{Root: root}
+	manifest := NewManifest("buyer", "1", "buyer", "test", "v1", "model.json", "ghcr", artifact, time.Now())
+	if err := registry.Store("global", "buyer", manifest, artifact); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "global", "buyer", "model.json"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Load("global", "buyer"); err == nil {
+		t.Fatal("expected checksum mismatch")
+	}
+}
