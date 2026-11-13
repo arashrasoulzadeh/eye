@@ -34,6 +34,46 @@ func promoteHealthyUnsupervisedModel(svc *UserIntelligenceService, tenantID stri
 	}
 }
 
+func trainEligibleSupervisedModels(svc *UserIntelligenceService, tenantID string, now time.Time, logger *slog.Logger) {
+	var labels []model.UserIntelligenceLabel
+	if err := svc.DB.Where("tenant_id = ? AND (decision IS NULL OR decision <> ?)", tenantID, "denied").Find(&labels).Error; err != nil {
+		if logger != nil {
+			logger.Error("intelligence label scan failed", "tenant", tenantID, "err", err)
+		}
+		return
+	}
+	seen := map[string]bool{}
+	for _, labeled := range labels {
+		if seen[labeled.Label] || labeled.Label == "behavior" {
+			continue
+		}
+		seen[labeled.Label] = true
+		readiness, err := svc.TrainingReadiness(tenantID, labeled.Label)
+		if err != nil || readiness["ready"] != true {
+			continue
+		}
+		var latest model.IntelligenceModel
+		hasModel := svc.DB.Where("tenant_id = ? AND label = ?", tenantID, labeled.Label).Order("version desc").First(&latest).Error == nil
+		if hasModel && !intelligenceModelNeedsRetraining(latest, now) {
+			continue
+		}
+		candidate, err := svc.Train(tenantID, labeled.Label, now)
+		if err != nil {
+			if logger != nil {
+				logger.Error("automatic supervised training failed", "tenant", tenantID, "label", labeled.Label, "err", err)
+			}
+			continue
+		}
+		evaluation, err := svc.EvaluateLatest(tenantID, labeled.Label, now)
+		if err != nil || evaluation.Status == "drifted" {
+			continue
+		}
+		if _, err := svc.PromoteLatest(tenantID, candidate.Label, now); err != nil && logger != nil {
+			logger.Error("automatic supervised promotion failed", "tenant", tenantID, "label", candidate.Label, "err", err)
+		}
+	}
+}
+
 // RunUserIntelligenceJob refreshes every tenant's explainable snapshot on a
 // schedule. A later supervised trainer can consume the same stored features.
 func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, registry *ModelRegistry, interval time.Duration, logger *slog.Logger) {
@@ -79,6 +119,7 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 					}
 				}
 				promoteHealthyUnsupervisedModel(svc, tenant.ID, now, logger)
+				trainEligibleSupervisedModels(svc, tenant.ID, now, logger)
 				if err := svc.ApplyBehaviorLayers(tenant.ID); err != nil && logger != nil {
 					logger.Error("intelligence layer application failed", "tenant", tenant.ID, "err", err)
 				}
