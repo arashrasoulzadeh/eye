@@ -28,6 +28,11 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 docker compose pull --quiet
+# Optional standalone model artifact. This updates only the persistent model
+# volume; leaving MODEL_IMAGE unset keeps deployments application-only.
+if [[ -n "${MODEL_IMAGE:-}" ]]; then
+  "$ROOT/deploy/update-models.sh"
+fi
 # This deliberately does not run `down`, `down -v`, prune, or remove volumes.
 # Compose recreates containers when the image changes while preserving volumes.
 docker compose up -d --no-build

@@ -27,7 +27,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   useEffect(() => { void params.then(({ id }) => { const [nextIP, nextUA] = decode(id).split("|"); setIp(nextIP || ""); setUserAgent(nextUA || ""); }); }, [params]);
   useEffect(() => { if (!ip) return; const range = lifetime ? {} : { from_ts: from, to_ts: to }; api.sessions.list({ filter: ip, limit: 100, offset: 0, sort: "last_seen", dir: "desc", ...range }).then((page) => { const matches = page.items.filter((session) => session.IP === ip && session.UserAgent === userAgent); setSessions(matches); return Promise.all(matches.map((session) => api.events.list({ session_id: session.ID, limit: 500, offset: 0, sort: "desc", ...range }))); }).then((lists) => setEvents(lists.flat())).catch((err) => setError(err instanceof Error ? err.message : "Failed to load user")); }, [ip, userAgent, from, to, lifetime]);
   const totalEvents = events.length, totalViews = events.filter((event) => event.EventName === "page_view").length;
-  const activeMinutes = sessions.reduce((sum, session) => sum + Math.max(0, (new Date(session.LastSeen).getTime() - new Date(session.StartedAt).getTime()) / 60000), 0);
+  const activeMinutes = sessions.reduce((sum, session) => {
+    const started = new Date(session.StartedAt).getTime(), ended = new Date(session.LastSeen).getTime();
+    const windowStart = lifetime ? started : Math.max(started, from), windowEnd = lifetime ? ended : Math.min(ended, to);
+    return sum + Math.max(0, (windowEnd - windowStart) / 60000);
+  }, 0);
   const locations = [...new Set(sessions.map(deviceLocation))], online = sessions.some((session) => new Date(session.LastSeen).getTime() >= Date.now() - 5 * 60 * 1000);
   const eventNames = useMemo(() => [...events.reduce((map, event) => map.set(event.EventName, (map.get(event.EventName) || 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]), [events]);
   const behavior = eventNames.slice(0, 5).map(([name, count]) => `${name} (${count})`).join(" · ") || "No behavior recorded";
