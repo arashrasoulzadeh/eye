@@ -20,6 +20,36 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "tenant_id required", http.StatusBadRequest)
 		return
 	}
+	if r.URL.Query().Get("action") == "label" && r.Method == http.MethodPost {
+		var body struct {
+			Fingerprint string `json:"fingerprint"`
+			Label       string `json:"label"`
+			Source      string `json:"source"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Fingerprint == "" || body.Label == "" {
+			http.Error(w, "fingerprint and label required", http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.AddLabel(tenantID, body.Fingerprint, body.Label, body.Source); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.URL.Query().Get("action") == "readiness" {
+		label := r.URL.Query().Get("label")
+		if label == "" {
+			label = "buyer"
+		}
+		result, err := h.Svc.TrainingReadiness(tenantID, label)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+		return
+	}
 	if r.Method == http.MethodPost && r.URL.Query().Get("action") == "refresh" {
 		count, err := h.Svc.Refresh(tenantID, time.Now())
 		if err != nil {

@@ -15,7 +15,7 @@ func (r *Repo) Migrate() error {
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 		&model.AggregateCount{}, &model.AlertRule{}, &model.RuntimeSettings{},
 		&model.WebhookDeadLetter{}, &model.AuditLog{}, &model.AdminUser{}, &model.FeatureFlag{}, &model.DashboardCache{}, &model.Question{},
-		&model.PendingStreamEvent{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.AdminTeam{}, &model.AdminTeamMember{}, &model.AdminSession{},
+		&model.PendingStreamEvent{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceTrainingRun{}, &model.AdminTeam{}, &model.AdminTeamMember{}, &model.AdminSession{},
 	)
 }
 

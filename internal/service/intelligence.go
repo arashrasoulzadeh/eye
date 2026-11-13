@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -14,6 +15,31 @@ import (
 )
 
 type UserIntelligenceService struct{ DB *gorm.DB }
+
+var allowedIntelligenceLabels = map[string]bool{"buyer": true, "potential_buyer": true, "returning_user": true, "new_user": true, "bot": true, "automation": true, "ai_crawler": true, "high_intent": true, "inactive": true}
+
+func (s *UserIntelligenceService) AddLabel(tenantID, fingerprint, label, source string) error {
+	if !allowedIntelligenceLabels[label] {
+		return fmt.Errorf("unsupported intelligence label: %s", label)
+	}
+	if source == "" {
+		source = "admin"
+	}
+	id := tenantID + ":" + fingerprint + ":" + label
+	return s.DB.Where("id = ?", id).Assign(model.UserIntelligenceLabel{ID: id, TenantID: tenantID, Fingerprint: fingerprint, Label: label, Source: source, CreatedAt: time.Now()}).FirstOrCreate(&model.UserIntelligenceLabel{}).Error
+}
+
+func (s *UserIntelligenceService) TrainingReadiness(tenantID, label string) (map[string]any, error) {
+	var positive, total int64
+	q := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ? AND label = ?", tenantID, label)
+	if err := q.Count(&positive).Error; err != nil {
+		return nil, err
+	}
+	if err := s.DB.Model(&model.UserIntelligenceLabel{}).Where("tenant_id = ?", tenantID).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	return map[string]any{"tenant_id": tenantID, "label": label, "examples": total, "positive": positive, "negative": total - positive, "ready": total >= 20 && positive >= 5 && total-positive >= 5}, nil
+}
 
 type UserIntelligenceSnapshot struct {
 	TenantID             string             `json:"tenant_id"`

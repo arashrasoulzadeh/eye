@@ -76,6 +76,27 @@ type UserIntelligence struct {
 	ComputedAt           time.Time
 }
 
+type UserIntelligenceLabel struct {
+	ID          string `gorm:"primaryKey"`
+	TenantID    string `gorm:"index"`
+	Fingerprint string `gorm:"index"`
+	Label       string `gorm:"index"`
+	Source      string
+	CreatedAt   time.Time
+}
+
+type IntelligenceTrainingRun struct {
+	ID        string `gorm:"primaryKey"`
+	TenantID  string `gorm:"index"`
+	Label     string
+	Examples  int
+	Positive  int
+	Negative  int
+	Status    string
+	Metrics   string
+	CreatedAt time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`

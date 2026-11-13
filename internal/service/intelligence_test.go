@@ -35,3 +35,26 @@ func TestUserIntelligenceRefreshTagsBuyerAndBot(t *testing.T) {
 		t.Fatalf("tags=%v", rows[0].Tags)
 	}
 }
+
+func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.UserIntelligenceLabel{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	for i := 0; i < 5; i++ {
+		if err := svc.AddLabel("t1", UserFingerprint("ip", string(rune('a'+i))), "buyer", "test"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ready, err := svc.TrainingReadiness("t1", "buyer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ready["ready"] != false || ready["positive"] != int64(5) {
+		t.Fatalf("unexpected readiness: %#v", ready)
+	}
+}
