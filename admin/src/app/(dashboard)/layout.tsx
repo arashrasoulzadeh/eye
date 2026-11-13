@@ -6,6 +6,7 @@ import { TenantProvider } from "@/components/TenantContext";
 import { TimeRangeProvider } from "@/components/TimeRangeContext";
 import { LanguageProvider } from "@/components/LanguageContext";
 import { CommandPalette } from "@/components/CommandPalette";
+import { IntelligenceTabs } from "@/components/IntelligenceTabs";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Suspense>
         <main className="flex-1 overflow-y-auto">
           <Suspense fallback={<header className="min-h-14 border-b border-border" />}><AdminTopbar /><CommandPalette /></Suspense>
-          <div className="admin-content mx-auto max-w-6xl px-8 py-8">{children}</div>
+          <div className="admin-content mx-auto max-w-6xl px-8 py-8"><Suspense><IntelligenceTabs /></Suspense>{children}</div>
         </main>
       </div>
     </TimeRangeProvider></TenantProvider></LanguageProvider></ToastProvider>
