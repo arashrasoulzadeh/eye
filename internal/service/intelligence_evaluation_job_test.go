@@ -34,3 +34,16 @@ func TestRunIntelligenceEvaluationJobPersistsEvaluation(t *testing.T) {
 		t.Fatalf("unexpected evaluation: %#v", evaluation)
 	}
 }
+
+func TestIntelligenceModelNeedsRetrainingWhenStale(t *testing.T) {
+	now := time.Now()
+	if !intelligenceModelNeedsRetraining(model.IntelligenceModel{ID: "m1", CreatedAt: now.Add(-intelligenceRetrainAfter)}, now) {
+		t.Fatal("stale model was not marked for retraining")
+	}
+	if intelligenceModelNeedsRetraining(model.IntelligenceModel{ID: "m2", CreatedAt: now.Add(-time.Minute)}, now) {
+		t.Fatal("fresh model was marked for retraining")
+	}
+	if !intelligenceModelNeedsRetraining(model.IntelligenceModel{}, now) {
+		t.Fatal("missing model was not marked for retraining")
+	}
+}

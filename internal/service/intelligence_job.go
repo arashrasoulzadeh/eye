@@ -8,6 +8,12 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
+const intelligenceRetrainAfter = 6 * time.Hour
+
+func intelligenceModelNeedsRetraining(model model.IntelligenceModel, now time.Time) bool {
+	return model.ID == "" || model.CreatedAt.IsZero() || now.Sub(model.CreatedAt) >= intelligenceRetrainAfter
+}
+
 // RunUserIntelligenceJob refreshes every tenant's explainable snapshot on a
 // schedule. A later supervised trainer can consume the same stored features.
 func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, registry *ModelRegistry, interval time.Duration, logger *slog.Logger) {
@@ -29,10 +35,11 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 				counts[tenant.ID] = count
 			}
 		}
+		now := time.Now()
 		var global model.IntelligenceModel
 		globalReady := svc.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&global).Error == nil
-		if !globalReady {
-			if _, err := svc.TrainUnsupervisedGlobal(time.Now()); err == nil {
+		if !globalReady || intelligenceModelNeedsRetraining(global, now) {
+			if _, err := svc.TrainUnsupervisedGlobal(now); err == nil {
 				globalReady = true
 			}
 		}
@@ -42,8 +49,9 @@ func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, r
 			}
 			{
 				var tenantModel model.IntelligenceModel
-				if svc.DB.Where("tenant_id = ? AND label = ?", tenant.ID, "behavior").First(&tenantModel).Error != nil && globalReady {
-					_, _ = svc.TrainUnsupervised(tenant.ID, time.Now())
+				hasTenantModel := svc.DB.Where("tenant_id = ? AND label = ?", tenant.ID, "behavior").Order("version desc").First(&tenantModel).Error == nil
+				if globalReady && (!hasTenantModel || intelligenceModelNeedsRetraining(tenantModel, now)) {
+					_, _ = svc.TrainUnsupervised(tenant.ID, now)
 				}
 				_ = svc.ApplyBehaviorLayers(tenant.ID)
 				if registry != nil {
