@@ -144,6 +144,26 @@ func (s *UserIntelligenceService) PipelineRuns(tenantID string, limit int) ([]mo
 	return runs, err
 }
 
+// RecoverStalePipelines makes interrupted runs actionable again. A process
+// crash can leave a queued/running row behind because the final status update
+// never executes; treating that row as failed preserves the audit trail while
+// allowing the operator or scheduler to retry it safely.
+func (s *UserIntelligenceService) RecoverStalePipelines(now time.Time, maxAge time.Duration) (int64, error) {
+	if maxAge <= 0 {
+		maxAge = 30 * time.Minute
+	}
+	cutoff := now.Add(-maxAge)
+	result := s.DB.Model(&model.IntelligencePipelineRun{}).
+		Where("status IN ? AND ((started_at IS NOT NULL AND started_at < ?) OR (started_at IS NULL AND created_at < ?))", []string{"queued", "running"}, cutoff, cutoff).
+		Updates(map[string]any{
+			"status":      "failed",
+			"stage":       "recovered",
+			"error":       fmt.Sprintf("pipeline recovered after exceeding %s without completion", maxAge),
+			"finished_at": now,
+		})
+	return result.RowsAffected, result.Error
+}
+
 // RunPipeline executes the complete synchronous intelligence lifecycle for one
 // tenant. The scheduled job uses the same individual operations, while this
 // method gives the admin a single auditable action with explicit stages.
@@ -221,6 +241,13 @@ func (s *UserIntelligenceService) runPipeline(tenantID string, now time.Time, pr
 // schedule. A later supervised trainer can consume the same stored features.
 func RunUserIntelligenceJob(ctx context.Context, svc *UserIntelligenceService, registry *ModelRegistry, interval time.Duration, logger *slog.Logger) {
 	refresh := func() {
+		if recovered, err := svc.RecoverStalePipelines(time.Now(), 30*time.Minute); err != nil {
+			if logger != nil {
+				logger.Error("stale intelligence pipeline recovery failed", "err", err)
+			}
+		} else if recovered > 0 && logger != nil {
+			logger.Warn("recovered stale intelligence pipelines", "count", recovered)
+		}
 		var tenants []model.Tenant
 		if err := svc.DB.Find(&tenants).Error; err != nil {
 			if logger != nil {

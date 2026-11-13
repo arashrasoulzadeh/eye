@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T17:40:31+03:30** — feat(observability): alert on intelligence pipeline health (`0df1043`, `0df104320b89806de94b7d098deba0e50e77ec63`)
 - **2026-11-13T17:38:24+03:30** — feat(metrics): expose intelligence pipeline health (`c20b5fe`, `c20b5fe5ec086228320d17445f2da150ec76ad19`)
 - **2026-11-13T17:36:41+03:30** — ci: validate deployment scripts (`097cf2e`, `097cf2e07d79ede35096b8f8948a99be92a8d2c9`)
 - **2026-11-13T17:35:11+03:30** — fix(intelligence): serialize pipeline starts (`a978e45`, `a978e459785078e3d86ab6e4cf57d0dba84c1b5f`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:09:33+03:30** — fix(intelligence): train global base after tenant refresh (`25fcbd0`, `25fcbd0b4d2b00d60137ba1a7e3df2efbbbb2a12`)
 - **2026-11-13T14:09:07+03:30** — feat(intelligence): auto-train missing behavior layers (`132f3ea`, `132f3eab0d31fe64d7a5619e2229296c17f5a675`)
 - **2026-11-13T14:08:33+03:30** — feat(intelligence): apply layered behavior scoring (`b9a97f7`, `b9a97f7636e4c29334cbe142494c7c4c599eebae`)
-- **2026-11-13T14:05:26+03:30** — feat(admin): add intelligence section tabs (`36c3b35`, `36c3b355de8a44fb35e600fa82eee3bfdf681845`)

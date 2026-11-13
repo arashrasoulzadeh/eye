@@ -152,6 +152,43 @@ func TestStartPipelineDeduplicatesConcurrentStarts(t *testing.T) {
 	}
 }
 
+func TestRecoverStalePipelinesMarksAbandonedRunsFailed(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligencePipelineRun{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	started := now.Add(-2 * time.Hour)
+	if err := db.Create(&model.IntelligencePipelineRun{ID: "stale", TenantID: "t1", Status: "running", Stage: "tenant_train", Progress: 50, StartedAt: started, CreatedAt: started}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.IntelligencePipelineRun{ID: "fresh", TenantID: "t1", Status: "running", Stage: "refresh", Progress: 5, StartedAt: now.Add(-5 * time.Minute), CreatedAt: now.Add(-5 * time.Minute)}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := (&UserIntelligenceService{DB: db}).RecoverStalePipelines(now, time.Hour)
+	if err != nil || count != 1 {
+		t.Fatalf("count=%d err=%v", count, err)
+	}
+	var run model.IntelligencePipelineRun
+	if err := db.First(&run, "id = ?", "stale").Error; err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "failed" || run.Stage != "recovered" || run.Error == "" || run.FinishedAt == nil {
+		t.Fatalf("stale run was not recovered: %#v", run)
+	}
+	run = model.IntelligencePipelineRun{}
+	if err := db.First(&run, "id = ?", "fresh").Error; err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "running" {
+		t.Fatalf("fresh run was changed: %#v", run)
+	}
+}
+
 func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
