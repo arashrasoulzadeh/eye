@@ -16,6 +16,64 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now time.Time) (model.IntelligenceEvaluation, error) {
+	var trained model.IntelligenceModel
+	query := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc")
+	if err := query.First(&trained).Error; err != nil {
+		return model.IntelligenceEvaluation{}, err
+	}
+	var report map[string]any
+	_ = json.Unmarshal([]byte(trained.Metrics), &report)
+	evaluation := model.IntelligenceEvaluation{ID: fmt.Sprintf("%s:%s:%d:%d", tenantID, label, trained.Version, now.UnixNano()), TenantID: tenantID, Label: label, ModelVersion: trained.Version, Status: "healthy", CreatedAt: now}
+	for key, target := range []*float64{&evaluation.Accuracy, &evaluation.Precision, &evaluation.Recall, &evaluation.F1} {
+		if value, ok := report[[]string{"accuracy", "precision", "recall", "f1"}[key]].(float64); ok {
+			*target = value
+		}
+	}
+	if label == "behavior" {
+		var rows []model.UserIntelligence
+		if err := s.DB.Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
+			return evaluation, err
+		}
+		current := map[string]float64{}
+		for _, row := range rows {
+			var tags []string
+			_ = json.Unmarshal([]byte(row.Tags), &tags)
+			for _, tag := range tags {
+				current[tag]++
+			}
+		}
+		var baseline map[string]any
+		_ = json.Unmarshal([]byte(trained.Metrics), &baseline)
+		segments, _ := baseline["segments"].(map[string]any)
+		if len(rows) > 0 && len(segments) > 0 {
+			var drift float64
+			for tag, count := range current {
+				expected, _ := segments[tag].(float64)
+				drift += math.Abs(count/float64(len(rows)) - expected/float64(len(rows)))
+			}
+			evaluation.DriftScore = math.Min(1, drift)
+		}
+	}
+	if evaluation.DriftScore >= 0.3 {
+		evaluation.Status = "drifted"
+	} else if evaluation.DriftScore >= 0.15 {
+		evaluation.Status = "warning"
+	}
+	details, _ := json.Marshal(map[string]any{"algorithm": trained.Algorithm, "model_version": trained.Version, "scope": map[bool]string{true: "tenant", false: "global"}[tenantID != ""]})
+	evaluation.Details = string(details)
+	if err := s.DB.Create(&evaluation).Error; err != nil {
+		return model.IntelligenceEvaluation{}, err
+	}
+	return evaluation, nil
+}
+
+func (s *UserIntelligenceService) LatestEvaluation(tenantID, label string) (model.IntelligenceEvaluation, error) {
+	var evaluation model.IntelligenceEvaluation
+	err := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("created_at desc").First(&evaluation).Error
+	return evaluation, err
+}
+
 type LabelSuggestion struct {
 	TenantID    string                   `json:"tenant_id"`
 	Fingerprint string                   `json:"fingerprint"`

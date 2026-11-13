@@ -109,6 +109,21 @@ type IntelligenceModel struct {
 	CreatedAt  time.Time
 }
 
+type IntelligenceEvaluation struct {
+	ID           string `gorm:"primaryKey"`
+	TenantID     string `gorm:"index"`
+	Label        string `gorm:"index"`
+	ModelVersion int
+	Accuracy     float64
+	Precision    float64
+	Recall       float64
+	F1           float64
+	DriftScore   float64
+	Status       string
+	Details      string
+	CreatedAt    time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`

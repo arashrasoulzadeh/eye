@@ -125,6 +125,28 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(map[string]any{"scope": scope, "manifest": manifest})
 		return
 	}
+	if r.URL.Query().Get("action") == "evaluation" {
+		label := r.URL.Query().Get("label")
+		if label == "" {
+			label = "behavior"
+		}
+		if r.Method == http.MethodPost {
+			result, err := h.Svc.EvaluateLatest(tenantID, label, time.Now())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			json.NewEncoder(w).Encode(result)
+			return
+		}
+		result, err := h.Svc.LatestEvaluation(tenantID, label)
+		if err != nil {
+			http.Error(w, "evaluation unavailable", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+		return
+	}
 	if r.URL.Query().Get("action") == "export" && r.Method == http.MethodPost {
 		label := r.URL.Query().Get("label")
 		if label == "" {
