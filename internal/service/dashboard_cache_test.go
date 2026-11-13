@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -9,6 +10,23 @@ import (
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
+
+func TestDashboardHourBreakdownRespectsRange(t *testing.T) {
+	from := time.Date(2026, 11, 13, 10, 37, 0, 0, time.UTC).UnixMilli()
+	to := time.Date(2026, 11, 13, 10, 41, 0, 0, time.UTC).UnixMilli()
+	events := []model.Event{{ClientTS: time.Date(2026, 11, 13, 10, 39, 0, 0, time.UTC).UnixMilli()}}
+
+	var points []struct {
+		Label string `json:"label"`
+		Value int64  `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(dashboardHourBreakdown(events, from, to)), &points); err != nil {
+		t.Fatalf("decode chart points: %v", err)
+	}
+	if len(points) != 1 || points[0].Value != 1 {
+		t.Fatalf("unexpected range chart: %#v", points)
+	}
+}
 
 func newTestDB_dashboard_cache_test(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
