@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T16:32:20+03:30** — fix(intelligence): persist label review and quality alerts (`965db5f`, `965db5fa0451aa3cbcc2636a567d892b344acafa`)
 - **2026-11-13T16:27:05+03:30** — feat(ops): add intelligence alert rules (`84a3c80`, `84a3c80ef7e91f7e4fc7aa93887390c4a3f0805b`)
 - **2026-11-13T16:24:16+03:30** — feat(intelligence): expose prediction evidence (`fb6cc0d`, `fb6cc0dab19a5e3efebfa5f68146fe10037d5865`)
 - **2026-11-13T16:21:02+03:30** — feat(intelligence): export model quality metrics (`5115b44`, `5115b446311a45f05a92c5048000c0a26ae2ede0`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T13:06:56+03:30** — feat(admin): add time-scoped user behavior metrics (`3b4d514`, `3b4d514f0fa266e1e27d35ceadf1b25d3330de28`)
 - **2026-11-13T13:04:20+03:30** — fix(dashboard): show rolling twenty-four-hour buckets (`54ca3b3`, `54ca3b3ac5f30ebc975a319c88267a2561278188`)
 - **2026-11-13T13:01:12+03:30** — feat(offline): train versioned user models (`590d18d`, `590d18def9571e9f83a750f62f22c4451e6a96bc`)
-- **2026-11-13T12:58:26+03:30** — feat(offline): add intelligence training labels (`37028ec`, `37028ec3340cd5c7ed4fac7cc7a71e7c5022fe05`)

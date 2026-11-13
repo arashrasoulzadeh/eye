@@ -116,6 +116,17 @@ func (s *UserIntelligenceService) IntelligenceAlerts(tenantID, status string, li
 	return alerts, query.Find(&alerts).Error
 }
 
+func (s *UserIntelligenceService) ResolveIntelligenceAlert(tenantID, id string, now time.Time) error {
+	result := s.DB.Model(&model.IntelligenceAlert{}).Where("id = ? AND tenant_id = ? AND status = ?", id, tenantID, "open").Updates(map[string]any{"status": "resolved", "resolved_at": now})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (s *UserIntelligenceService) EvaluateLatest(tenantID, label string, now time.Time) (model.IntelligenceEvaluation, error) {
 	var trained model.IntelligenceModel
 	query := s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc")

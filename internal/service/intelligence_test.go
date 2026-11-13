@@ -152,3 +152,32 @@ func TestReviewSuggestionAcceptsAndPersistsDecision(t *testing.T) {
 		t.Fatalf("accepted suggestion remained: %#v", suggestions)
 	}
 }
+
+func TestQualityAlertsAreDeduplicatedAndScoped(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.IntelligenceAlert{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	now := time.Now()
+	if err := svc.RecordQualityAlert(model.IntelligenceEvaluation{TenantID: "t1", Label: "behavior", DriftScore: 0.8, CreatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RecordQualityAlert(model.IntelligenceEvaluation{TenantID: "t1", Label: "behavior", DriftScore: 0.9, CreatedAt: now.Add(time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	alerts, err := svc.IntelligenceAlerts("t1", "open", 10)
+	if err != nil || len(alerts) != 1 {
+		t.Fatalf("alerts=%#v err=%v", alerts, err)
+	}
+	if err := svc.ResolveIntelligenceAlert("t1", alerts[0].ID, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	open, err := svc.IntelligenceAlerts("t1", "open", 10)
+	if err != nil || len(open) != 0 {
+		t.Fatalf("open=%#v err=%v", open, err)
+	}
+}

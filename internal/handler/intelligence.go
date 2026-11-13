@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/service"
+	"gorm.io/gorm"
 )
 
 type IntelligenceHandler struct {
@@ -136,6 +137,7 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 				return
 			}
+			_ = h.Svc.RecordQualityAlert(result)
 			json.NewEncoder(w).Encode(result)
 			return
 		}
@@ -172,6 +174,23 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		json.NewEncoder(w).Encode(alerts)
+		return
+	}
+	if r.URL.Query().Get("action") == "resolve-alert" && r.Method == http.MethodPost {
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" {
+			http.Error(w, "alert id required", http.StatusBadRequest)
+			return
+		}
+		if err := h.Svc.ResolveIntelligenceAlert(tenantID, id, time.Now()); err != nil {
+			if err == gorm.ErrRecordNotFound {
+				http.Error(w, "open alert not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	if r.URL.Query().Get("action") == "promote" && r.Method == http.MethodPost {
