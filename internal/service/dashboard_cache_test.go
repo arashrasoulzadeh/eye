@@ -28,6 +28,22 @@ func TestDashboardHourBreakdownRespectsRange(t *testing.T) {
 	}
 }
 
+func TestDashboardHourBreakdownUsesRollingTwentyFourHours(t *testing.T) {
+	from := time.Date(2026, 11, 12, 13, 0, 0, 0, time.UTC).UnixMilli()
+	to := time.Date(2026, 11, 13, 13, 0, 0, 0, time.UTC).UnixMilli()
+	events := []model.Event{{ClientTS: from}, {ClientTS: to}}
+	var points []struct {
+		Label string `json:"label"`
+		Value int64  `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(dashboardHourBreakdown(events, from, to)), &points); err != nil {
+		t.Fatalf("decode chart points: %v", err)
+	}
+	if len(points) != 25 || points[0].Label != time.UnixMilli(from).In(time.Local).Format("Jan 2 15:00") || points[24].Label != time.UnixMilli(to).In(time.Local).Format("Jan 2 15:00") {
+		t.Fatalf("unexpected rolling range: first=%q last=%q points=%d", points[0].Label, points[len(points)-1].Label, len(points))
+	}
+}
+
 func newTestDB_dashboard_cache_test(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

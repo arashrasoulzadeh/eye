@@ -169,7 +169,10 @@ func dashboardHourBreakdown(events []model.Event, from, to int64) string {
 	}
 	start := time.UnixMilli(from).Truncate(time.Hour)
 	end := time.UnixMilli(to).Truncate(time.Hour)
-	includeDate := to-from > int64(24*time.Hour/time.Millisecond)
+	// A rolling 24-hour range can cross midnight. Include the date at exactly
+	// 24 hours too, otherwise labels such as 00:00 repeat and make the chart
+	// look like a calendar-day series rather than the selected global window.
+	includeDate := to-from >= int64(24*time.Hour/time.Millisecond)
 	points := make([]point, 0, int(end.Sub(start)/time.Hour)+1)
 	for bucket := start; !bucket.After(end); bucket = bucket.Add(time.Hour) {
 		label := bucket.Format("15:00")
