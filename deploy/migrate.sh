@@ -16,6 +16,11 @@ cd "$ROOT"
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.postgres.yml)
 "${COMPOSE[@]}" config >/dev/null
 "${COMPOSE[@]}" pull server collector admin
+if ! "${COMPOSE[@]}" run --rm --no-deps -T server test -x /app/eye-migrate >/dev/null 2>&1; then
+  echo "The pulled server image does not contain /app/eye-migrate." >&2
+  echo "Wait for the image workflow from the migration release to finish, then rerun this script." >&2
+  exit 1
+fi
 "${COMPOSE[@]}" stop server collector admin
 restore_old() {
   if [[ "${migration_ok:-0}" != "1" ]]; then

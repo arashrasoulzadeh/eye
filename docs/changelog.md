@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T20:37:58+03:30** — feat(deploy): migrate sqlite data to postgres (`747fe45`, `747fe45feb821a43c6efcb066c7c38cdcdb31555`)
 - **2026-11-13T20:35:05+03:30** — fix(storage): prevent sqlite pipeline lock failures (`65ffe91`, `65ffe911e7f104bd39b911d90dd3bf98b79198a7`)
 - **2026-11-13T17:54:56+03:30** — perf(intelligence): batch unsupervised training data (`ea94585`, `ea945852677d88ff188120a070719aa26df9dbcb`)
 - **2026-11-13T17:52:53+03:30** — perf(intelligence): batch refresh event history (`cc4a437`, `cc4a437a376436941eeebd658dda1e7c8af681bb`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T14:44:47+03:30** — feat(observability): add route and ML metrics (`5c9f653`, `5c9f653363c842657c19c26296bd1caff66000ca`)
 - **2026-11-13T14:42:12+03:30** — feat(observability): expose full system metrics dashboard (`d56df64`, `d56df644796228696e766b5b41df1ef76243c161`)
 - **2026-11-13T14:32:54+03:30** — ci: run full validation suite before commits (`8c85756`, `8c85756dba8d7025eeed6c75c243454535526c52`)
-- **2026-11-13T14:31:38+03:30** — fix(admin): guard collection responses and automate changelog (`82fadf8`, `82fadf8206d9df4e672a3e5dd7b77c32671b7ee0`)
