@@ -97,6 +97,17 @@ type IntelligenceTrainingRun struct {
 	CreatedAt time.Time
 }
 
+type IntelligenceModel struct {
+	ID         string `gorm:"primaryKey"`
+	TenantID   string `gorm:"index"`
+	Label      string `gorm:"index"`
+	Version    int
+	Algorithm  string
+	Parameters string
+	Metrics    string
+	CreatedAt  time.Time
+}
+
 type Event struct {
 	EventID       string `gorm:"primaryKey"`
 	ContentHash   string `gorm:"index"`

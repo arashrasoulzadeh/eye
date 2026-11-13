@@ -16,6 +16,16 @@ import (
 
 type UserIntelligenceService struct{ DB *gorm.DB }
 
+type trainedFeatureStats struct {
+	Mean     float64 `json:"mean"`
+	Variance float64 `json:"variance"`
+}
+type trainedModelParameters struct {
+	Positive      map[string]trainedFeatureStats `json:"positive"`
+	Negative      map[string]trainedFeatureStats `json:"negative"`
+	PositivePrior float64                        `json:"positive_prior"`
+}
+
 var allowedIntelligenceLabels = map[string]bool{"buyer": true, "potential_buyer": true, "returning_user": true, "new_user": true, "bot": true, "automation": true, "ai_crawler": true, "high_intent": true, "inactive": true}
 
 func (s *UserIntelligenceService) AddLabel(tenantID, fingerprint, label, source string) error {
@@ -39,6 +49,78 @@ func (s *UserIntelligenceService) TrainingReadiness(tenantID, label string) (map
 		return nil, err
 	}
 	return map[string]any{"tenant_id": tenantID, "label": label, "examples": total, "positive": positive, "negative": total - positive, "ready": total >= 20 && positive >= 5 && total-positive >= 5}, nil
+}
+
+// Train fits a small offline Gaussian Naive Bayes model over the durable
+// feature snapshots. It is intentionally explainable and versioned; a future
+// heavier model can consume the same labels and feature contract.
+func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (model.IntelligenceModel, error) {
+	var labels []model.UserIntelligenceLabel
+	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&labels).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	positive := map[string][]float64{}
+	negative := map[string][]float64{}
+	for _, labelRow := range labels {
+		var snapshot model.UserIntelligence
+		if err := s.DB.Where("tenant_id = ? AND fingerprint = ?", tenantID, labelRow.Fingerprint).First(&snapshot).Error; err != nil {
+			continue
+		}
+		var features map[string]float64
+		_ = json.Unmarshal([]byte(snapshot.Features), &features)
+		target := negative
+		if labelRow.Label == label {
+			target = positive
+		}
+		for key, value := range features {
+			target[key] = append(target[key], value)
+		}
+	}
+	if len(positive) == 0 || len(negative) == 0 {
+		return model.IntelligenceModel{}, fmt.Errorf("training requires positive and negative examples")
+	}
+	stats := func(values map[string][]float64) map[string]trainedFeatureStats {
+		out := map[string]trainedFeatureStats{}
+		for key, list := range values {
+			var sum float64
+			for _, value := range list {
+				sum += value
+			}
+			mean := sum / float64(len(list))
+			var variance float64
+			for _, value := range list {
+				variance += (value - mean) * (value - mean)
+			}
+			variance /= float64(len(list))
+			if variance < 0.0001 {
+				variance = 0.0001
+			}
+			out[key] = trainedFeatureStats{Mean: mean, Variance: variance}
+		}
+		return out
+	}
+	positiveCount, negativeCount := 0, 0
+	for _, labelRow := range labels {
+		if labelRow.Label == label {
+			positiveCount++
+		} else {
+			negativeCount++
+		}
+	}
+	all := positiveCount + negativeCount
+	prior := float64(positiveCount) / float64(all)
+	if math.IsNaN(prior) || prior <= 0 || prior >= 1 {
+		prior = 0.5
+	}
+	params := trainedModelParameters{Positive: stats(positive), Negative: stats(negative), PositivePrior: prior}
+	encoded, _ := json.Marshal(params)
+	var latest model.IntelligenceModel
+	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, label).Order("version desc").First(&latest)
+	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:%s:%d", tenantID, label, latest.Version+1), TenantID: tenantID, Label: label, Version: latest.Version + 1, Algorithm: "gaussian_naive_bayes", Parameters: string(encoded), Metrics: fmt.Sprintf(`{"examples":%d}`, all), CreatedAt: now}
+	if err := s.DB.Create(&trained).Error; err != nil {
+		return model.IntelligenceModel{}, err
+	}
+	return trained, nil
 }
 
 type UserIntelligenceSnapshot struct {

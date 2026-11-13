@@ -50,6 +50,19 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(result)
 		return
 	}
+	if r.URL.Query().Get("action") == "train" && r.Method == http.MethodPost {
+		label := r.URL.Query().Get("label")
+		if label == "" {
+			label = "buyer"
+		}
+		trained, err := h.Svc.Train(tenantID, label, time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		json.NewEncoder(w).Encode(trained)
+		return
+	}
 	if r.Method == http.MethodPost && r.URL.Query().Get("action") == "refresh" {
 		count, err := h.Svc.Refresh(tenantID, time.Now())
 		if err != nil {
