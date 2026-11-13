@@ -474,46 +474,58 @@ func (s *UserIntelligenceService) TrainUnsupervisedGlobal(now time.Time) (model.
 }
 
 func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now time.Time, baseVersion int) (model.IntelligenceModel, error) {
-	var snapshots []model.UserIntelligence
 	query := s.DB
 	if tenantID != "" {
 		query = query.Where("tenant_id = ?", tenantID)
 	}
-	if err := query.Find(&snapshots).Error; err != nil {
+	var snapshotCount int64
+	if err := query.Model(&model.UserIntelligence{}).Count(&snapshotCount).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
-	if len(snapshots) == 0 {
+	if snapshotCount == 0 {
 		return model.IntelligenceModel{}, fmt.Errorf("unsupervised training requires intelligence snapshots")
 	}
-	var events []model.Event
-	eventQuery := s.DB.Where("is_aggregated = ?", false)
+	eventQuery := s.DB.Model(&model.Event{}).Where("is_aggregated = ?", false)
 	if tenantID != "" {
 		eventQuery = eventQuery.Where("tenant_id = ?", tenantID)
 	}
-	if err := eventQuery.Find(&events).Error; err != nil {
+	var eventCount int64
+	if err := eventQuery.Count(&eventCount).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
 	eventTypes := map[string]int{}
 	sessions := map[string]bool{}
-	for _, event := range events {
-		eventTypes[event.EventName]++
-		sessions[event.SessionID] = true
+	var eventBatch []model.Event
+	if err := eventQuery.FindInBatches(&eventBatch, intelligenceRefreshBatchSize, func(_ *gorm.DB, _ int) error {
+		for _, event := range eventBatch {
+			eventTypes[event.EventName]++
+			sessions[event.SessionID] = true
+		}
+		return nil
+	}).Error; err != nil {
+		return model.IntelligenceModel{}, err
 	}
 	segments := map[string]int{}
 	anomalies := 0
-	for _, snapshot := range snapshots {
-		var tags []string
-		_ = json.Unmarshal([]byte(snapshot.Tags), &tags)
-		for _, tag := range tags {
-			segments[tag]++
+	var snapshotBatch []model.UserIntelligence
+	if err := query.FindInBatches(&snapshotBatch, intelligenceRefreshBatchSize, func(_ *gorm.DB, _ int) error {
+		for _, snapshot := range snapshotBatch {
+			var tags []string
+			_ = json.Unmarshal([]byte(snapshot.Tags), &tags)
+			for _, tag := range tags {
+				segments[tag]++
+			}
+			if snapshot.AnomalyScore >= 0.7 {
+				anomalies++
+			}
 		}
-		if snapshot.AnomalyScore >= 0.7 {
-			anomalies++
-		}
+		return nil
+	}).Error; err != nil {
+		return model.IntelligenceModel{}, err
 	}
 	metrics := map[string]any{
-		"profiles":           len(snapshots),
-		"events":             len(events),
+		"profiles":           snapshotCount,
+		"events":             eventCount,
 		"sessions":           len(sessions),
 		"event_types":        eventTypes,
 		"segments":           segments,
@@ -525,7 +537,7 @@ func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now ti
 	var latest model.IntelligenceModel
 	_ = s.DB.Where("tenant_id = ? AND label = ?", tenantID, "behavior").Order("version desc").First(&latest)
 	trained := model.IntelligenceModel{ID: fmt.Sprintf("%s:behavior:%d", tenantID, latest.Version+1), TenantID: tenantID, Label: "behavior", Version: latest.Version + 1, Algorithm: "unsupervised_behavior_v1", Parameters: string(encoded), Metrics: string(encoded), Status: "candidate", CreatedAt: now}
-	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: len(events), Status: "completed", Metrics: string(encoded), CreatedAt: now}
+	run := model.IntelligenceTrainingRun{ID: fmt.Sprintf("%s:behavior:%d", tenantID, now.UnixNano()), TenantID: tenantID, Label: "behavior", Examples: int(eventCount), Status: "completed", Metrics: string(encoded), CreatedAt: now}
 	if err := s.DB.Create(&run).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
