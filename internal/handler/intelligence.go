@@ -66,6 +66,10 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			label = "auto"
 		}
 		if label == "auto" {
+			if _, err := h.Svc.TrainUnsupervisedGlobal(time.Now()); err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
 			trained, err := h.Svc.TrainUnsupervised(tenantID, time.Now())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnprocessableEntity)

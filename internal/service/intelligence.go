@@ -21,12 +21,30 @@ type UserIntelligenceService struct{ DB *gorm.DB }
 // behavioral tags and anomaly scores become the initial segments, while the
 // persisted run gives operators an auditable first-run result.
 func (s *UserIntelligenceService) TrainUnsupervised(tenantID string, now time.Time) (model.IntelligenceModel, error) {
+	var base model.IntelligenceModel
+	if err := s.DB.Where("tenant_id = ? AND label = ?", "", "behavior").Order("version desc").First(&base).Error; err != nil && err != gorm.ErrRecordNotFound {
+		return model.IntelligenceModel{}, err
+	}
+	return s.trainUnsupervisedScope(tenantID, now, base.Version)
+}
+
+// TrainUnsupervisedGlobal builds the general behavioral base from every
+// tenant. Tenant models inherit its version and only add local adjustments.
+func (s *UserIntelligenceService) TrainUnsupervisedGlobal(now time.Time) (model.IntelligenceModel, error) {
+	return s.trainUnsupervisedScope("", now, 0)
+}
+
+func (s *UserIntelligenceService) trainUnsupervisedScope(tenantID string, now time.Time, baseVersion int) (model.IntelligenceModel, error) {
 	var snapshots []model.UserIntelligence
-	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&snapshots).Error; err != nil {
+	query := s.DB
+	if tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
+	if err := query.Find(&snapshots).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
 	if len(snapshots) == 0 {
-		return model.IntelligenceModel{}, fmt.Errorf("unsupervised training requires tenant intelligence snapshots")
+		return model.IntelligenceModel{}, fmt.Errorf("unsupervised training requires intelligence snapshots")
 	}
 	segments := map[string]int{}
 	anomalies := 0
@@ -41,10 +59,11 @@ func (s *UserIntelligenceService) TrainUnsupervised(tenantID string, now time.Ti
 		}
 	}
 	metrics := map[string]any{
-		"profiles":  len(snapshots),
-		"segments":  segments,
-		"anomalies": anomalies,
-		"method":    "behavioral_baseline",
+		"profiles":           len(snapshots),
+		"segments":           segments,
+		"anomalies":          anomalies,
+		"method":             "behavioral_baseline",
+		"base_model_version": baseVersion,
 	}
 	encoded, _ := json.Marshal(metrics)
 	var latest model.IntelligenceModel

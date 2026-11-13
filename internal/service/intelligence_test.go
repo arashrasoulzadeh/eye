@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -56,5 +57,30 @@ func TestTrainingReadinessRequiresBalancedLabels(t *testing.T) {
 	}
 	if ready["ready"] != false || ready["positive"] != int64(5) {
 		t.Fatalf("unexpected readiness: %#v", ready)
+	}
+}
+
+func TestUnsupervisedTrainingUsesGlobalBaseAndTenantLayer(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	db.Create(&model.UserIntelligence{ID: "t1:u1", TenantID: "t1", Fingerprint: "u1", Tags: `["new_user"]`})
+	db.Create(&model.UserIntelligence{ID: "t2:u2", TenantID: "t2", Fingerprint: "u2", Tags: `["buyer"]`})
+	svc := &UserIntelligenceService{DB: db}
+	base, err := svc.TrainUnsupervisedGlobal(now)
+	if err != nil || base.TenantID != "" || base.Version != 1 {
+		t.Fatalf("global model=%#v err=%v", base, err)
+	}
+	local, err := svc.TrainUnsupervised("t1", now.Add(time.Second))
+	if err != nil || local.TenantID != "t1" {
+		t.Fatalf("tenant model=%#v err=%v", local, err)
+	}
+	if !strings.Contains(local.Metrics, `"base_model_version":1`) {
+		t.Fatalf("tenant model did not inherit global base: %s", local.Metrics)
 	}
 }
