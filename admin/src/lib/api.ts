@@ -122,10 +122,11 @@ let sessionsRequest: Promise<SessionPage> | null = null;
 function invalidateTenants() { tenantsCache = null; tenantsRequest = null; }
 function invalidateSessions() { sessionsCache = null; sessionsRequest = null; }
 function orderTenantsForScope(value: Tenant[]): Tenant[] {
-  if (typeof window === "undefined") return value;
+  const safeValue = Array.isArray(value) ? value : [];
+  if (typeof window === "undefined") return safeValue;
   const selected = typeof window.localStorage?.getItem === "function" ? window.localStorage.getItem("eye.admin.tenant") : null;
-  if (!selected) return value;
-  return [...value].sort((a, b) => Number(b.ID === selected) - Number(a.ID === selected));
+  if (!selected) return safeValue;
+  return [...safeValue].sort((a, b) => Number(b.ID === selected) - Number(a.ID === selected));
 }
 
 export const api = {

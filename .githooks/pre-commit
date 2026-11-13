@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+"$ROOT/scripts/update-changelog.sh"
+git -C "$ROOT" add docs/changelog.md
 if git diff --cached --name-only | grep -q '^admin/'; then
   echo "Running admin null-safety checks..."
   (cd "$ROOT/admin" && npm test -- --run && npm run lint && npm run build)

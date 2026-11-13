@@ -31,6 +31,7 @@ nav:
   - Components: components/README.md
   - Architecture: architecture/README.md
   - Testing & Benchmarks: testing/README.md
+  - Changelog: changelog.md
 
 markdown_extensions:
   - pymdownx.highlight:

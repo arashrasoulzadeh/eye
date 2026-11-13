@@ -37,6 +37,11 @@ describe("api client", () => {
     await expect(api.tenants.list()).rejects.toMatchObject({ status: 500, message: "boom" });
   });
 
+  it("normalizes a non-array tenant response before sorting or caching", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ items: [] }));
+    await expect(api.tenants.list()).resolves.toEqual([]);
+  });
+
   it("on 401, logs out and redirects to /login instead of returning data", async () => {
     // First call: the failing proxied request. Second call: the logout
     // route handleUnauthorized() fires internally.
