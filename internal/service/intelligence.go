@@ -120,7 +120,65 @@ func (s *UserIntelligenceService) Train(tenantID, label string, now time.Time) (
 	if err := s.DB.Create(&trained).Error; err != nil {
 		return model.IntelligenceModel{}, err
 	}
+	if err := s.ApplyModel(trained); err != nil {
+		return model.IntelligenceModel{}, err
+	}
 	return trained, nil
+}
+
+// ApplyModel scores every current tenant snapshot using the persisted model.
+func (s *UserIntelligenceService) ApplyModel(trained model.IntelligenceModel) error {
+	var params trainedModelParameters
+	if err := json.Unmarshal([]byte(trained.Parameters), &params); err != nil {
+		return err
+	}
+	var rows []model.UserIntelligence
+	if err := s.DB.Where("tenant_id = ?", trained.TenantID).Find(&rows).Error; err != nil {
+		return err
+	}
+	probability := func(features map[string]float64, stats map[string]trainedFeatureStats) float64 {
+		logLikelihood := 0.0
+		for key, value := range features {
+			stat, ok := stats[key]
+			if !ok {
+				continue
+			}
+			logLikelihood += -0.5*math.Log(2*math.Pi*stat.Variance) - ((value-stat.Mean)*(value-stat.Mean))/(2*stat.Variance)
+		}
+		return logLikelihood
+	}
+	for _, row := range rows {
+		var features, scores map[string]float64
+		var tags []string
+		_ = json.Unmarshal([]byte(row.Features), &features)
+		_ = json.Unmarshal([]byte(row.Scores), &scores)
+		_ = json.Unmarshal([]byte(row.Tags), &tags)
+		if scores == nil {
+			scores = map[string]float64{}
+		}
+		positive := math.Log(params.PositivePrior) + probability(features, params.Positive)
+		negative := math.Log(1-params.PositivePrior) + probability(features, params.Negative)
+		odds := math.Exp(math.Min(50, positive-negative))
+		score := odds / (1 + odds)
+		scores[trained.Label] = score
+		if score >= 0.7 {
+			found := false
+			for _, tag := range tags {
+				if tag == trained.Label {
+					found = true
+				}
+			}
+			if !found {
+				tags = append(tags, trained.Label)
+			}
+		}
+		encodedScores, _ := json.Marshal(scores)
+		encodedTags, _ := json.Marshal(tags)
+		if err := s.DB.Model(&row).Updates(map[string]any{"scores": string(encodedScores), "tags": string(encodedTags)}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type UserIntelligenceSnapshot struct {
