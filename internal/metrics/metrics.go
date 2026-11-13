@@ -49,6 +49,8 @@ var StoredBuckets = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_stored_e
 var IntelligenceProfiles = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_profiles", Help: "User intelligence snapshots currently stored."})
 var IntelligenceModels = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_models", Help: "Persisted intelligence models."})
 var IntelligenceTrainingRuns = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_training_runs", Help: "Persisted intelligence training runs."})
+var IntelligencePipelineActive = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_pipeline_active", Help: "Intelligence pipelines currently queued or running."})
+var IntelligencePipelineFailed = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_intelligence_pipeline_failed", Help: "Intelligence pipelines currently failed and requiring attention."})
 var DatabaseRows = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "eye_database_rows", Help: "Rows currently stored in each Eye database table."}, []string{"table"})
 var HTTPRouteDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_route_duration_seconds", Help: "HTTP request duration by normalized route, method, and status."}, []string{"route", "method", "status"})
 var MLTrainingExamples = prometheus.NewGauge(prometheus.GaugeOpts{Name: "eye_ml_training_examples", Help: "Examples used by the latest persisted ML training runs."})
@@ -93,6 +95,12 @@ func RefreshDatabaseStats(db *gorm.DB) {
 	if db.Model(&model.IntelligenceTrainingRun{}).Count(&count).Error == nil {
 		IntelligenceTrainingRuns.Set(float64(count))
 	}
+	if db.Model(&model.IntelligencePipelineRun{}).Where("status IN ?", []string{"queued", "running"}).Count(&count).Error == nil {
+		IntelligencePipelineActive.Set(float64(count))
+	}
+	if db.Model(&model.IntelligencePipelineRun{}).Where("status = ?", "failed").Count(&count).Error == nil {
+		IntelligencePipelineFailed.Set(float64(count))
+	}
 	rows := []struct {
 		name  string
 		value any
@@ -106,7 +114,7 @@ func RefreshDatabaseStats(db *gorm.DB) {
 		{"admin_teams", &model.AdminTeam{}}, {"admin_team_members", &model.AdminTeamMember{}}, {"admin_sessions", &model.AdminSession{}},
 		{"dashboard_caches", &model.DashboardCache{}}, {"questions", &model.Question{}}, {"analytics_views", &model.AnalyticsView{}},
 		{"user_intelligence", &model.UserIntelligence{}}, {"user_intelligence_labels", &model.UserIntelligenceLabel{}},
-		{"intelligence_training_runs", &model.IntelligenceTrainingRun{}}, {"intelligence_models", &model.IntelligenceModel{}},
+		{"intelligence_training_runs", &model.IntelligenceTrainingRun{}}, {"intelligence_pipeline_runs", &model.IntelligencePipelineRun{}}, {"intelligence_models", &model.IntelligenceModel{}},
 	}
 	for _, row := range rows {
 		if db.Model(row.value).Count(&count).Error == nil {
@@ -143,5 +151,5 @@ func RefreshDatabaseStats(db *gorm.DB) {
 func HTTPRequestSnapshot() (total, errors int64) { return httpRequests.Load(), httpErrors.Load() }
 
 func Init() {
-	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, DatabaseRows, HTTPRouteDuration, MLTrainingExamples, MLTrainingPositiveExamples, MLTrainingNegativeExamples, MLAnomalyScoreAverage, MLPredictionConfidenceAverage, IntelligenceDriftScore, IntelligenceCalibrationError, IntelligenceHealth)
+	prometheus.MustRegister(IngestTotal, IngestLatency, IngestErrorsTotal, StreamQueueDepth, IngestSampleRate, HTTPRequestDuration, HTTPRequestsTotal, HTTPErrorsTotal, StoredEvents, StoredSessions, StoredTenants, StoredBuckets, IntelligenceProfiles, IntelligenceModels, IntelligenceTrainingRuns, IntelligencePipelineActive, IntelligencePipelineFailed, DatabaseRows, HTTPRouteDuration, MLTrainingExamples, MLTrainingPositiveExamples, MLTrainingNegativeExamples, MLAnomalyScoreAverage, MLPredictionConfidenceAverage, IntelligenceDriftScore, IntelligenceCalibrationError, IntelligenceHealth)
 }

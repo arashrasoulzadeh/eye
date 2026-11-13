@@ -23,6 +23,8 @@ func TestInit(t *testing.T) {
 	prometheus.Unregister(IntelligenceProfiles)
 	prometheus.Unregister(IntelligenceModels)
 	prometheus.Unregister(IntelligenceTrainingRuns)
+	prometheus.Unregister(IntelligencePipelineActive)
+	prometheus.Unregister(IntelligencePipelineFailed)
 	prometheus.Unregister(DatabaseRows)
 	prometheus.Unregister(HTTPRouteDuration)
 	prometheus.Unregister(MLTrainingExamples)
