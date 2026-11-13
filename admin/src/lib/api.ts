@@ -9,6 +9,12 @@ export type Session = {
   UserAgent: string;
   IP: string;
   DeviceInfo: string;
+  Country?: string;
+  Region?: string;
+  City?: string;
+  Latitude?: number;
+  Longitude?: number;
+  Timezone?: string;
 };
 export type SessionPage = { items: Session[]; total: number; limit: number; offset: number };
 export type Event = {

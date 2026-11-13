@@ -61,13 +61,18 @@ func (a *AnalyticsService) GeoBreakdown(tenantID, dimension string) ([]GeoBreakd
 	}
 	counts := map[string]int{}
 	for _, session := range sessions {
+		location := map[string]string{"country": session.Country, "region": session.Region, "city": session.City}[dimension]
+		if location != "" {
+			counts[location]++
+			continue
+		}
 		var device map[string]any
 		_ = json.Unmarshal([]byte(session.DeviceInfo), &device)
-		location, _ := device[dimension].(string)
-		if location == "" {
-			location = "unknown"
+		legacyLocation, _ := device[dimension].(string)
+		if legacyLocation == "" {
+			legacyLocation = "unknown"
 		}
-		counts[location]++
+		counts[legacyLocation]++
 	}
 	rows := make([]GeoBreakdownRow, 0, len(counts))
 	for location, count := range counts {

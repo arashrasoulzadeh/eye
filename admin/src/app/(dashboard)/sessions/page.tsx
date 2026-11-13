@@ -9,6 +9,8 @@ import { useToast } from "@/components/Toast";
 import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 function deviceSummary(s: Session): string {
+  const location = [s.City, s.Region, s.Country].filter((item) => item && item.trim()).join(", ");
+  if (location) return location;
   try {
     const d = s.DeviceInfo ? (JSON.parse(s.DeviceInfo) as Record<string, unknown>) : {};
     if (d.platform) return String(d.platform);

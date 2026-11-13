@@ -14,6 +14,8 @@ import { useTimeRange } from "@/components/TimeRangeContext";
 type UserRow = { id: string; sessions: number; events: number; lastSeen: string; online: boolean; browser: string; location: string; ip: string; userAgent: string };
 
 function location(session: Session): string {
+  const persisted = [session.City, session.Region, session.Country].filter((item) => item && item.trim()).join(", ");
+  if (persisted) return persisted;
   try {
     const device = JSON.parse(session.DeviceInfo || "{}") as Record<string, unknown>;
     const nested = (device.location || device.geo) as Record<string, unknown> | undefined;

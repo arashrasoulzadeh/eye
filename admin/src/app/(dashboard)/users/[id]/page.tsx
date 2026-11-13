@@ -9,6 +9,8 @@ import Link from "next/link";
 
 function decode(value: string) { try { return decodeURIComponent(value); } catch { return value; } }
 function deviceLocation(session: Session) {
+  const persisted = [session.City, session.Region, session.Country].filter((item) => item && item.trim()).join(", ");
+  if (persisted) return persisted;
   try {
     const data = JSON.parse(session.DeviceInfo || "{}") as Record<string, unknown>;
     const nested = (data.location || data.geo) as Record<string, unknown> | undefined;

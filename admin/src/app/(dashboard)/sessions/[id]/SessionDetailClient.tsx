@@ -119,10 +119,12 @@ export default function SessionDetailClient() {
   }, [sessionId]);
 
   const deviceEntries = useMemo(() => {
-    if (!session?.DeviceInfo) return [];
+    if (!session) return [];
+    const persisted = Object.entries({ country: session.Country, region: session.Region, city: session.City, latitude: session.Latitude, longitude: session.Longitude, timezone: session.Timezone }).filter(([, value]) => value !== undefined && value !== null && value !== "");
+    if (!session.DeviceInfo) return persisted;
     try {
       const parsed = JSON.parse(session.DeviceInfo) as Record<string, unknown>;
-      return Object.entries(parsed).filter(([, v]) => v !== undefined && v !== null && v !== "");
+      return [...persisted, ...Object.entries(parsed)].filter(([, v]) => v !== undefined && v !== null && v !== "");
     } catch {
       return [];
     }
