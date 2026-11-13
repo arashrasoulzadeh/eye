@@ -53,7 +53,7 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			Label       string `json:"label"`
 			Decision    string `json:"decision"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Fingerprint == "" || body.Label == "" || body.Decision == "" {
 			http.Error(w, "invalid review", http.StatusBadRequest)
 			return
 		}

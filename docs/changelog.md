@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-13T14:55:59+03:30** — ci: make changelog entries timestamped and traceable (`26ab25b`, `26ab25b34ecf79da8f67c0c4a690c189feed3dc1`)
 - **2026-11-13T14:54:46+03:30** — feat(intelligence): add model evaluation and drift monitoring (`719cdc8`, `719cdc8abdf9a6896f474674dbc0ff7c67f39a20`)
 - **2026-11-13T14:50:18+03:30** — feat(intelligence): add explainable label review queue (`d5e4aa4`, `d5e4aa4edf77d42988c9b59e6b888c1c67c04d21`)
 - **2026-11-13T14:44:47+03:30** — feat(observability): add route and ML metrics (`5c9f653`, `5c9f653363c842657c19c26296bd1caff66000ca`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T03:51:57+03:30** — perf(analytics): cache suggested funnels (`e3851a9`, `e3851a972081f576be8edd7a65a342e808cf58d5`)
 - **2026-11-13T03:51:24+03:30** — perf(analytics): cache funnel results (`1d6b820`, `1d6b8209538a60e9521f5e3239c6eb15558d6000`)
 - **2026-11-13T03:44:50+03:30** — fix(analytics): exclude derived events from buckets (`8c6fa02`, `8c6fa02faa24bfb1a030789765e521c0e91b31a0`)
-- **2026-11-13T03:41:26+03:30** — feat(analytics): persist event time buckets (`6d0924a`, `6d0924ac087f5d3f0048f9a7c6921f5e669387aa`)
