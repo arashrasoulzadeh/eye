@@ -34,9 +34,27 @@ def load_batches(folder):
         if rows:
             digest = hashlib.sha256(repr(sorted(rows)).encode()).hexdigest()
             batches[digest] = rows
-    if len(batches) < 2:
-        raise ValueError("Provide at least two distinct CSV batches for evaluation")
+    if not batches:
+        raise ValueError("Provide at least one nonempty training CSV")
     return [batches[key] for key in sorted(batches)]
+
+
+def split_batches(batches):
+    if len(batches) > 1:
+        return [row for batch in batches[:-1] for row in batch[:10000]], batches[-1][:10000]
+    groups = defaultdict(list)
+    for row in batches[0]:
+        groups[row[0]].append(row)
+    transition_groups = sum(len(sequence) > 1 for sequence in groups)
+    if transition_groups < 2:
+        raise ValueError("Single-file evaluation needs two distinct session sequences with transitions")
+    sequences = sorted(groups, key=lambda sequence: (
+        len(sequence) < 2, hashlib.sha256("|".join(sequence).encode()).digest()
+    ))
+    cutoff = min(max(1, len(sequences) // 5), transition_groups - 1)
+    holdout = [row for sequence in sequences[:cutoff] for row in groups[sequence]]
+    training = [row for sequence in sequences[cutoff:] for row in groups[sequence]]
+    return training[:10000], holdout[:10000]
 
 
 def fit(rows):
@@ -139,9 +157,7 @@ def main():
     parser.add_argument("--cnn", action="store_true")
     args = parser.parse_args()
     batches = load_batches(args.data)
-    # Reserve entire batches to avoid training and testing on the same file.
-    holdout = batches[-1][:10000]
-    training = [row for batch in batches[:-1] for row in batch[:10000]]
+    training, holdout = split_batches(batches)
     bundle = fit(training)
     baseline = evaluate(bundle, holdout)
     accuracy = baseline

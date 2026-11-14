@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-14T15:29:24+03:30** — perf(ci): publish Go and admin images in parallel (`ae00f1d`, `ae00f1db5d7f3924b94d2c13639e47f247aeec69`)
 - **2026-11-14T15:23:59+03:30** — ci: default training data to the public Eye repository (`b58a6f7`, `b58a6f720d3547538a62caf9b8bd756250a1c1fd`)
 - **2026-11-14T15:22:34+03:30** — feat: add global intelligence training and local inference (`0d8d6bd`, `0d8d6bdcfdf680c3562b88ceba3b9ac294d55f80`)
 - **2026-11-14T01:23:12+03:30** — perf(ci): speed up container image publishing (`6d2da51`, `6d2da5125ce2692f01d481491b17ab0fc1a5890a`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:43:11+03:30** — fix(intelligence): prevent candidate runtime scoring (`06a07a6`, `06a07a6689b1a54ff0b2b316536bdeeb1ec20858`)
 - **2026-11-13T16:41:08+03:30** — feat(intelligence): retrain stale behavior models (`1823508`, `1823508b7d0bc10cda91f59c57359dc28301e962`)
 - **2026-11-13T16:38:45+03:30** — fix(intelligence): report alert persistence failures (`e26aa30`, `e26aa30deab790e070fab56df837feef446d7e01`)
-- **2026-11-13T16:36:57+03:30** — feat(intelligence): surface and resolve quality alerts (`c9c3808`, `c9c3808cd3a87d8e82c2be51e74865e7a5eaa2f7`)
