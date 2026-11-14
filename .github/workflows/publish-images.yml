@@ -20,7 +20,11 @@ env:
 
 jobs:
   publish:
-    name: Build and publish images
+    name: Publish ${{ matrix.image }} images
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [go, admin]
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -37,6 +41,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata
+        if: matrix.image == 'go'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -50,6 +55,7 @@ jobs:
             type=sha
 
       - name: Build and publish Go service images
+        if: matrix.image == 'go'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -63,6 +69,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=eye-go-images
 
       - name: Build and publish admin image
+        if: matrix.image == 'admin'
         uses: docker/build-push-action@v6
         with:
           context: ./admin

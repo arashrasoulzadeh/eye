@@ -2,7 +2,9 @@ FROM golang:1.26 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-COPY . .
+COPY gen ./gen
+COPY internal ./internal
+COPY server/cmd ./server/cmd
 RUN CGO_ENABLED=1 go build -o /out/eye-server ./server/cmd/server
 RUN CGO_ENABLED=1 go build -o /out/eye-collector ./server/cmd/collector
 RUN CGO_ENABLED=1 go build -o /out/eye-aggregation-worker ./server/cmd/aggregation-worker
