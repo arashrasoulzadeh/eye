@@ -17,10 +17,29 @@ import (
 type IntelligenceHandler struct {
 	Svc      *service.UserIntelligenceService
 	Registry service.ModelRegistry
+	Updates  *service.GlobalModelUpdates
 }
 
 func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenantID := strings.TrimSpace(r.URL.Query().Get("tenant_id"))
+	action := r.URL.Query().Get("action")
+	if h.Updates != nil && ((action == "model-status" && r.Method == http.MethodGet) ||
+		(action == "download-model" && r.Method == http.MethodPost)) {
+		update := h.Updates.Status
+		if action == "download-model" {
+			update = h.Updates.Install
+		}
+		status, err := update(r.Context(), h.Svc)
+		if err != nil {
+			http.Error(w, "model release unavailable", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		json.NewEncoder(w).Encode(status)
+		return
+	}
+
 	if r.Method == http.MethodGet {
 		switch r.URL.Query().Get("action") {
 		case "training-csv":

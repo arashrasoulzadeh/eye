@@ -2,8 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantContext";
+import { Button } from "@/components/Button";
 import { Card, CardHeader } from "@/components/Card";
 import { translate, useLanguage } from "@/components/LanguageContext";
+
+const url = "/api/proxy/intelligence/users";
+
+type ModelStatus = {
+  installed: string;
+  latest: { version: string; created_at: string } | null;
+};
+
+async function requestModel(action: string, method: "GET" | "POST", signal?: AbortSignal): Promise<ModelStatus> {
+  const response = await fetch(`${url}?action=${action}`, { method, signal });
+  if (!response.ok) throw new Error();
+  return response.json();
+}
 
 type Run = {
   ID: number;
@@ -22,8 +36,37 @@ export default function IntelligencePage() {
   const [log, setLog] = useState<{ scope: string; runs: Run[]; failed: boolean }>();
   const scope = tenantId || "";
   const t = (key: string) => translate(key, language);
-  const url = "/api/proxy/intelligence/users";
-  const query = new URLSearchParams({ tenant_id: scope, action: "training-csv" });
+  const [model, setModel] = useState<ModelStatus>();
+  const [modelError, setModelError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    const check = () => requestModel("model-status", "GET", controller.signal)
+      .then((status) => {
+        if (!controller.signal.aborted) setModel(status);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setModelError("Could not check model releases.");
+      });
+    if (downloading) return;
+    void check();
+    const timer = window.setInterval(check, 60000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [downloading]);
+  async function downloadModel() {
+    setDownloading(true);
+    setModelError("");
+    try {
+      setModel(await requestModel("download-model", "POST"));
+    } catch {
+      setModelError("Could not download the model.");
+    } finally {
+      setDownloading(false);
+    }
+  }
   useEffect(() => {
     if (tenantLoading) return;
     const controller = new AbortController();
@@ -55,10 +98,35 @@ export default function IntelligencePage() {
           <h1 className="text-xl font-semibold text-fg">{t("Intelligence")}</h1>
           <p className="mt-1 text-sm text-fg-muted">{t("Download a training batch to share privately. Inference runs locally with the released model.")}</p>
         </div>
-        {!tenantLoading && <a href={`${url}?${query}`} download="eye-training.csv" className="rounded bg-accent px-4 py-2 text-sm font-medium text-white">
-          {t("Download training CSV")}
-        </a>}
+        <div className="space-y-1">
+          <form action={url} method="get">
+            <input type="hidden" name="action" value="training-csv" />
+            <input type="hidden" name="tenant_id" value={scope} />
+            <Button type="submit" disabled={tenantLoading}>{t("Download training CSV")}</Button>
+          </form>
+          <p className="text-xs text-fg-muted">
+            {tenantLoading ? t("Loading tenants…") : tenants.find((tenant) => tenant.ID === scope)?.Name || t("All tenants")}
+          </p>
+        </div>
       </header>
+      <Card>
+        <CardHeader title={t("Global model")} action={
+          <Button type="button" loading={downloading} onClick={() => void downloadModel()}>
+            {t("Download latest model")}
+          </Button>
+        } />
+        <div className="space-y-1 px-5 pb-5 text-sm">
+          <p>{t("Installed model")} · {model?.installed || "—"}</p>
+          {model?.latest ? (
+            <>
+              <p>{t("Latest release")} · {model.latest.version}</p>
+              <p>{t("Created")} · {new Date(model.latest.created_at).toLocaleString(language === "fa" ? "fa-IR" : undefined)}</p>
+              <p className="font-medium">{t(model.latest.version === model.installed ? "Up to date" : "New model available")}</p>
+            </>
+          ) : model && <p>{t("No model release available.")}</p>}
+          {modelError && <p role="alert" className="text-danger">{t(modelError)}</p>}
+        </div>
+      </Card>
       <Card>
         <CardHeader title={t("Last successful model")} />
         <p className="px-5 pb-5 text-sm">{version || t("No successful inference yet.")}</p>

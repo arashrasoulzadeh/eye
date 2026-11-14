@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-14T15:36:24+03:30** — train: discover nested CSVs and configure CNN epochs (`360cf26`, `360cf267d0cfd4fc62a4e69c1d2f3ba9ef8dc13d`)
 - **2026-11-14T15:34:45+03:30** — train: add first batch and support single-file evaluation (`7b82d84`, `7b82d849b53e1613f3228dc0195a01e40b690f0c`)
 - **2026-11-14T15:29:24+03:30** — perf(ci): publish Go and admin images in parallel (`ae00f1d`, `ae00f1db5d7f3924b94d2c13639e47f247aeec69`)
 - **2026-11-14T15:23:59+03:30** — ci: default training data to the public Eye repository (`b58a6f7`, `b58a6f720d3547538a62caf9b8bd756250a1c1fd`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:47:51+03:30** — test(intelligence): verify automatic layer promotion (`b84cf0f`, `b84cf0f41efdae5180db22c16fb394350d2ab2cd`)
 - **2026-11-13T16:45:40+03:30** — fix(intelligence): log background pipeline failures (`9bc8ac9`, `9bc8ac9b561c8c13eaa5410f3c97ee4065c93d84`)
 - **2026-11-13T16:43:11+03:30** — fix(intelligence): prevent candidate runtime scoring (`06a07a6`, `06a07a6689b1a54ff0b2b316536bdeeb1ec20858`)
-- **2026-11-13T16:41:08+03:30** — feat(intelligence): retrain stale behavior models (`1823508`, `1823508b7d0bc10cda91f59c57359dc28301e962`)

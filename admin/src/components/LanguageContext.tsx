@@ -8,6 +8,16 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
   "Download a training batch to share privately. Inference runs locally with the released model.": "یک فایل آموزشی برای اشتراک‌گذاری خصوصی دانلود کنید. مدل منتشرشده روی همین سرور اجرا می‌شود.",
+  Created: "زمان ساخت",
+  "Global model": "مدل سراسری",
+  "Download latest model": "دانلود آخرین مدل",
+  "Installed model": "مدل نصب‌شده",
+  "Latest release": "آخرین نسخه منتشرشده",
+  "Up to date": "به‌روز",
+  "New model available": "مدل جدید در دسترس است",
+  "No model release available.": "هنوز مدلی منتشر نشده است.",
+  "Could not check model releases.": "بررسی نسخه‌های مدل ناموفق بود.",
+  "Could not download the model.": "دانلود مدل ناموفق بود.",
   "Download training CSV": "دانلود فایل CSV آموزشی",
   "Last successful model": "آخرین مدل اجراشده با موفقیت",
   "No successful inference yet.": "هنوز اجرای موفقی ثبت نشده است.",
