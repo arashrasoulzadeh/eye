@@ -19,6 +19,7 @@ const TRANSLATIONS: Record<string, string> = {
   "question answered": "سؤال پاسخ داده شد", "question missed": "سؤال از دست رفت",
   "precise hit": "ضربه دقیق", "combo reached": "کمبو ثبت شد", "life lost": "جان از دست رفت",
   "Tenant usage is temporarily unavailable.": "اطلاعات مصرف تنانت موقتاً در دسترس نیست.",
+  browsing: "مرور", gameplay: "بازی",
   "Intelligence tags": "برچسب‌های هوشمند",
   "Global model": "مدل سراسری",
   "Download latest model": "دانلود آخرین مدل",

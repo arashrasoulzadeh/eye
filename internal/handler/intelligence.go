@@ -395,28 +395,3 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	json.NewEncoder(w).Encode(rows)
 }
-
-func (h *IntelligenceHandler) ServeTags(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var body struct {
-		Kind string                       `json:"kind"`
-		Refs []service.IntelligenceTagRef `json:"refs"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 65536)).Decode(&body); err != nil ||
-		len(body.Refs) > 100 || (body.Kind != "user" && body.Kind != "session" && body.Kind != "event") {
-		http.Error(w, "invalid intelligence tag request", http.StatusBadRequest)
-		return
-	}
-	tags, err := h.Svc.IntelligenceTags(r.Context(), body.Kind, body.Refs)
-	if err != nil {
-		http.Error(w, "intelligence tags unavailable", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(tags)
-}

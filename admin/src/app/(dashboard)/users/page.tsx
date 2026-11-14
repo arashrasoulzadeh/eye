@@ -1,6 +1,6 @@
 "use client";
 
-import { IntelligenceTags, tagRef, useIntelligenceTags } from "@/components/IntelligenceTags";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useEffect, useMemo, useState } from "react";
 import { api, Event, Session, Tenant, ApiError } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
@@ -40,7 +40,7 @@ export default function UsersPage() {
   async function load() {
     setLoading(true); setError("");
     try {
-      const [sessionPage, recent] = await Promise.all([api.sessions.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 100, offset: 0, sort: "last_seen", dir: "desc", from_ts: globalFrom, to_ts: globalTo }), api.events.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 50, offset: 0, sort: "desc", from_ts: globalFrom, to_ts: globalTo })]);
+      const [sessionPage, recent] = await Promise.all([api.sessions.list({ include_user_tags: true, ...(tenant ? { tenant_id: tenant } : {}), limit: 100, offset: 0, sort: "last_seen", dir: "desc", from_ts: globalFrom, to_ts: globalTo }), api.events.list({ ...(tenant ? { tenant_id: tenant } : {}), limit: 50, offset: 0, sort: "desc", from_ts: globalFrom, to_ts: globalTo })]);
       setSessions(sessionPage.items); setEvents(recent);
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load users"); } finally { setLoading(false); }
   }
@@ -50,12 +50,11 @@ export default function UsersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 15000); return () => window.clearInterval(timer); }, [tenant, globalFrom, globalTo]);
 
-  const tags = useIntelligenceTags("user", sessions.map((session) => tagRef(session.TenantID, session.ID)));
   const tagsByUser = new Map<string, Set<string>>();
-  sessions.forEach((session, index) => {
+  sessions.forEach((session) => {
     const id = `${session.IP || "unknown"}|${session.UserAgent || "unknown"}`;
     const values = tagsByUser.get(id) ?? new Set<string>();
-    tags?.[index]?.forEach((tag) => values.add(tag));
+    session.user_intelligence_tags?.forEach((tag) => values.add(tag));
     tagsByUser.set(id, values);
   });
   const users = useMemo<UserRow[]>(() => {

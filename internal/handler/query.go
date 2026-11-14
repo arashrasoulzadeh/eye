@@ -9,7 +9,10 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
-type QueryHandler struct{ Svc *service.QueryService }
+type QueryHandler struct {
+	Svc          *service.QueryService
+	Intelligence *service.UserIntelligenceService
+}
 type queryCursor struct {
 	ClientTS int64  `json:"client_ts"`
 	EventID  string `json:"event_id"`
@@ -64,6 +67,7 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	list = attachEventTags(r.Context(), h.Intelligence, list)
 	if q.Get("page") == "true" {
 		total, countErr := h.Svc.Count(f)
 		if countErr != nil {

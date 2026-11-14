@@ -1,5 +1,5 @@
 "use client";
-import { EntityIntelligenceTags, tagRef } from "@/components/IntelligenceTags";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -199,7 +199,7 @@ export default function SessionDetailClient() {
             <EntityLink kind="tenant" id={session.TenantID} />
           )}
         </p>
-        <EntityIntelligenceTags kind="session" refs={[tagRef(session.TenantID, session.ID)]} />
+        <IntelligenceTags tags={session.intelligence_tags} />
         <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Session detail help</summary><p className="mt-2 text-fg-muted">This view combines server session metadata with a deduplicated journey and live event updates. Event rows link to their complete payload and dimensions.</p></details>
       </div>
 

@@ -1,6 +1,8 @@
 export type Tenant = { ID: string; Name: string; APIKey: string; CreatedAt: string; MonthlyEventLimit?: number; MonthlyStorageLimit?: number };
 export type TenantPage = { items: Tenant[]; total: number; limit: number; offset: number };
 export type Session = {
+  intelligence_tags?: string[];
+  user_intelligence_tags?: string[];
   ID: string;
   TenantID: string;
   StartedAt: string;
@@ -18,6 +20,7 @@ export type Session = {
 };
 export type SessionPage = { items: Session[]; total: number; limit: number; offset: number };
 export type Event = {
+  intelligence_tags?: string[];
   EventID: string;
   SessionID: string;
   TenantID: string;
@@ -146,7 +149,7 @@ export const api = {
   },
 
   sessions: {
-    list: (params: { tenant_id?: string; limit?: number; offset?: number; filter?: string; sort?: string; dir?: string; from_ts?: number; to_ts?: number } = {}) => { const isDefault = !Object.keys(params).length; if (isDefault && sessionsCache && sessionsCache.expires > Date.now()) return Promise.resolve(sessionsCache.value); if (isDefault && sessionsRequest) return sessionsRequest; const request = req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ tenant_id: params.tenant_id ?? "", limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc", from_ts: params.from_ts ?? "", to_ts: params.to_ts ?? "" }).map(([key, value]) => [key, String(value)])))}`).then((value) => ({ ...(value || { total: 0, limit: params.limit ?? 10, offset: params.offset ?? 0 }), items: Array.isArray(value?.items) ? value.items : [] })); if (!isDefault) return request; sessionsRequest = request.then((value) => { sessionsCache = { value, expires: Date.now() + 10_000 }; sessionsRequest = null; return value; }).catch((error) => { sessionsRequest = null; throw error; }); return sessionsRequest; },
+    list: (params: { tenant_id?: string; include_user_tags?: boolean; limit?: number; offset?: number; filter?: string; sort?: string; dir?: string; from_ts?: number; to_ts?: number } = {}) => { const isDefault = !Object.keys(params).length; if (isDefault && sessionsCache && sessionsCache.expires > Date.now()) return Promise.resolve(sessionsCache.value); if (isDefault && sessionsRequest) return sessionsRequest; const request = req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ tenant_id: params.tenant_id ?? "", ...(params.include_user_tags ? { include_user_tags: true } : {}), limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc", from_ts: params.from_ts ?? "", to_ts: params.to_ts ?? "" }).map(([key, value]) => [key, String(value)])))}`).then((value) => ({ ...(value || { total: 0, limit: params.limit ?? 10, offset: params.offset ?? 0 }), items: Array.isArray(value?.items) ? value.items : [] })); if (!isDefault) return request; sessionsRequest = request.then((value) => { sessionsCache = { value, expires: Date.now() + 10_000 }; sessionsRequest = null; return value; }).catch((error) => { sessionsRequest = null; throw error; }); return sessionsRequest; },
     get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
     create: (tenantId: string) =>
       req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }).then((value) => { invalidateSessions(); return value; }),

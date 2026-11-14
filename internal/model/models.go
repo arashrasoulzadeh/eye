@@ -33,12 +33,14 @@ type FeatureFlag struct {
 }
 
 type Session struct {
-	ID         string `gorm:"primaryKey"`
-	TenantID   string `gorm:"index"`
-	UserID     string `gorm:"index"`
-	StartedAt  time.Time
-	LastSeen   time.Time
-	EventCount int64
+	IntelligenceTags     []string `gorm:"-" json:"intelligence_tags,omitempty"`
+	UserIntelligenceTags []string `gorm:"-" json:"user_intelligence_tags,omitempty"`
+	ID                   string   `gorm:"primaryKey"`
+	TenantID             string   `gorm:"index"`
+	UserID               string   `gorm:"index"`
+	StartedAt            time.Time
+	LastSeen             time.Time
+	EventCount           int64
 	// UserAgent and IP are captured server-side from the request itself
 	// (not trusted from the client body), so every SDK gets this for free
 	// without needing to compute or send it.
@@ -174,22 +176,23 @@ type IntelligenceAlert struct {
 }
 
 type Event struct {
-	EventID       string `gorm:"primaryKey"`
-	ContentHash   string `gorm:"index"`
-	EventVersion  int
-	SessionID     string `gorm:"index"`
-	TenantID      string `gorm:"index"`
-	UserID        string `gorm:"index"`
-	EventName     string
-	ClientTS      int64
-	IngestTS      time.Time
-	Payload       string // JSON
-	Dims          string // JSON
-	Source        string
-	IsAggregated  bool
-	AggregationID string
-	ExperimentID  string
-	Variant       string
+	IntelligenceTags []string `gorm:"-" json:"intelligence_tags,omitempty"`
+	EventID          string   `gorm:"primaryKey"`
+	ContentHash      string   `gorm:"index"`
+	EventVersion     int
+	SessionID        string `gorm:"index"`
+	TenantID         string `gorm:"index"`
+	UserID           string `gorm:"index"`
+	EventName        string
+	ClientTS         int64
+	IngestTS         time.Time
+	Payload          string // JSON
+	Dims             string // JSON
+	Source           string
+	IsAggregated     bool
+	AggregationID    string
+	ExperimentID     string
+	Variant          string
 }
 
 // EventBucket stores durable time-series counts for fast analytics reads.

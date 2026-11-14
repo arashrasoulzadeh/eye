@@ -1,5 +1,5 @@
 "use client";
-import { IntelligenceTags, tagRef, useIntelligenceTags } from "@/components/IntelligenceTags";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useCallback, useEffect, useState } from "react";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
@@ -88,10 +88,8 @@ export default function EventsPage() {
     .filter((s) => !tenantId || s.TenantID === tenantId)
     .map((s) => ({ value: s.ID, label: `${s.EventCount} events` }));
 
-  const tags = useIntelligenceTags("event", events.map((event) => tagRef(event.TenantID, event.EventID)));
-  const tagsByEvent = new Map(events.map((event, i) => [event, tags?.[i]]));
   const columns: Column<Event>[] = [
-    { key: "name", header: "Event", render: (e) => <div><EntityLink kind="event" id={e.EventID} label={e.EventName} /><IntelligenceTags tags={tagsByEvent.get(e)} compact /></div>, sortValue: (e) => e.EventName },
+    { key: "name", header: "Event", render: (e) => <div><EntityLink kind="event" id={e.EventID} label={e.EventName} /><IntelligenceTags tags={e.intelligence_tags} compact /></div>, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
     { key: "session", header: "Session", render: (e) => <EntityLink kind="session" id={e.SessionID} /> },
     { key: "tenant", header: "Tenant", render: (e) => <EntityLink kind="tenant" id={e.TenantID} /> },

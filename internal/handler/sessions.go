@@ -17,6 +17,7 @@ import (
 )
 
 type SessionsHandler struct {
+	Intelligence     *service.UserIntelligenceService
 	DB               *gorm.DB
 	SetTenantContext func(*gorm.DB, string) error
 	GeoIP            *service.GeoIPService
@@ -89,7 +90,9 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "session not found", http.StatusNotFound)
 				return
 			}
-			json.NewEncoder(w).Encode(session)
+			rows := []model.Session{session}
+			attachSessionTags(r.Context(), h.Intelligence, rows, r.URL.Query().Get("include_user_tags") == "true")
+			json.NewEncoder(w).Encode(rows[0])
 			return
 		}
 		var list []model.Session
@@ -133,6 +136,7 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			order = strings.Replace(order, " desc", " asc", 1)
 		}
 		query.Order(order).Offset(offset).Limit(limit).Find(&list)
+		attachSessionTags(r.Context(), h.Intelligence, list, r.URL.Query().Get("include_user_tags") == "true")
 		json.NewEncoder(w).Encode(map[string]any{"items": list, "total": total, "limit": limit, "offset": offset})
 	case http.MethodPut, http.MethodPatch:
 		sessionID := r.URL.Query().Get("session_id")

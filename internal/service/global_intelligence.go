@@ -235,6 +235,12 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 			}
 			run.Events++
 		}
+		if seen["navigation"] || seen["product_impression"] {
+			tags = append(tags, "browsing")
+		}
+		if seen["game_started"] || seen["question_answered"] || seen["match_found"] || seen["precise_hit"] {
+			tags = append(tags, "gameplay")
+		}
 		if journey.Purchased {
 			tags = append(tags, "converted")
 		}

@@ -11,9 +11,13 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
+	"github.com/arashrasoulzadeh/eye/internal/service"
 )
 
-type EventsHandler struct{ DB *gorm.DB }
+type EventsHandler struct {
+	DB           *gorm.DB
+	Intelligence *service.UserIntelligenceService
+}
 
 type eventCursor struct {
 	IngestTS time.Time `json:"ingest_ts"`
@@ -43,7 +47,7 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "event not found", http.StatusNotFound)
 			return
 		}
-		json.NewEncoder(w).Encode(event)
+		json.NewEncoder(w).Encode(attachEventTags(r.Context(), h.Intelligence, []model.Event{event})[0])
 		return
 	}
 	var list []model.Event
@@ -87,5 +91,5 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		list = list[:limit]
 		w.Header().Set("X-Next-Cursor", encodeEventCursor(eventCursor{IngestTS: last.IngestTS, EventID: last.EventID}))
 	}
-	json.NewEncoder(w).Encode(list)
+	json.NewEncoder(w).Encode(attachEventTags(r.Context(), h.Intelligence, list))
 }

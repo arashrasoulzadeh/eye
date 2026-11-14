@@ -1,5 +1,5 @@
 "use client";
-import { IntelligenceTags, tagRef, useIntelligenceTags } from "@/components/IntelligenceTags";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useCallback, useEffect, useState } from "react";
 import { api, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
@@ -37,10 +37,8 @@ export default function SessionsPage() {
   }, [push, globalFrom, globalTo]);
   useEffect(() => { void load(); }, [load]);
 
-  const tags = useIntelligenceTags("session", sessions.map((session) => tagRef(session.TenantID, session.ID)));
-  const tagsBySession = new Map(sessions.map((session, i) => [session, tags?.[i]]));
   const columns: Column<Session>[] = [
-    { key: "id", header: "Session ID", render: (s) => <div><EntityLink kind="session" id={s.ID} truncate={12} /><IntelligenceTags tags={tagsBySession.get(s)} compact /></div> },
+    { key: "id", header: "Session ID", render: (s) => <div><EntityLink kind="session" id={s.ID} truncate={12} /><IntelligenceTags tags={s.intelligence_tags} compact /></div> },
     { key: "tenant", header: "Tenant ID", render: (s) => <EntityLink kind="tenant" id={s.TenantID} truncate={12} /> },
     { key: "device", header: "Device", render: (s) => <span className="text-xs text-fg-muted" title={s.UserAgent}>{deviceSummary(s)}</span> },
     { key: "events", header: "Events", render: (s) => <Badge tone="accent">{s.EventCount}</Badge>, sortValue: (s) => s.EventCount },

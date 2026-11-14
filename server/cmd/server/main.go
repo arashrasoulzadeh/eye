@@ -161,20 +161,28 @@ func main() {
 	if cfg.DBDriver != "postgres" && cfg.DBDriver != "postgresql" && cfg.DBDriver != "timescale" {
 		setTenantContext = nil
 	}
-	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP})))
+	sessionsHandler := &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP, Intelligence: intelligenceSvc}
+	adminSessions := adminAuth(sessionsHandler)
+	createSession := handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, sessionsHandler))
+	mux.HandleFunc("/sessions", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.Header.Get("x-admin-session") == "" {
+			createSession.ServeHTTP(w, r)
+			return
+		}
+		adminSessions.ServeHTTP(w, r)
+	})
 	intelligenceHandler := &handler.IntelligenceHandler{Svc: intelligenceSvc, Registry: modelRegistry, Updates: modelUpdates}
 	mux.Handle("/intelligence/users", adminAuth(intelligenceHandler))
-	mux.Handle("/intelligence/tags", handler.AdminSessionAuth(db, cfg.AdminKey, http.HandlerFunc(intelligenceHandler.ServeTags)))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
-	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})
+	eventsHandler := adminAuth(&handler.EventsHandler{DB: db, Intelligence: intelligenceSvc})
 	mux.Handle("/events", eventsHandler)
 	mux.Handle("/events/", eventsHandler)
 	qs := &service.QueryService{DB: db}
 	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
 		qs.SetTenantContext = storage.SetTenantContext
 	}
-	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs}))
+	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs, Intelligence: intelligenceSvc}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	bucketSvc := &service.BucketService{DB: db}
 	if err := bucketSvc.Backfill(); err != nil {
