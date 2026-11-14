@@ -4,14 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 const BACKEND = process.env.BACKEND_URL || "http://localhost:8080";
 
 export async function GET(req: NextRequest) {
-  const key = (await cookies()).get("admin_key")?.value;
-  if (!key) {
+  const jar = await cookies();
+  const key = jar.get("admin_key")?.value;
+  const session = jar.get("admin_session")?.value;
+  if (!key && !session) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
-
-  const sessionId = req.nextUrl.searchParams.get("session_id") || "";
-  const res = await fetch(`${BACKEND}/live-events?session_id=${encodeURIComponent(sessionId)}`, {
-    headers: { "x-admin-key": key },
+  const res = await fetch(`${BACKEND}/live-events${req.nextUrl.search}`, {
+    headers: session ? { "x-admin-session": session } : { "x-admin-key": key! },
+    signal: req.signal,
   });
 
   return new NextResponse(res.body, {

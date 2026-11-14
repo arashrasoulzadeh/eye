@@ -40,10 +40,21 @@ func encodeEventCursor(c eventCursor) string {
 }
 
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	q := h.DB.WithContext(r.Context())
+	params := r.URL.Query()
+	if tenant := params.Get("tenant_id"); tenant != "" {
+		q = q.Where("tenant_id = ?", tenant)
+	}
+	if from, err := strconv.ParseInt(params.Get("from_ts"), 10, 64); err == nil {
+		q = q.Where("client_ts >= ?", from)
+	}
+	if to, err := strconv.ParseInt(params.Get("to_ts"), 10, 64); err == nil {
+		q = q.Where("client_ts <= ?", to)
+	}
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/events"), "/")
 	if r.Method == http.MethodGet && path != "" {
 		var event model.Event
-		if err := h.DB.First(&event, "event_id = ?", path).Error; err != nil {
+		if err := q.First(&event, "event_id = ?", path).Error; err != nil {
 			http.Error(w, "event not found", http.StatusNotFound)
 			return
 		}
@@ -51,12 +62,8 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var list []model.Event
-	q := h.DB
 	if n := r.URL.Query().Get("event_name"); n != "" {
 		q = q.Where("event_name = ?", n)
-	}
-	if t := r.URL.Query().Get("tenant_id"); t != "" {
-		q = q.Where("tenant_id = ?", t)
 	}
 	if s := r.URL.Query().Get("session_id"); s != "" {
 		q = q.Where("session_id = ?", s)

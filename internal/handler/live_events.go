@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"github.com/arashrasoulzadeh/eye/internal/service"
@@ -14,7 +15,8 @@ import (
 // It sends an immediate snapshot of recent events, then one more event per
 // subsequent ingested event for that session, until the client disconnects.
 type LiveEventsHandler struct {
-	Hub *service.LiveSessionHub
+	Hub          *service.LiveSessionHub
+	Intelligence *service.UserIntelligenceService
 }
 
 func (h *LiveEventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +39,17 @@ func (h *LiveEventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ch, unsubscribe := h.Hub.SubscribeEvents(sessionID)
 	defer unsubscribe()
 
+	tenant := r.URL.Query().Get("tenant_id")
+	from, _ := strconv.ParseInt(r.URL.Query().Get("from_ts"), 10, 64)
+	to, _ := strconv.ParseInt(r.URL.Query().Get("to_ts"), 10, 64)
 	send := func(events []*model.Event) bool {
-		b, _ := json.Marshal(map[string]any{"events": events})
+		rows := make([]model.Event, 0, len(events))
+		for _, event := range events {
+			if event != nil && (tenant == "" || event.TenantID == tenant) && (from == 0 || event.ClientTS >= from) && (to == 0 || event.ClientTS <= to) {
+				rows = append(rows, *event)
+			}
+		}
+		b, _ := json.Marshal(map[string]any{"events": attachEventTags(r.Context(), h.Intelligence, rows)})
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
 			return false
 		}

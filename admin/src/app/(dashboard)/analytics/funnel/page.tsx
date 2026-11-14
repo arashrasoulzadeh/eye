@@ -12,7 +12,7 @@ import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 type Step = { event_name: string; sessions: number; conversion_rate: number };
 
 export default function FunnelPage() {
-  const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
+  const { tenantId: globalTenant, setTenantId: setGlobalTenant, loading: scopeLoading } = useTenant();
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const timeRangeLabel = formatTimeRange(hours);
   const [tenants, setTenants] = useState<Tenant[]>([]),
@@ -31,26 +31,26 @@ export default function FunnelPage() {
       .list()
       .then((items) => {
         setTenants(items);
-        if (items[0]) setTenant(items[0].ID);
+
       })
       .catch((e) => setError(e.message));
   }, []);
-  useEffect(() => { if (globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant]);
+  useEffect(() => { setTenant(globalTenant); }, [globalTenant]);
   // The suggestion loader intentionally uses the current range and tenant.
   useEffect(() => {
-    if (!tenant) return;
+    if (scopeLoading || !globalTo) return;
     setResult([]);
     setError("");
     void api
-      .eventOptions(tenant, "")
+      .eventOptions(tenant, "", false, { from_ts: globalFrom, to_ts: globalTo })
       .then((options) => setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)))
       .catch((e) => setError(e.message));
     void loadSuggested(tenant);
   // loadSuggested is declared below and intentionally uses the current tenant/range.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenant, globalFrom, globalTo]);
+  }, [tenant, globalFrom, globalTo, scopeLoading]);
   async function loadSuggested(tenantID = tenant) {
-    if (!tenantID) return;
+    if (scopeLoading || !globalTo) return;
     setSuggesting(true);
     try {
       const { from, to } = range();
@@ -88,7 +88,7 @@ export default function FunnelPage() {
     setInput("");
   }
   async function run() {
-    if (!tenant || steps.length < 2) return;
+    if (scopeLoading || !globalTo || steps.length < 2) return;
     setLoading(true);
     setError("");
     try {
@@ -183,7 +183,7 @@ export default function FunnelPage() {
           <Button
             onClick={() => void run()}
             loading={loading}
-            disabled={!tenant || steps.length < 2}
+            disabled={scopeLoading || steps.length < 2}
           >
             Run funnel
           </Button>

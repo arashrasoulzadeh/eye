@@ -129,25 +129,30 @@ func (s *DashboardCacheService) Get() (*model.DashboardCache, error) {
 // selected time window. The background cache remains the fast fallback for the
 // unfiltered dashboard, while range-aware views always reflect their query.
 func (s *DashboardCacheService) GetRange(from, to int64) (*model.DashboardCache, error) {
+	return s.GetTenantRange("", from, to)
+}
+
+func (s *DashboardCacheService) GetTenantRange(tenant string, from, to int64) (*model.DashboardCache, error) {
 	cache, err := s.Get()
 	if err != nil {
 		return nil, err
 	}
-	var events int64
-	if err := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Count(&events).Error; err != nil {
-		return nil, err
-	}
-	var sessions int64
-	if err := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Distinct("session_id").Count(&sessions).Error; err != nil {
-		return nil, err
+	query := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to)
+	if tenant != "" {
+		query = query.Where("tenant_id = ?", tenant)
+		cache.Tenants = 1
 	}
 	var rows []model.Event
-	// Load the complete selected window. Truncating this to the newest 1,000
-	// events makes the chart appear to ignore the global time range whenever a
-	// busy tenant has more than 1,000 events in it.
-	if err := s.DB.Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, from, to).Order("client_ts DESC").Find(&rows).Error; err != nil {
+	if err := query.Select("tenant_id", "session_id", "client_ts").Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	sessionsSeen := make(map[string]bool)
+	for _, row := range rows {
+		if row.SessionID != "" {
+			sessionsSeen[row.SessionID] = true
+		}
+	}
+	events, sessions := int64(len(rows)), int64(len(sessionsSeen))
 	cache.Events = events
 	cache.Sessions = sessions
 	cache.Users = sessions

@@ -86,7 +86,11 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		if sessionID := r.URL.Query().Get("session_id"); sessionID != "" {
 			var session model.Session
-			if err := h.DB.First(&session, "id = ?", sessionID).Error; err != nil {
+			query := h.DB.WithContext(r.Context())
+			if tenant := strings.TrimSpace(r.URL.Query().Get("tenant_id")); tenant != "" {
+				query = query.Where("tenant_id = ?", tenant)
+			}
+			if err := query.First(&session, "id = ?", sessionID).Error; err != nil {
 				http.Error(w, "session not found", http.StatusNotFound)
 				return
 			}

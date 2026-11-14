@@ -16,7 +16,7 @@ import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 import { EventExplorer } from "@/components/EventExplorer";
 
 export default function EventsPage() {
-  const { tenantId: globalTenant } = useTenant();
+  const { tenantId: globalTenant, loading: scopeLoading, setTenantId: setGlobalTenant } = useTenant();
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const timeRangeLabel = formatTimeRange(hours);
   const [events, setEvents] = useState<Event[]>([]);
@@ -31,9 +31,10 @@ export default function EventsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
   const { push } = useToast();
-  useEffect(() => { if (globalTenant && globalTenant !== tenantId) setTenantId(globalTenant); }, [globalTenant, tenantId]);
+  useEffect(() => { setTenantId(globalTenant); setSessionId(""); }, [globalTenant]);
 
   const load = useCallback(async () => {
+    if (scopeLoading || !globalTo) return;
     setLoading(true);
     try {
       const page = await api.events.listPage({
@@ -53,9 +54,10 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventName, push, sessionId, tenantId, globalFrom, globalTo]);
+  }, [eventName, push, sessionId, tenantId, globalFrom, globalTo, scopeLoading]);
 
   async function loadTable(query: TableQuery) {
+    if (scopeLoading || !globalTo) return;
     setLoading(true);
     try {
       const page = await api.events.listPage({
@@ -78,10 +80,11 @@ export default function EventsPage() {
   useEffect(() => {
     void load();
     api.tenants.list().then(setTenants).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
-    api.sessions.list().then((page) => setSessions(page.items)).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
-  }, [load, push]);
+    if (scopeLoading || !globalTo) return;
+    api.sessions.list({ tenant_id: tenantId, from_ts: globalFrom, to_ts: globalTo }).then((page) => setSessions(page.items)).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
+  }, [load, push, scopeLoading, tenantId, globalFrom, globalTo]);
 
-  useEffect(() => { if (tenantId) api.eventOptions(tenantId).then((options) => setEventNameOptions((Array.isArray(options) ? options : []).map((option) => ({ value: option.value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [tenantId, push]);
+  useEffect(() => { if (!scopeLoading && globalTo) api.eventOptions(tenantId, "", false, { from_ts: globalFrom, to_ts: globalTo }).then((options) => setEventNameOptions((Array.isArray(options) ? options : []).map((option) => ({ value: option.value })))).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load event names")); }, [tenantId, push, globalFrom, globalTo, scopeLoading]);
 
   const tenantOptions: ComboOption[] = tenants.map((t) => ({ value: t.ID, label: t.Name }));
   const sessionOptions: ComboOption[] = sessions
@@ -117,7 +120,7 @@ export default function EventsPage() {
           </div>
           <div className="min-w-[160px] flex-1">
             <Label>Tenant ID</Label>
-            <Combobox value={tenantId} onChange={setTenantId} options={tenantOptions} placeholder="tenant id" />
+            <Combobox value={tenantId} onChange={setGlobalTenant} options={tenantOptions} placeholder="tenant id" />
           </div>
           <div className="min-w-[160px] flex-1">
             <Label>Session ID</Label>

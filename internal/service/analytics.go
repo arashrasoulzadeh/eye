@@ -293,7 +293,10 @@ func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64)
 		return value, nil
 	}
 	a.cacheMu.Unlock()
-	q := a.DB.Where("tenant_id = ? AND is_aggregated = ?", tenantID, false)
+	q := a.DB.Where("is_aggregated = ?", false)
+	if tenantID != "" {
+		q = q.Where("tenant_id = ?", tenantID)
+	}
 	if fromTS != nil {
 		q = q.Where("client_ts >= ?", *fromTS)
 	}
@@ -428,7 +431,10 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 	}
 	a.cacheMu.Unlock()
 
-	query := a.DB.Model(&model.Event{}).Where("tenant_id = ? AND is_aggregated = ?", tenantID, false).Where("event_name IN ?", steps)
+	query := a.DB.Model(&model.Event{}).Where("is_aggregated = ? AND event_name IN ?", false, steps)
+	if tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
 	if fromTS != nil {
 		query = query.Where("client_ts >= ?", *fromTS)
 	}
@@ -503,7 +509,10 @@ type RetentionRow struct {
 // that cohort's sessions had at least one event in that period.
 func (a *AnalyticsService) Retention(tenantID, granularity string, bounds ...*int64) ([]RetentionRow, error) {
 	var events []model.Event
-	db := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID)
+	db := a.DB.Model(&model.Event{})
+	if tenantID != "" {
+		db = db.Where("tenant_id = ?", tenantID)
+	}
 	if len(bounds) > 0 && bounds[0] != nil {
 		db = db.Where("client_ts >= ?", *bounds[0])
 	}

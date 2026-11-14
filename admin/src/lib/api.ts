@@ -135,7 +135,7 @@ function orderTenantsForScope(value: Tenant[]): Tenant[] {
 export const api = {
   metrics: () => req<Metrics>("metrics"),
 
-  dashboardCache: (range?: { from_ts: number; to_ts: number }) => req<DashboardCache>(`dashboard-cache${range ? `?from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`),
+  dashboardCache: (range?: { from_ts: number; to_ts: number; tenant_id?: string }) => req<DashboardCache>(`dashboard-cache${range ? `?from_ts=${range.from_ts}&to_ts=${range.to_ts}&tenant_id=${encodeURIComponent(range.tenant_id ?? "")}` : ""}`),
 
   tenants: {
     list: (params: { filter?: string; sort?: string; dir?: string; limit?: number; offset?: number } = {}) => { if (!Object.keys(params).length && tenantsCache && tenantsCache.expires > Date.now()) return Promise.resolve(orderTenantsForScope(tenantsCache.value)); const query = Object.keys(params).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries({ filter: params.filter ?? "", sort: params.sort ?? "created", dir: params.dir ?? "desc", limit: params.limit ?? 100, offset: params.offset ?? 0 }).map(([key, value]) => [key, String(value)])))}` : ""; if (!query && tenantsRequest) return tenantsRequest.then(orderTenantsForScope); const request = req<Tenant[]>(`tenants${query}`); if (query) return request.then(orderTenantsForScope); tenantsRequest = request.then((value) => { tenantsCache = { value, expires: Date.now() + 30_000 }; tenantsRequest = null; return orderTenantsForScope(value); }).catch((error) => { tenantsRequest = null; throw error; }); return tenantsRequest; },
@@ -150,14 +150,14 @@ export const api = {
 
   sessions: {
     list: (params: { tenant_id?: string; include_user_tags?: boolean; limit?: number; offset?: number; filter?: string; sort?: string; dir?: string; from_ts?: number; to_ts?: number } = {}) => { const isDefault = !Object.keys(params).length; if (isDefault && sessionsCache && sessionsCache.expires > Date.now()) return Promise.resolve(sessionsCache.value); if (isDefault && sessionsRequest) return sessionsRequest; const request = req<SessionPage>(`sessions?${new URLSearchParams(Object.fromEntries(Object.entries({ tenant_id: params.tenant_id ?? "", ...(params.include_user_tags ? { include_user_tags: true } : {}), limit: params.limit ?? 10, offset: params.offset ?? 0, filter: params.filter ?? "", sort: params.sort ?? "last_seen", dir: params.dir ?? "desc", from_ts: params.from_ts ?? "", to_ts: params.to_ts ?? "" }).map(([key, value]) => [key, String(value)])))}`).then((value) => ({ ...(value || { total: 0, limit: params.limit ?? 10, offset: params.offset ?? 0 }), items: Array.isArray(value?.items) ? value.items : [] })); if (!isDefault) return request; sessionsRequest = request.then((value) => { sessionsCache = { value, expires: Date.now() + 10_000 }; sessionsRequest = null; return value; }).catch((error) => { sessionsRequest = null; throw error; }); return sessionsRequest; },
-    get: (id: string) => req<Session>(`sessions?session_id=${encodeURIComponent(id)}`),
+    get: (id: string, tenant = "") => req<Session>(`sessions?session_id=${encodeURIComponent(id)}&tenant_id=${encodeURIComponent(tenant)}`),
     create: (tenantId: string) =>
       req<Session>("sessions", { method: "POST", body: JSON.stringify({ tenant_id: tenantId }) }).then((value) => { invalidateSessions(); return value; }),
     clearCache: invalidateSessions,
   },
 
   events: {
-    get: (id: string) => req<Event>(`events/${encodeURIComponent(id)}`),
+    get: (id: string, scope: { tenant_id?: string; from_ts?: number; to_ts?: number } = {}) => req<Event>(`events/${encodeURIComponent(id)}?${new URLSearchParams(Object.entries(scope).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)]))}`),
     // Hits /query (not /events) because that's the endpoint that actually
     // supports the from_ts/to_ts time-range filter (added for Phase 6);
     // /events only ever supported event_name/tenant_id/session_id.
@@ -186,7 +186,7 @@ export const api = {
     },
     listPage: (filters: { event_name?: string; tenant_id?: string; session_id?: string; from_ts?: number; to_ts?: number; sort?: "desc" | "asc"; limit?: number; offset?: number } = {}) => { const qs = new URLSearchParams(Object.entries({ ...filters, page: "true" }).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])); return req<EventPage>(`query?${qs}`).then((value) => ({ ...(value || { total: 0, limit: filters.limit ?? 10, offset: filters.offset ?? 0 }), items: Array.isArray(value?.items) ? value.items : [] })); },
   },
-  eventOptions: (tenantId: string, query = "", all = false) => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}${all ? "&all=1" : ""}`).then((value) => Array.isArray(value) ? value : []),
+  eventOptions: (tenantId: string, query = "", all = false, range?: { from_ts: number; to_ts: number }) => req<EventOption[]>(`event-options?tenant_id=${encodeURIComponent(tenantId)}&q=${encodeURIComponent(query)}${all ? "&all=1" : ""}${range ? `&from_ts=${range.from_ts}&to_ts=${range.to_ts}` : ""}`).then((value) => Array.isArray(value) ? value : []),
   slo: () => req<{ target: number; availability: number; requests: number; errors: number; error_budget: number; error_budget_remaining: number; within_slo: boolean }>("slo"),
   analytics: {
     buckets: (tenantId: string, params: { event_name?: string; bucket: "minute" | "10minute" | "hour"; from_ts: number; to_ts: number }) => req<BucketPoint[]>(`analytics/buckets?tenant_id=${encodeURIComponent(tenantId)}&event_name=${encodeURIComponent(params.event_name ?? "")}&bucket=${params.bucket}&from_ts=${params.from_ts}&to_ts=${params.to_ts}`).then((value) => Array.isArray(value) ? value : []),
@@ -309,7 +309,7 @@ export const api = {
     anomalies: () => req<unknown[]>("anomalies"),
     anomaliesPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`anomalies?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
     auditLog: () => req<unknown[]>("audit-log?limit=100"),
-    auditLogPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`audit-log?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}`),
+    auditLogPage: (params: { filter?: string; dir?: string; limit?: number; offset?: number; from_ts?: number; to_ts?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`audit-log?page=true&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}&limit=${params.limit ?? 10}&offset=${params.offset ?? 0}&from_ts=${params.from_ts ?? ""}&to_ts=${params.to_ts ?? ""}`),
     deadLetters: (params: { filter?: string; dir?: string; page?: number; limit?: number } = {}) => req<{ items: unknown[]; total: number; limit: number; offset: number }>(`webhooks/dead-letter?page=true&limit=${params.limit ?? 25}&offset=${(params.page ?? 0) * (params.limit ?? 25)}&filter=${encodeURIComponent(params.filter ?? "")}&dir=${params.dir ?? "desc"}`),
     deleteDeadLetter: (id: string) => req<void>(`webhooks/dead-letter?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     replayDeadLetter: (id: string) => req<void>(`webhooks/dead-letter/${encodeURIComponent(id)}/replay`, { method: "POST" }),

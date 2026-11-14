@@ -34,6 +34,16 @@ func TestBucketServiceGroupsAndCachesCounts(t *testing.T) {
 	if len(points) != 2 || points[0].Bucket != 0 || points[0].Count != 2 || points[1].Bucket != 600_000 || points[1].Count != 1 {
 		t.Fatalf("unexpected buckets: %#v", points)
 	}
+	db.Create(&model.Event{EventID: "other", TenantID: "t2", EventName: "click", ClientTS: 118_000})
+	for _, scope := range []struct {
+		tenant string
+		count  int
+	}{{"t1", 1}, {"", 2}} {
+		bounded, err := svc.Events(scope.tenant, "click", "10minute", 100_000, 119_000)
+		if err != nil || len(bounded) != 1 || bounded[0].Count != scope.count {
+			t.Fatalf("tenant=%q buckets=%v err=%v", scope.tenant, bounded, err)
+		}
+	}
 	db.Create(&model.Event{EventID: "d", TenantID: "t1", EventName: "click", ClientTS: 120_000})
 	cached, err := svc.Events("t1", "click", "10minute", 0, 900_000)
 	if err != nil || len(cached) != 2 || cached[0].Count != 2 {

@@ -46,7 +46,8 @@ func bucketWidth(name string) (int64, bool) {
 }
 
 func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
-	if _, ok := bucketWidth(bucket); !ok {
+	width, ok := bucketWidth(bucket)
+	if !ok {
 		return nil, gorm.ErrInvalidData
 	}
 	key := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%d", tenantID, eventName, bucket, fromTS, toTS)
@@ -58,17 +59,46 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 	}
 	s.mu.Unlock()
 
-	var rows []model.EventBucket
-	query := s.DB.Where("tenant_id = ? AND bucket = ? AND bucket_start >= ? AND bucket_start <= ?", tenantID, bucket, fromTS, toTS)
+	firstFull := fromTS - fromTS%width
+	if firstFull < fromTS {
+		firstFull += width
+	}
+	lastFullEnd := toTS - toTS%width
+	query := s.DB.Where("bucket = ? AND bucket_start >= ? AND bucket_start < ?", bucket, firstFull, lastFullEnd)
+	if tenantID != "" {
+		query = query.Where("tenant_id = ?", tenantID)
+	}
 	if eventName != "" {
 		query = query.Where("event_name = ?", eventName)
 	}
+	var rows []model.EventBucket
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	counts := make(map[int64]int)
 	for _, row := range rows {
 		counts[row.BucketStart] += int(row.Count)
+	}
+	// Durable buckets contain the entire interval. Count partial edges from
+	// raw events so they respect the exact requested bounds.
+	edge := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, fromTS, toTS).
+		Where("(client_ts < ? OR client_ts >= ?)", firstFull, lastFullEnd)
+	if tenantID != "" {
+		edge = edge.Where("tenant_id = ?", tenantID)
+	}
+	if eventName != "" {
+		edge = edge.Where("event_name = ?", eventName)
+	}
+	var edges []struct {
+		Bucket int64
+		Count  int
+	}
+	if err := edge.Select("client_ts - (client_ts % ?) AS bucket, COUNT(*) AS count", width).
+		Group("bucket").Scan(&edges).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range edges {
+		counts[row.Bucket] += row.Count
 	}
 	points := make([]BucketPoint, 0, len(counts))
 	for bucketStart, count := range counts {

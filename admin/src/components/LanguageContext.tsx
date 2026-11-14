@@ -20,6 +20,7 @@ const TRANSLATIONS: Record<string, string> = {
   "precise hit": "ضربه دقیق", "combo reached": "کمبو ثبت شد", "life lost": "جان از دست رفت",
   "Tenant usage is temporarily unavailable.": "اطلاعات مصرف تنانت موقتاً در دسترس نیست.",
   browsing: "مرور", gameplay: "بازی",
+  "Tenant is outside the selected scope.": "تنانت خارج از محدوده انتخاب‌شده است.",
   "Intelligence tags": "برچسب‌های هوشمند",
   "Global model": "مدل سراسری",
   "Download latest model": "دانلود آخرین مدل",

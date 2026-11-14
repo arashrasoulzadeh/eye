@@ -1,4 +1,6 @@
 "use client";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
+import { useTimeRange } from "@/components/TimeRangeContext";
 import { useCallback, useEffect, useState } from "react";
 import { api, Tenant, Session, Event, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
@@ -58,14 +60,15 @@ export default function TestEventPage() {
     }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load tenants"));
   }, [push]);
 
+  const { from, to } = useTimeRange();
   useEffect(() => {
     if (!tenantId) return;
-    api.sessions.list().then((page) => {
+    api.sessions.list({ tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined }).then((page) => {
       const mine = page.items.filter((s) => s.TenantID === tenantId);
       setSessions(mine);
       setSessionId(mine[0]?.ID || "");
     }).catch((e) => push("error", e instanceof ApiError ? e.message : "Failed to load sessions"));
-  }, [push, tenantId]);
+  }, [push, tenantId, from, to]);
 
   async function createSession() {
     if (!tenantId) return;
@@ -86,11 +89,11 @@ export default function TestEventPage() {
     if (!tenantId) return;
     setRecentLoading(true);
     try {
-      const list = await api.events.list({ tenant_id: tenantId, session_id: sessionId || undefined, limit: 100, offset: 0, sort: "desc" });
+      const list = await api.events.list({ from_ts: from || undefined, to_ts: to || undefined, tenant_id: tenantId, session_id: sessionId || undefined, limit: 100, offset: 0, sort: "desc" });
       setRecent(list);
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to load recent events"); }
     finally { setRecentLoading(false); }
-  }, [push, sessionId, tenantId]);
+  }, [push, sessionId, tenantId, from, to]);
 
   useEffect(() => {
     void refreshRecent();
@@ -248,7 +251,7 @@ export default function TestEventPage() {
             {recent.map((e, index) => (
               <div key={e.EventID || `${e.SessionID}-${e.ClientTS}-${index}`} className="px-5 py-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-fg">{e.EventName}</span>
+                  <span className="text-sm font-medium text-fg">{e.EventName}</span><IntelligenceTags tags={e.intelligence_tags} compact />
                   <span className="text-xs text-fg-muted">{e.IngestTS ? new Date(e.IngestTS).toLocaleTimeString() : ""}</span>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-fg-muted">

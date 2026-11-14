@@ -22,6 +22,8 @@ type IntelligenceHandler struct {
 
 func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenantID := strings.TrimSpace(r.URL.Query().Get("tenant_id"))
+	from, fromErr := strconv.ParseInt(r.URL.Query().Get("from_ts"), 10, 64)
+	to, toErr := strconv.ParseInt(r.URL.Query().Get("to_ts"), 10, 64)
 	action := r.URL.Query().Get("action")
 	if h.Updates != nil && ((action == "model-status" && r.Method == http.MethodGet) ||
 		(action == "download-model" && r.Method == http.MethodPost)) {
@@ -50,7 +52,11 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			}
 			defer os.Remove(file.Name())
 			defer file.Close()
-			if err := h.Svc.ExportTrainingCSV(file, tenantID, time.Now().UTC()); err != nil {
+			var bounds []int64
+			if fromErr == nil && toErr == nil && from < to {
+				bounds = []int64{from, to}
+			}
+			if err := h.Svc.ExportTrainingCSV(file, tenantID, time.Now().UTC(), bounds...); err != nil {
 				http.Error(w, "training CSV export failed", http.StatusInternalServerError)
 				return
 			}
@@ -68,6 +74,12 @@ func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			db := h.Svc.DB.WithContext(r.Context())
 			if tenantID != "" {
 				db = db.Where("tenant_id = ?", tenantID)
+			}
+			if fromErr == nil {
+				db = db.Where("created_at >= ?", time.UnixMilli(from))
+			}
+			if toErr == nil {
+				db = db.Where("created_at <= ?", time.UnixMilli(to))
 			}
 			if err := db.Order("created_at desc, id desc").Limit(50).Find(&runs).Error; err != nil {
 				http.Error(w, "inference log unavailable", http.StatusInternalServerError)

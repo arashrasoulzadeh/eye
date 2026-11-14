@@ -1,4 +1,6 @@
 "use client";
+import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +29,8 @@ function eventsPerHour(events: Event[]): ChartPoint[] {
 export default function TenantDetailClient() {
   const params = useParams<{ id: string }>();
   const tenantId = params.id;
+  const { tenantId: globalTenant, loading: scopeLoading } = useTenant();
+  const { from, to } = useTimeRange();
   const { push } = useToast();
   const { language } = useLanguage();
 
@@ -47,6 +51,7 @@ export default function TenantDetailClient() {
   const [confirmingDataDelete, setConfirmingDataDelete] = useState(false);
 
   useEffect(() => {
+    if (scopeLoading || (globalTenant && tenantId !== globalTenant)) return;
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -56,8 +61,8 @@ export default function TenantDetailClient() {
       try {
         const [tenants, allSessions, tenantEvents] = await Promise.all([
           api.tenants.list({ filter: tenantId }),
-          api.sessions.list({ tenant_id: tenantId, limit: 10, offset: 0, sort: "last_seen", dir: "desc" }),
-          api.events.list({ tenant_id: tenantId, limit: 100, offset: 0, sort: "desc" }),
+          api.sessions.list({ tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined, limit: 10, offset: 0, sort: "last_seen", dir: "desc" }),
+          api.events.list({ tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined, limit: 100, offset: 0, sort: "desc" }),
         ]);
         if (cancelled) return;
         const t = tenants.find((t) => t.ID === tenantId) || null;
@@ -88,11 +93,11 @@ export default function TenantDetailClient() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, push]);
+  }, [tenantId, push, globalTenant, scopeLoading, from, to]);
 
   async function loadSessions(query: TableQuery) {
     try {
-      const page = await api.sessions.list({ tenant_id: tenantId, limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey || "last_seen", dir: query.sortDir });
+      const page = await api.sessions.list({ tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined, limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey || "last_seen", dir: query.sortDir });
       setSessions(page.items.filter((session) => session.TenantID === tenantId));
       setSessionTotal(page.total);
     } catch (e) {
@@ -105,7 +110,7 @@ export default function TenantDetailClient() {
   const eventCount = useMemo(() => events.length, [events]);
 
   const sessionColumns: Column<Session>[] = [
-    { key: "id", header: "Session ID", render: (s) => <EntityLink kind="session" id={s.ID} truncate={14} /> },
+    { key: "id", header: "Session ID", render: (s) => <EntityLink kind="session" id={s.ID} tags={s.intelligence_tags} truncate={14} /> },
     { key: "events", header: "Events", render: (s) => s.EventCount, sortValue: (s) => s.EventCount },
     { key: "started", header: "Started", render: (s) => (s.StartedAt ? new Date(s.StartedAt).toLocaleString() : "—"), sortValue: (s) => s.StartedAt },
     { key: "last_seen", header: "Last seen", render: (s) => (s.LastSeen ? new Date(s.LastSeen).toLocaleString() : "—"), sortValue: (s) => s.LastSeen },
@@ -147,6 +152,9 @@ export default function TenantDetailClient() {
     } catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to delete tenant data"); }
   }
 
+  if (globalTenant && globalTenant !== tenantId) {
+    return <p className="text-sm text-fg-muted">{translate("Tenant is outside the selected scope.", language)}</p>;
+  }
   if (loading) {
     return <p className="text-sm text-fg-muted">Loading tenant…</p>;
   }

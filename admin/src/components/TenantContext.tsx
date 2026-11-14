@@ -25,7 +25,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       const available = Array.isArray(items) ? items : [];
       setTenants(available);
       setTenantIdState((current) => current && available.some((item) => item.ID === current) ? current : "");
-    }).finally(() => setLoading(false));
+    }).catch(() => undefined).finally(() => setLoading(false));
   }, []);
 
   function setTenantId(value: string) {

@@ -1,6 +1,7 @@
 "use client";
+import { useTenant } from "@/components/TenantContext";
 import { IntelligenceTags } from "@/components/IntelligenceTags";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
@@ -23,6 +24,8 @@ function deviceSummary(s: Session): string {
 }
 
 export default function SessionsPage() {
+  const { tenantId, loading: scopeLoading } = useTenant();
+  const request = useRef(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -31,11 +34,13 @@ export default function SessionsPage() {
   const timeRangeLabel = formatTimeRange(hours);
 
   const load = useCallback(async (query: TableQuery = { filter: "", sortKey: "last_seen", sortDir: "desc", page: 0 }) => {
+    if (scopeLoading || !globalTo) return;
+    const id = ++request.current;
     setLoading(true);
-    try { const page = await api.sessions.list({ limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey ?? "last_seen", dir: query.sortDir, from_ts: globalFrom, to_ts: globalTo }); setSessions(page.items); setTotal(page.total); }
-    catch (e) { push("error", e instanceof ApiError ? e.message : "Failed to load sessions"); } finally { setLoading(false); }
-  }, [push, globalFrom, globalTo]);
-  useEffect(() => { void load(); }, [load]);
+    try { const page = await api.sessions.list({ tenant_id: tenantId, limit: 10, offset: query.page * 10, filter: query.filter, sort: query.sortKey ?? "last_seen", dir: query.sortDir, from_ts: globalFrom, to_ts: globalTo }); if (id === request.current) { setSessions(page.items); setTotal(page.total); } }
+    catch (e) { if (id === request.current) push("error", e instanceof ApiError ? e.message : "Failed to load sessions"); } finally { if (id === request.current) setLoading(false); }
+  }, [push, globalFrom, globalTo, tenantId, scopeLoading]);
+  useEffect(() => { void load(); return () => { request.current++; }; }, [load]);
 
   const columns: Column<Session>[] = [
     { key: "id", header: "Session ID", render: (s) => <div><EntityLink kind="session" id={s.ID} truncate={12} /><IntelligenceTags tags={s.intelligence_tags} compact /></div> },

@@ -1,4 +1,6 @@
 "use client";
+import { useTenant } from "@/components/TenantContext";
+import { useTimeRange } from "@/components/TimeRangeContext";
 import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
@@ -10,7 +12,6 @@ import { Badge } from "@/components/Badge";
 import { EntityLink } from "@/components/EntityLink";
 import { JsonView } from "@/components/JsonView";
 import { useToast } from "@/components/Toast";
-import { LiveSession } from "@/components/LiveSession";
 
 function uniqueEvents(events: Event[]): Event[] {
   const seen = new Set<string>();
@@ -24,6 +25,8 @@ function uniqueEvents(events: Event[]): Event[] {
 export default function SessionDetailClient() {
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
+  const { tenantId, loading: scopeLoading } = useTenant();
+  const { from, to } = useTimeRange();
   const { push } = useToast();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -43,19 +46,17 @@ export default function SessionDetailClient() {
   }, [events]);
 
   useEffect(() => {
+    if (scopeLoading) return;
     let cancelled = false;
     async function load() {
       setLoading(true);
       setLoadError("");
       try {
-        // Same pattern as the tenant detail page: there is no GET
-        // /sessions/{id} endpoint, only a list, so this finds the one we
-        // want from it rather than inventing a backend call that doesn't exist.
         const [session, tenants, sessionEvents, firstEventPage] = await Promise.all([
-          api.sessions.get(sessionId),
+          api.sessions.get(sessionId, tenantId),
           api.tenants.list(),
-          api.events.list({ session_id: sessionId, limit: 100, offset: 0, sort: "asc" }),
-          api.events.listPage({ session_id: sessionId, limit: 10, offset: 0, sort: "asc" }),
+          api.events.list({ session_id: sessionId, tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined, limit: 100, offset: 0, sort: "asc" }),
+          api.events.listPage({ session_id: sessionId, tenant_id: tenantId, from_ts: from || undefined, to_ts: to || undefined, limit: 10, offset: 0, sort: "asc" }),
         ]);
         if (cancelled) return;
         const s = session || null;
@@ -75,13 +76,16 @@ export default function SessionDetailClient() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, push]);
+  }, [sessionId, push, tenantId, scopeLoading, from, to]);
 
   async function loadEventTable(query: TableQuery) {
     setTableLoading(true);
     try {
       const page = await api.events.listPage({
         session_id: sessionId,
+        tenant_id: tenantId,
+        from_ts: from || undefined,
+        to_ts: to || undefined,
         limit: 10,
         offset: query.page * 10,
         sort: query.sortDir,
@@ -99,14 +103,15 @@ export default function SessionDetailClient() {
 
   // Live events SSE
   useEffect(() => {
-    if (!sessionId) return;
-    const es = new EventSource(`/api/proxy-stream/live-events?session_id=${encodeURIComponent(sessionId)}`);
+    if (!sessionId || scopeLoading || !session || (tenantId && session.TenantID !== tenantId)) return;
+    const params = new URLSearchParams({ session_id: sessionId, tenant_id: session.TenantID, from_ts: String(from) });
+    const es = new EventSource(`/api/proxy-stream/live-events?${params}`);
     es.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data) as { events: Event[] };
         if (data.events?.length) {
           // Merge new events, avoiding duplicates by EventID
-          const newEvents = uniqueEvents(data.events).filter((e) => !eventsRef.current.some((ex) => ex.EventID === e.EventID));
+          const newEvents = uniqueEvents(data.events).filter((e) => e.TenantID === session.TenantID && (!from || e.ClientTS >= from) && e.ClientTS <= Math.max(to, Date.now()) && !eventsRef.current.some((ex) => ex.EventID === e.EventID));
           if (newEvents.length) {
             setEvents((prev) => [...newEvents, ...prev].slice(0, 500));
           }
@@ -117,7 +122,7 @@ export default function SessionDetailClient() {
     };
     es.onerror = () => {};
     return () => es.close();
-  }, [sessionId]);
+  }, [sessionId, session, tenantId, scopeLoading, from, to]);
 
   const deviceEntries = useMemo(() => {
     if (!session) return [];
@@ -132,7 +137,7 @@ export default function SessionDetailClient() {
   }, [session]);
 
   const columns: Column<Event>[] = [
-    { key: "name", header: "Event", render: (e) => <EntityLink kind="event" id={e.EventID} label={e.EventName} />, sortValue: (e) => e.EventName },
+    { key: "name", header: "Event", render: (e) => <EntityLink kind="event" id={e.EventID} label={e.EventName} tags={e.intelligence_tags} />, sortValue: (e) => e.EventName },
     { key: "source", header: "Source", render: (e) => <Badge tone={e.Source === "system" ? "warning" : "accent"}>{e.Source || "client"}</Badge> },
     { key: "payload", header: "Payload", render: (e) => <JsonView value={e.Payload} /> },
     { key: "dims", header: "Dims", render: (e) => <JsonView value={e.Dims} /> },
@@ -203,7 +208,6 @@ export default function SessionDetailClient() {
         <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm"><summary className="cursor-pointer font-medium text-fg">Session detail help</summary><p className="mt-2 text-fg-muted">This view combines server session metadata with a deduplicated journey and live event updates. Event rows link to their complete payload and dimensions.</p></details>
       </div>
 
-      <LiveSession session={session} className="mt-6" />
 
       <Card className="mt-6">
         <CardHeader title="Device" />
@@ -240,7 +244,7 @@ export default function SessionDetailClient() {
                   <div className="truncate font-medium text-fg" title={event.EventName}>{event.EventName + "\u200b"}</div>
                   <div className="mt-1 text-xs font-semibold text-accent">×{event.repeatCount}</div>
                   <div className="mt-1 text-[11px] text-fg-muted">{new Date(event.ClientTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{event.repeatCount > 1 && ` → ${new Date(event.lastTS).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
-                  <div className="mt-2"><EntityLink kind="event" id={event.EventID} label="Open" /></div>
+                  <div className="mt-2"><EntityLink kind="event" id={event.EventID} label="Open" tags={event.intelligence_tags} /></div>
                 </div>
                 {index < journey.length - 1 && <div className="h-0.5 w-12 bg-gradient-to-r from-accent to-accent/30" />}
               </div>;

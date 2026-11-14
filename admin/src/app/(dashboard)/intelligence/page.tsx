@@ -1,5 +1,6 @@
 "use client";
 
+import { useTimeRange } from "@/components/TimeRangeContext";
 import { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantContext";
 import { Button } from "@/components/Button";
@@ -35,6 +36,7 @@ export default function IntelligencePage() {
   const { language } = useLanguage();
   const [log, setLog] = useState<{ scope: string; runs: Run[]; failed: boolean }>();
   const scope = tenantId || "";
+  const { from, to } = useTimeRange();
   const t = (key: string) => translate(key, language);
   const [model, setModel] = useState<ModelStatus>();
   const [modelError, setModelError] = useState("");
@@ -68,9 +70,9 @@ export default function IntelligencePage() {
     }
   }
   useEffect(() => {
-    if (tenantLoading) return;
+    if (tenantLoading || !to) return;
     const controller = new AbortController();
-    const params = new URLSearchParams({ tenant_id: scope, action: "inference-log" });
+    const params = new URLSearchParams({ tenant_id: scope, action: "inference-log", from_ts: String(from), to_ts: String(to) });
     const load = async () => {
       try {
         const response = await fetch(`${url}?${params}`, { signal: controller.signal });
@@ -87,7 +89,7 @@ export default function IntelligencePage() {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [scope, tenantLoading]);
+  }, [scope, tenantLoading, from, to]);
   const current = log?.scope === scope ? log : undefined;
   const runs = current?.runs ?? [];
   const version = runs.find((run) => !run.Error)?.Version;
@@ -102,7 +104,9 @@ export default function IntelligencePage() {
           <form action={url} method="get">
             <input type="hidden" name="action" value="training-csv" />
             <input type="hidden" name="tenant_id" value={scope} />
-            <Button type="submit" disabled={tenantLoading}>{t("Download training CSV")}</Button>
+            <input type="hidden" name="from_ts" value={from} />
+            <input type="hidden" name="to_ts" value={to} />
+            <Button type="submit" disabled={tenantLoading || !to}>{t("Download training CSV")}</Button>
           </form>
           <p className="text-xs text-fg-muted">
             {tenantLoading ? t("Loading tenants…") : tenants.find((tenant) => tenant.ID === scope)?.Name || t("All tenants")}

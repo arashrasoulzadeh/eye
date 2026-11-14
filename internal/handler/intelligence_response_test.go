@@ -35,6 +35,20 @@ func TestEntityResponsesIncludeIntelligenceTags(t *testing.T) {
 	sessions := &SessionsHandler{DB: db, Intelligence: svc}
 	events := &EventsHandler{DB: db, Intelligence: svc}
 	query := &QueryHandler{Svc: &service.QueryService{DB: db}, Intelligence: svc}
+	for _, item := range []struct {
+		handler http.Handler
+		path    string
+	}{
+		{sessions, "/sessions?session_id=session&tenant_id=other"},
+		{events, "/events/event?tenant_id=other"},
+		{events, "/events/event?from_ts=1"},
+	} {
+		rec := httptest.NewRecorder()
+		item.handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, item.path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s returned %d", item.path, rec.Code)
+		}
+	}
 	for _, tc := range []struct {
 		handler http.Handler
 		path    string

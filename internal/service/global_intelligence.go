@@ -113,7 +113,7 @@ func scopedTenants(db *gorm.DB, tenant string) ([]string, error) {
 	return ids, err
 }
 
-func (s *UserIntelligenceService) ExportTrainingCSV(out io.Writer, tenant string, now time.Time) error {
+func (s *UserIntelligenceService) ExportTrainingCSV(out io.Writer, tenant string, now time.Time, bounds ...int64) error {
 	ids, err := scopedTenants(s.DB, tenant)
 	if err != nil {
 		return err
@@ -134,6 +134,9 @@ func (s *UserIntelligenceService) ExportTrainingCSV(out io.Writer, tenant string
 			history[visit.UserID] = append(history[visit.UserID], visit)
 		}
 		err := s.trainingJourneys(s.DB, id, func(journey trainingJourney) error {
+			if len(bounds) == 2 && (journey.Session.StartedAt.UnixMilli() < bounds[0] || journey.Session.LastSeen.UnixMilli() > bounds[1]) {
+				return nil
+			}
 			if len(journey.Sequence) == 0 {
 				return nil
 			}

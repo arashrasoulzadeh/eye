@@ -25,10 +25,8 @@ describe("global time contract", () => {
     }
   });
 
-  it("keeps an explicit analytics share-link tenant over the persisted tenant", () => {
+  it("keeps analytics on the global tenant", () => {
     const source = readFileSync(join(root, "analytics/page.tsx"), "utf8");
-    expect(source).toContain('const urlTenant = urlParams?.get("tenant") || ""');
-    expect(source).toContain("useState(urlTenant)");
-    expect(source).toContain("if (!urlTenant && globalTenant");
+    expect(source).toContain("setTenant(globalTenant)");
   });
 });

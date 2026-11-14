@@ -1,5 +1,6 @@
 "use client";
 
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, Event, Tenant } from "@/lib/api";
@@ -24,22 +25,25 @@ export default function StreamPage() {
   useEffect(() => { api.tenants.list().then(setTenants).catch((e) => setError(e.message)); }, []);
   useEffect(() => { if (globalTenant && !tenantIds.includes(globalTenant)) setTenantIds([globalTenant]); }, [globalTenant, tenantIds]);
   useEffect(() => {
-    if (!running) return;
-    const now = globalTo, fromTS = globalFrom, toTS = now;
+    if (!running || !globalTo) return;
+    let cancelled = false;
     const load = () => {
+      const toTS = Date.now();
+      const fromTS = toTS - (globalTo - globalFrom);
       setLoading(true);
-      const tenantFilter = tenantIds.length ? tenantIds : [undefined];
+      const tenantFilter = globalTenant ? [globalTenant] : tenantIds.length ? tenantIds : [undefined];
       const eventFilter = eventNames.length ? eventNames : [undefined];
       const requests = tenantFilter.flatMap((tenant_id) => eventFilter.map((event_name) => api.events.list({ sort: "desc", limit: 100, offset: 0, from_ts: fromTS, to_ts: toTS, tenant_id, event_name })));
       Promise.all(requests).then((batches) => {
+        if (cancelled) return;
         const unique = new Map<string, Event>();
         batches.flat().forEach((event) => unique.set(event.EventID || `${event.TenantID}:${event.SessionID}:${event.ClientTS}:${event.EventName}`, event));
         setEvents([...unique.values()].sort((a, b) => b.ClientTS - a.ClientTS).slice(0, 100));
         setError("");
-      }).catch((e) => setError(e.message)).finally(() => setLoading(false));
+      }).catch((e) => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     };
-    load(); const timer = window.setInterval(load, 2000); return () => window.clearInterval(timer);
-  }, [running, tenantIds, eventNames, globalFrom, globalTo]);
+    load(); const timer = window.setInterval(load, 2000); return () => { cancelled = true; window.clearInterval(timer); };
+  }, [running, tenantIds, eventNames, globalFrom, globalTo, globalTenant]);
 
   const visible = useMemo(() => events, [events]);
   const tenantOptions = tenants.map((tenant) => ({ value: tenant.ID, label: tenant.Name }));
@@ -55,5 +59,5 @@ export default function StreamPage() {
   </div>;
 }
 
-function EventTable({ events, tenants, copy, keyFor }: { events: Event[]; tenants: Tenant[]; copy: (event: Event) => void; keyFor: (event: Event, index: number) => string }) { return <div className="max-h-[65vh] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-border text-fg-muted"><th className="px-5 py-3">Event</th><th className="px-5 py-3">Tenant</th><th className="px-5 py-3">Time</th><th className="px-5 py-3 text-right">Actions</th></tr></thead><tbody>{events.map((event, index) => <tr key={keyFor(event, index)} className="border-b border-border"><td className="px-5 py-3">{event.EventID ? <Link href={`/events/${encodeURIComponent(event.EventID)}`} className="font-medium text-accent hover:underline">{event.EventName}</Link> : event.EventName}</td><td className="px-5 py-3"><EntityLink kind="tenant" id={event.TenantID} label={tenants.find((tenant) => tenant.ID === event.TenantID)?.Name || event.TenantID} /></td><td className="px-5 py-3">{new Date(event.ClientTS).toLocaleString()}</td><td className="px-5 py-3 text-right"><button className="text-xs text-accent" onClick={() => copy(event)}>Copy</button></td></tr>)}</tbody></table></div>; }
-function EventCard({ event, tenants, compact, json, copy }: { event: Event; tenants: Tenant[]; compact: boolean; json: boolean; copy: () => void }) { return <div className="rounded border border-border px-2.5 py-1.5">{event.EventID ? <Link href={`/events/${encodeURIComponent(event.EventID)}`} className="font-medium text-xs text-accent hover:underline">{event.EventName}</Link> : <span className="font-medium text-xs">{event.EventName}</span>}<button className="ml-2 text-[11px] text-accent" onClick={copy}>Copy</button>{json ? <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{JSON.stringify(event, null, 2)}</pre> : <><div className="mt-0.5 flex items-center justify-between"><Badge tone="accent">{new Date(event.ClientTS).toLocaleString()}</Badge></div><p className="mt-1 text-[11px] text-fg-muted">Tenant <EntityLink kind="tenant" id={event.TenantID} label={tenants.find((tenant) => tenant.ID === event.TenantID)?.Name || event.TenantID} /> · Session <EntityLink kind="session" id={event.SessionID} /></p><div className="mt-1 grid gap-1 md:grid-cols-2"><div><p className="text-[10px] font-medium text-fg-muted">Payload</p>{compact ? <JsonView value={event.Payload} /> : <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{event.Payload || "{}"}</pre>}</div><div><p className="text-[10px] font-medium text-fg-muted">Dimensions</p>{compact ? <JsonView value={event.Dims} /> : <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{event.Dims || "{}"}</pre>}</div></div></>}</div>; }
+function EventTable({ events, tenants, copy, keyFor }: { events: Event[]; tenants: Tenant[]; copy: (event: Event) => void; keyFor: (event: Event, index: number) => string }) { return <div className="max-h-[65vh] overflow-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-border text-fg-muted"><th className="px-5 py-3">Event</th><th className="px-5 py-3">Tenant</th><th className="px-5 py-3">Time</th><th className="px-5 py-3 text-right">Actions</th></tr></thead><tbody>{events.map((event, index) => <tr key={keyFor(event, index)} className="border-b border-border"><td className="px-5 py-3">{event.EventID ? <Link href={`/events/${encodeURIComponent(event.EventID)}`} className="font-medium text-accent hover:underline">{event.EventName}</Link> : event.EventName}<IntelligenceTags tags={event.intelligence_tags} compact /></td><td className="px-5 py-3"><EntityLink kind="tenant" id={event.TenantID} label={tenants.find((tenant) => tenant.ID === event.TenantID)?.Name || event.TenantID} /></td><td className="px-5 py-3">{new Date(event.ClientTS).toLocaleString()}</td><td className="px-5 py-3 text-right"><button className="text-xs text-accent" onClick={() => copy(event)}>Copy</button></td></tr>)}</tbody></table></div>; }
+function EventCard({ event, tenants, compact, json, copy }: { event: Event; tenants: Tenant[]; compact: boolean; json: boolean; copy: () => void }) { return <div className="rounded border border-border px-2.5 py-1.5">{event.EventID ? <Link href={`/events/${encodeURIComponent(event.EventID)}`} className="font-medium text-xs text-accent hover:underline">{event.EventName}</Link> : <span className="font-medium text-xs">{event.EventName}</span>}<button className="ml-2 text-[11px] text-accent" onClick={copy}>Copy</button><IntelligenceTags tags={event.intelligence_tags} compact />{json ? <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{JSON.stringify(event, null, 2)}</pre> : <><div className="mt-0.5 flex items-center justify-between"><Badge tone="accent">{new Date(event.ClientTS).toLocaleString()}</Badge></div><p className="mt-1 text-[11px] text-fg-muted">Tenant <EntityLink kind="tenant" id={event.TenantID} label={tenants.find((tenant) => tenant.ID === event.TenantID)?.Name || event.TenantID} /> · Session <EntityLink kind="session" id={event.SessionID} /></p><div className="mt-1 grid gap-1 md:grid-cols-2"><div><p className="text-[10px] font-medium text-fg-muted">Payload</p>{compact ? <JsonView value={event.Payload} /> : <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{event.Payload || "{}"}</pre>}</div><div><p className="text-[10px] font-medium text-fg-muted">Dimensions</p>{compact ? <JsonView value={event.Dims} /> : <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[11px]">{event.Dims || "{}"}</pre>}</div></div></>}</div>; }

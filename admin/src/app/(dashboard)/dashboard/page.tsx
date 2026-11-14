@@ -1,4 +1,5 @@
 "use client";
+import { useTenant } from "@/components/TenantContext";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, DashboardCache } from "@/lib/api";
 import { StatCard, Card, CardHeader } from "@/components/Card";
@@ -13,7 +14,8 @@ export default function Dashboard() {
   const [error, setError] = useState(""), [loading, setLoading] = useState(true);
   const timeRangeLabel = formatTimeRange(hours);
 
-  const load = useCallback(async () => { if (!globalFrom || !globalTo) return; setLoading(true); setError(""); try { setCache(await api.dashboardCache({ from_ts: globalFrom, to_ts: globalTo })); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, [globalFrom, globalTo]);
+  const { tenantId, loading: scopeLoading } = useTenant();
+  const load = useCallback(async () => { if (scopeLoading || !globalFrom || !globalTo) return; setLoading(true); setError(""); try { setCache(await api.dashboardCache({ tenant_id: tenantId, from_ts: globalFrom, to_ts: globalTo })); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, [globalFrom, globalTo, tenantId, scopeLoading]);
   useEffect(() => { void load(); }, [load]);
   const hourlyAverage = cache?.events_by_hour?.length ? cache.events_by_hour.reduce((sum, point) => sum + point.value, 0) / cache.events_by_hour.length : 0;
   const cachedAtMs = cache ? (cache.cached_at < 100000000000 ? cache.cached_at * 1000 : cache.cached_at) : 0;

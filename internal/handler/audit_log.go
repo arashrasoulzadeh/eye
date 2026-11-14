@@ -31,6 +31,12 @@ func (h *AuditLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	query := h.DB.Model(&model.AuditLog{})
+	if from, err := strconv.ParseInt(r.URL.Query().Get("from_ts"), 10, 64); err == nil {
+		query = query.Where("created_at >= ?", (from+999)/1000)
+	}
+	if to, err := strconv.ParseInt(r.URL.Query().Get("to_ts"), 10, 64); err == nil {
+		query = query.Where("created_at <= ?", to/1000)
+	}
 	if filter := r.URL.Query().Get("filter"); filter != "" {
 		like := "%" + filter + "%"
 		query = query.Where("action LIKE ? OR resource LIKE ? OR actor_key LIKE ? OR body_snippet LIKE ?", like, like, like, like)

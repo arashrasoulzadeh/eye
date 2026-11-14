@@ -20,7 +20,7 @@ func (h *DashboardCacheHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	from, fromErr := strconv.ParseInt(r.URL.Query().Get("from_ts"), 10, 64)
 	to, toErr := strconv.ParseInt(r.URL.Query().Get("to_ts"), 10, 64)
 	if fromErr == nil && toErr == nil && from < to {
-		cache, err = h.Svc.GetRange(from, to)
+		cache, err = h.Svc.GetTenantRange(r.URL.Query().Get("tenant_id"), from, to)
 	} else {
 		cache, err = h.Svc.Get()
 	}

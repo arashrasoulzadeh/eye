@@ -288,7 +288,7 @@ func main() {
 	// Phase 14: SSE bridge for live per-session updates (EventCount, LastSeen).
 	mux.Handle("/live-session", adminAuth(&handler.LiveSessionHandler{Hub: liveSessions}))
 	// Phase 14: SSE bridge for live per-session events.
-	mux.Handle("/live-events", adminAuth(&handler.LiveEventsHandler{Hub: liveSessions}))
+	mux.Handle("/live-events", adminAuth(&handler.LiveEventsHandler{Hub: liveSessions, Intelligence: intelligenceSvc}))
 
 	// Phase 9: real Prometheus exposition, separate from the JSON dashboard
 	// stats already served at /metrics above (that path predates this work

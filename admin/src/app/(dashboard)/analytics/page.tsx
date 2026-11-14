@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, Event, GraphResult, Question, Tenant } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
@@ -17,22 +18,24 @@ function autoGrouping(hours: string): "minute" | "hour" | "day" { const value = 
 function dimensionValue(raw: string, key: string): string { try { const value = JSON.parse(raw || "{}")[key]; return value === undefined || value === null || value === "" ? "(unknown)" : String(value); } catch { return "(unknown)"; } }
 export default function AnalyticsPage() {
   const router = useRouter();
-  const { tenantId: globalTenant, setTenantId: setGlobalTenant } = useTenant();
+  const { tenantId: globalTenant, setTenantId: setGlobalTenant, loading: scopeLoading } = useTenant();
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
   const timeRangeLabel = formatTimeRange(hours);
   void timeRangeLabel;
   const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const urlTenant = urlParams?.get("tenant") || "";
-  const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(urlTenant);
+
+  const [tenants, setTenants] = useState<Tenant[]>([]), [tenant, setTenant] = useState(globalTenant);
   const [events, setEvents] = useState<string[]>([]), [query, setQuery] = useState(""), [selected, setSelected] = useState<string[]>(() => urlParams?.get("events")?.split(",").filter(Boolean) || []), [chart, setChart] = useState(() => urlParams?.get("chart") || "line"), [aggregation, setAggregation] = useState(() => urlParams?.get("aggregation") || "count"), [groupBy, setGroupBy] = useState(() => urlParams?.get("group") || "auto");
   const [panels, setPanels] = useState<Panel[]>([{ id: "main", title: "Event volume", eventNames: [], chart: "line" }]), [refresh, setRefresh] = useState(true), [error, setError] = useState(""), [queryLoading, setQueryLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  useEffect(() => { api.tenants.list().then(x => { const items = Array.isArray(x) ? x : []; setTenants(items); setTenant(current => current || globalTenant || items[0]?.ID || ""); }).catch(e => setError(e.message)); }, [globalTenant]);
-  useEffect(() => { if (!urlTenant && globalTenant && globalTenant !== tenant) setTenant(globalTenant); }, [globalTenant, tenant, urlTenant]);
+  useEffect(() => { api.tenants.list().then(setTenants).catch(e => setError(e.message)); }, []);
+  useEffect(() => { setTenant(globalTenant); }, [globalTenant]);
   useEffect(() => { const params = new URLSearchParams(); if (tenant) params.set("tenant", tenant); if (selected.length) params.set("events", selected.join(",")); params.set("time_hours", hours); params.set("chart", chart); params.set("aggregation", aggregation); params.set("group", groupBy); router.replace(`/analytics?${params.toString()}`, { scroll: false }); }, [tenant, selected, hours, chart, aggregation, groupBy, router]);
-  const loadEventOptions = useCallback(async (q: string) => { if (!tenant) return; try { const options = await api.eventOptions(tenant, q, q === ""); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant]);
+  const loadEventOptions = useCallback(async (q: string) => { if (scopeLoading || !globalTo) return; try { const options = await api.eventOptions(tenant, q, q === "", { from_ts: globalFrom, to_ts: globalTo }); setEvents((Array.isArray(options) ? options : []).map(x => x.value)); } catch (e) { setError((e as Error).message); } }, [tenant, scopeLoading, globalFrom, globalTo]);
+  const panelsRef = useRef(panels);
+  useEffect(() => { panelsRef.current = panels; }, [panels]);
   const loadPanel = useCallback(async (panel: Panel) => {
-    if (!tenant || !panel.eventNames.length) return;
+    if (scopeLoading || !globalTo || !panel.eventNames.length) return;
     setQueryLoading(true);
     try {
       const now = globalTo, from = globalFrom, effectiveGroup = groupBy === "auto" ? autoGrouping(hours) : groupBy;
@@ -42,24 +45,26 @@ export default function AnalyticsPage() {
         aggregation === "count" && bucketName ? Promise.all(panel.eventNames.map(name => api.analytics.buckets(tenant, { event_name: name, bucket: bucketName as "minute" | "hour", from_ts: from, to_ts: now }))) : Promise.resolve([]),
       ]);
       const flat = data.flat(), buckets = new Map<string, Set<string>>();
+      const counts = new Map<string, number>();
       if (bucketData.length) {
-        bucketData.flat().forEach(point => { const date = new Date(point.bucket), key = effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : date.toISOString().slice(0, 13) + ":00"; if (!buckets.has(key)) buckets.set(key, new Set()); for (let index = 0; index < point.count; index++) buckets.get(key)!.add(`${key}-${index}`); });
+        bucketData.flat().forEach(point => { const date = new Date(point.bucket), key = effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : date.toISOString().slice(0, 13) + ":00"; counts.set(key, (counts.get(key) ?? 0) + point.count); });
       }
       if (!bucketData.length) flat.forEach(e => { const date = new Date(e.ClientTS), key = effectiveGroup.startsWith("dim:") ? dimensionValue(e.Dims, effectiveGroup.slice(4)) : effectiveGroup === "minute" ? date.toISOString().slice(0, 16) : effectiveGroup === "hour" ? date.toISOString().slice(0, 13) + ":00" : date.toISOString().slice(0, 10); if (!buckets.has(key)) buckets.set(key, new Set()); buckets.get(key)!.add(aggregation === "unique_sessions" ? e.SessionID : e.EventID); });
-      const points = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, values]) => ({ label, value: values.size }));
+      const points = (bucketData.length ? [...counts] : [...buckets].map(([key, values]) => [key, values.size] as const)).sort(([a], [b]) => a.localeCompare(b)).map(([label, value]) => ({ label, value }));
       setPanels(current => current.map(p => p.id === panel.id ? { ...p, events: flat, result: { question: {} as Question, from_ts: from, to_ts: now, points } } : p));
     } catch (e) { setError((e as Error).message); } finally { setQueryLoading(false); }
-  }, [aggregation, groupBy, hours, tenant, globalFrom, globalTo]);
-  useEffect(() => { if (!tenant) return; void loadEventOptions(""); }, [loadEventOptions, tenant]);
-  useEffect(() => { if (tenant && events.length && !selected.length && !panels[0]?.eventNames.length) setSelected(events); }, [events, panels, selected.length, tenant]);
+  }, [aggregation, groupBy, hours, tenant, globalFrom, globalTo, scopeLoading]);
+  useEffect(() => { void loadEventOptions(""); }, [loadEventOptions, tenant]);
+  useEffect(() => { if (events.length && !selected.length && !panels[0]?.eventNames.length) setSelected(events); }, [events, panels, selected.length, tenant]);
   useEffect(() => { if (!refresh || !panels.length) return; const t = window.setInterval(() => panels.forEach(loadPanel), 15000); return () => window.clearInterval(t); }, [loadPanel, panels, refresh]);
+  useEffect(() => { panelsRef.current.forEach(panel => { if (panel.eventNames.length) void loadPanel(panel); }); }, [loadPanel]);
   function addEvent(v: string) { if (v && !selected.includes(v)) { setSelected([...selected, v]); setQuery(""); } }
   useEffect(() => {
-    if (!tenant || !selected.length || panels[0]?.eventNames.length) return;
+    if (scopeLoading || !globalTo || !selected.length || panels[0]?.eventNames.length) return;
     const panel: Panel = { id: "main", title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] };
     setPanels([panel]);
     loadPanel(panel);
-  }, [chart, loadPanel, panels, selected, tenant]);
+  }, [chart, loadPanel, panels, selected, tenant, scopeLoading, globalTo]);
   function runQuery() { if (!selected.length) return; const panel = { id: "main", title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] }; setPanels([panel]); setTimeout(() => loadPanel(panel), 0); }
   function addPanel() { if (!selected.length) return; const panel = { id: `panel-${Date.now()}`, title: selected.join(" + "), eventNames: selected, chart: chart as Panel["chart"] }; setPanels(current => [...current, panel]); void loadPanel(panel); }
   function removePanel(id: string) { if (panels.length === 1) return; setPanels(current => current.filter(panel => panel.id !== id)); }
@@ -74,6 +79,6 @@ export default function AnalyticsPage() {
     <Card className="mt-6"><CardHeader title="Query builder"/><div className="grid gap-3 p-5 md:grid-cols-3"><Combobox value={tenant} onChange={(value) => { setTenant(value); setGlobalTenant(value); }} options={tenants.map(t => ({ value: t.ID, label: t.Name }))} placeholder="Tenant"/><Combobox value={query} onChange={v => { if (events.includes(v)) addEvent(v); else setQuery(v); loadEventOptions(v); }} onSearch={loadEventOptions} options={events.map(value => ({ value }))} placeholder="Search event…"/><Combobox value={chart} onChange={v=>{setChart(v);setPanels(x=>x.map(p=>({...p,chart:v as Panel["chart"]})))} } options={[{ value: "line", label: "Line chart" }, { value: "area", label: "Area chart" }, { value: "bar", label: "Bar chart" }, { value: "pie", label: "Pie chart" }, { value: "table", label: "Table" }]} placeholder="Visualization"/><Combobox value={aggregation} onChange={setAggregation} options={[{value:"count",label:"Count events"},{value:"unique_sessions",label:"Unique sessions"}]} placeholder="Aggregation"/><Combobox value={groupBy} onChange={setGroupBy} options={groupingOptions} placeholder="Group by"/></div><div className="flex flex-wrap items-center gap-2 px-5 pb-5"><span className="text-xs text-fg-muted">Global: {timeRangeLabel}</span>{selected.map(x => <button key={x} onClick={() => setSelected(selected.filter(y => y !== x))} className="rounded-full bg-accent/10 px-3 py-1 text-xs text-accent">{x} ×</button>)}<button disabled={!selected.length} onClick={runQuery} className="rounded bg-accent px-3 py-2 text-sm text-accent-fg disabled:opacity-50">Run query</button><button disabled={!selected.length} onClick={addPanel} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Add panel</button><button disabled={!selected.length} onClick={()=>void copyShareLink()} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50">{copied ? "Link copied" : "Copy share link"}</button></div></Card>
     <div className="mt-6 w-full"><div className="grid w-full gap-5">{panels.map(p => <Card key={p.id}><CardHeader title={p.title} action={<div className="flex items-center gap-2"><span className="text-xs text-fg-muted">Live panel</span><button type="button" onClick={() => removePanel(p.id)} disabled={panels.length === 1} className="text-xs text-danger disabled:opacity-30">Remove</button></div>}/><div className="min-h-[460px] p-6">{p.result && p.chart === "line" && <LineTrend data={p.result.points}/>} {p.result && p.chart === "area" && <AreaTrend data={p.result.points}/>} {p.result && p.chart === "bar" && <BarBreakdown data={p.result.points}/>} {p.result && p.chart === "pie" && <PieBreakdown data={p.result.points}/>} {p.result && p.chart === "table" && <div className="space-y-2">{p.result.points.map(x => <div key={x.label} className="flex justify-between border-b border-border py-2 text-sm"><span>{x.label}</span><span className="font-medium">{x.value.toLocaleString()}</span></div>)}</div>} {!p.result && <p className="text-sm text-fg-muted">Loading panel…</p>}<div className="mt-4 text-xs text-fg-muted">{p.events?.length || 0} matching events · {timeRangeLabel} global window</div></div></Card>)}</div></div>
     <Card className="mt-6"><CardHeader title="Conversion breakdown" action={<span className="text-xs text-fg-muted">Session based</span>}/><div className="grid gap-4 p-5 sm:grid-cols-3"><div><p className="text-xs text-fg-muted">Sessions in range</p><p className="mt-1 text-2xl font-semibold text-fg">{sessions.size.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Completed sequence</p><p className="mt-1 text-2xl font-semibold text-fg">{convertedSessions.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Conversion rate</p><p className="mt-1 text-2xl font-semibold text-accent">{conversionRate}%</p></div></div><div className="flex flex-wrap gap-2 px-5 pb-5">{selected.map((eventName, index) => <Link key={eventName} href={`/events?tenant_id=${encodeURIComponent(tenant)}&event_name=${encodeURIComponent(eventName)}`} className="rounded-full border border-border px-3 py-1 text-xs text-fg-muted hover:border-accent hover:text-accent">{index + 1}. {eventName}</Link>)}</div></Card>
-    <Card className="mt-6"><CardHeader title="Recent matching events"/><div className="divide-y divide-border">{panels.flatMap(p => p.events || []).slice(0, 12).map((e, index) => <div key={e.EventID || `${e.EventName}-${e.ClientTS}-${index}`} className="flex items-center justify-between px-5 py-3 text-sm"><span className="font-medium text-fg">{e.EventID ? <a href={`/events/${encodeURIComponent(e.EventID)}`} className="text-accent hover:underline">{e.EventName}</a> : <Link href={`/events?tenant_id=${encodeURIComponent(e.TenantID)}&event_name=${encodeURIComponent(e.EventName)}`} className="text-accent hover:underline">{e.EventName}</Link>}</span><span className="text-fg-muted">{new Date(e.ClientTS).toLocaleString()}</span><JsonView value={e.Payload}/></div>)}{!panels.some(p => p.events?.length) && <p className="p-5 text-sm text-fg-muted">No matching events loaded.</p>}</div></Card>
+    <Card className="mt-6"><CardHeader title="Recent matching events"/><div className="divide-y divide-border">{panels.flatMap(p => p.events || []).slice(0, 12).map((e, index) => <div key={e.EventID || `${e.EventName}-${e.ClientTS}-${index}`} className="flex items-center justify-between px-5 py-3 text-sm"><span className="font-medium text-fg">{e.EventID ? <a href={`/events/${encodeURIComponent(e.EventID)}`} className="text-accent hover:underline">{e.EventName}</a> : <Link href={`/events?tenant_id=${encodeURIComponent(e.TenantID)}&event_name=${encodeURIComponent(e.EventName)}`} className="text-accent hover:underline">{e.EventName}</Link>}<IntelligenceTags tags={e.intelligence_tags} compact /></span><span className="text-fg-muted">{new Date(e.ClientTS).toLocaleString()}</span><JsonView value={e.Payload}/></div>)}{!panels.some(p => p.events?.length) && <p className="p-5 text-sm text-fg-muted">No matching events loaded.</p>}</div></Card>
   </div>;
 }

@@ -17,10 +17,6 @@ func (h *BucketsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	tenantID := q.Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "tenant_id is required", http.StatusBadRequest)
-		return
-	}
 	bucket := q.Get("bucket")
 	if bucket == "" {
 		bucket = "hour"

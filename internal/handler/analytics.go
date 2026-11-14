@@ -21,10 +21,6 @@ func (h *SuggestedFunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	query := r.URL.Query()
 	tenantID := query.Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "tenant_id is required", http.StatusBadRequest)
-		return
-	}
 	var fromTS, toTS *int64
 	if raw := query.Get("from_ts"); raw != "" {
 		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
@@ -61,8 +57,8 @@ func (h *FunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.TenantID == "" || len(req.Steps) == 0 {
-		http.Error(w, "tenant_id and steps are required", http.StatusBadRequest)
+	if len(req.Steps) == 0 {
+		http.Error(w, "steps are required", http.StatusBadRequest)
 		return
 	}
 	results, err := h.Svc.Funnel(req.TenantID, req.Steps, req.FromTS, req.ToTS)
@@ -242,10 +238,6 @@ func (h *RetentionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tenantID := r.URL.Query().Get("tenant_id")
-	if tenantID == "" {
-		http.Error(w, "tenant_id is required", http.StatusBadRequest)
-		return
-	}
 	granularity := r.URL.Query().Get("granularity")
 	if granularity == "" {
 		granularity = "daily"
@@ -255,8 +247,16 @@ func (h *RetentionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var fromTS, toTS *int64
-	if raw := r.URL.Query().Get("from_ts"); raw != "" { if value, err := strconv.ParseInt(raw, 10, 64); err == nil { fromTS = &value } }
-	if raw := r.URL.Query().Get("to_ts"); raw != "" { if value, err := strconv.ParseInt(raw, 10, 64); err == nil { toTS = &value } }
+	if raw := r.URL.Query().Get("from_ts"); raw != "" {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			fromTS = &value
+		}
+	}
+	if raw := r.URL.Query().Get("to_ts"); raw != "" {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			toTS = &value
+		}
+	}
 	rows, err := h.Svc.Retention(tenantID, granularity, fromTS, toTS)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

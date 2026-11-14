@@ -1,4 +1,5 @@
 "use client";
+import { IntelligenceTags } from "@/components/IntelligenceTags";
 import { CopyButton } from "@/components/CopyButton";
 
 /**
@@ -11,11 +12,13 @@ export function EntityLink({
   id,
   truncate = 10,
   label,
+  tags,
 }: {
   kind: "tenant" | "session" | "event";
   id: string;
   truncate?: number;
   label?: string;
+  tags?: string[];
 }) {
   const href = kind === "tenant" ? `/tenants/${id}` : kind === "session" ? `/sessions/${id}` : `/events/${id}`;
   const short = id.length > truncate ? id.slice(0, truncate) + "…" : id;
@@ -25,6 +28,7 @@ export function EntityLink({
         <span title={id}>{label || short}</span>
       </a>
       <CopyButton value={id} label="⧉" />
+      <IntelligenceTags tags={tags} compact />
     </span>
   );
 }
