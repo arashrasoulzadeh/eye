@@ -136,7 +136,8 @@ def temporal_candidate(rows, epochs):
     optimizer = torch.optim.Adam(model.parameters())
     tokens, targets = torch.tensor(examples), torch.tensor(outcomes)
     for epoch in range(1, epochs + 1):
-        print(f"CNN epoch {epoch}/{epochs}", flush=True)
+        if epoch == 1 or epoch % 100 == 0 or epoch == epochs:
+            print(f"CNN epoch {epoch}/{epochs}", flush=True)
         for batch in torch.randperm(len(tokens)).split(512):
             optimizer.zero_grad()
             nn.functional.cross_entropy(model(tokens[batch]), targets[batch]).backward()
@@ -156,10 +157,10 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--cnn", action="store_true")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=5000)
     args = parser.parse_args()
-    if not 1 <= args.epochs <= 100:
-        parser.error("--epochs must be between 1 and 100")
+    if not 1 <= args.epochs <= 5000:
+        parser.error("--epochs must be between 1 and 5000")
     batches = load_batches(args.data)
     training, holdout = split_batches(batches)
     bundle = fit(training)
