@@ -24,11 +24,23 @@ async function forward(req: NextRequest, path: string[]) {
   }
 
   const res = await fetch(url, init);
-  const text = await res.text();
+  const disposition = res.headers.get("content-disposition");
+  if (res.ok && disposition && path.join("/") === "intelligence/users") {
+    return new NextResponse(res.body, {
+      headers: {
+        "content-type": res.headers.get("content-type") || "text/csv",
+        "content-disposition": disposition,
+        "cache-control": "no-store",
+      },
+    });
+  }
+  const text = res.status === 204 || res.status === 304 ? null : await res.text();
   const response = new NextResponse(text, {
     status: res.status,
     headers: { "content-type": res.headers.get("content-type") || "application/json" },
   });
+  const cacheControl = res.headers.get("cache-control");
+  if (cacheControl) response.headers.set("cache-control", cacheControl);
   const backendMs = (performance.now() - started).toFixed(1);
   response.headers.set("server-timing", `backend;dur=${backendMs}`);
   response.headers.set("x-eye-backend-ms", backendMs);

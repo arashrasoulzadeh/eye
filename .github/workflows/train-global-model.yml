@@ -1,0 +1,52 @@
+name: Train global intelligence model
+on:
+  workflow_dispatch:
+    inputs:
+      cnn:
+        description: Evaluate a temporal CNN candidate
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: global-model-release
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch reviewed training data
+        env:
+          GH_TOKEN: ${{ secrets.TRAINING_DATA_TOKEN }}
+          TRAINING_REPO: ${{ vars.TRAINING_DATA_REPOSITORY }}
+        run: |
+          if [[ -n "$TRAINING_REPO" ]]; then
+            gh repo clone "$TRAINING_REPO" "$RUNNER_TEMP/training" -- --depth=1
+            cp "$RUNNER_TEMP"/training/train/data/*.csv train/data/
+          fi
+      - name: Install CPU trainer
+        if: inputs.cnn
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          USE_CNN: ${{ inputs.cnn }}
+        run: |
+          version="eye-model-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          previous=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | select(any(.assets[]; .name == "eye-global-model.json")) | .tag_name')
+          if [[ -n "$previous" ]]; then
+            gh release download "${previous%%$'\n'*}" -p eye-global-model.json -O previous.json
+          fi
+          args=()
+          if [[ "$USE_CNN" == true ]]; then args+=(--cnn); fi
+          python train/train.py --version "$version" --previous previous.json "${args[@]}"
+          gh release create "$version" eye-global-model.json --target "$GITHUB_SHA" \
+            --title "Eye Intelligence $version" --notes "Evaluation and schema are included in the model bundle." --latest=false

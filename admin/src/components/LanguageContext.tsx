@@ -7,6 +7,17 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Download a training batch to share privately. Inference runs locally with the released model.": "یک فایل آموزشی برای اشتراک‌گذاری خصوصی دانلود کنید. مدل منتشرشده روی همین سرور اجرا می‌شود.",
+  "Download training CSV": "دانلود فایل CSV آموزشی",
+  "Last successful model": "آخرین مدل اجراشده با موفقیت",
+  "No successful inference yet.": "هنوز اجرای موفقی ثبت نشده است.",
+  "Inference log": "گزارش اجرای مدل",
+  "Loading inference log…": "در حال بارگذاری گزارش اجرای مدل…",
+  "Could not load inference log.": "بارگذاری گزارش اجرای مدل ناموفق بود.",
+  "No inference runs yet.": "هنوز اجرای مدل ثبت نشده است.",
+  "Model version": "نسخه مدل",
+  "Inference failed": "اجرای مدل ناموفق بود",
+  "Inference completed": "اجرای مدل پایان یافت",
   Dashboard: "داشبورد", "Live Stream": "پخش زنده", Analytics: "تحلیل‌ها", Graphs: "نمودارها", Questions: "سؤال‌ها",
   Funnels: "قیف‌ها", Retention: "بازگشت", "Health Center": "مرکز سلامت", Tenants: "تنانت‌ها", Sessions: "نشست‌ها",
   Users: "کاربران", Events: "رویدادها", Alerts: "هشدارها", Operations: "عملیات", "Admin Users": "کاربران مدیر",

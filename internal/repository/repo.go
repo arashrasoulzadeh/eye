@@ -15,7 +15,7 @@ func (r *Repo) Migrate() error {
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 		&model.AggregateCount{}, &model.AlertRule{}, &model.RuntimeSettings{},
 		&model.WebhookDeadLetter{}, &model.AuditLog{}, &model.AdminUser{}, &model.FeatureFlag{}, &model.DashboardCache{}, &model.Question{},
-		&model.PendingStreamEvent{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceTrainingRun{}, &model.IntelligencePipelineRun{}, &model.IntelligenceModel{}, &model.IntelligenceEvaluation{}, &model.IntelligenceDataQuality{}, &model.IntelligenceAlert{}, &model.AdminTeam{}, &model.AdminTeamMember{}, &model.AdminSession{},
+		&model.PendingStreamEvent{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceTrainingRun{}, &model.IntelligencePipelineRun{}, &model.IntelligenceInference{}, &model.IntelligenceInferenceRun{}, &model.GlobalIntelligenceRelease{}, &model.IntelligenceModel{}, &model.IntelligenceEvaluation{}, &model.IntelligenceDataQuality{}, &model.IntelligenceAlert{}, &model.AdminTeam{}, &model.AdminTeamMember{}, &model.AdminSession{},
 	}
 	// Timescale hypertables must not be rewritten by GORM on every restart:
 	// AutoMigrate attempts to alter ingest_ts and Timescale rejects that ALTER.

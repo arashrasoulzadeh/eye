@@ -50,11 +50,17 @@ func TestIntelligenceModelNeedsRetrainingWhenStale(t *testing.T) {
 }
 
 func TestRunUserIntelligenceJobPromotesHealthyAutomaticLayers(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:intelligence-layer-job-test?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Tenant{}, &model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	sqlDB.SetMaxOpenConns(1)
+	if err := db.AutoMigrate(&model.Tenant{}, &model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}, &model.IntelligencePipelineRun{}, &model.UserIntelligenceLabel{}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
@@ -69,8 +75,12 @@ func TestRunUserIntelligenceJobPromotesHealthyAutomaticLayers(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go RunUserIntelligenceJob(ctx, &UserIntelligenceService{DB: db}, nil, time.Hour, nil)
-	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		RunUserIntelligenceJob(ctx, &UserIntelligenceService{DB: db}, nil, time.Hour, nil)
+	}()
+	defer func() { cancel(); <-done }()
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
 		var global, local model.IntelligenceModel

@@ -1,8 +1,8 @@
 package service
 
 import (
+	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -110,10 +110,16 @@ func TestRunPipelineCompletesGlobalTenantAndQualityStages(t *testing.T) {
 }
 
 func TestStartPipelinePersistsAsyncCompletion(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:pipeline-async-test?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	sqlDB.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.EventBucket{}, &model.UserIntelligence{}, &model.UserIntelligenceLabel{}, &model.IntelligenceModel{}, &model.IntelligenceTrainingRun{}, &model.IntelligenceEvaluation{}, &model.IntelligenceAlert{}, &model.IntelligenceDataQuality{}, &model.IntelligencePipelineRun{}); err != nil {
 		t.Fatal(err)
 	}
@@ -149,39 +155,43 @@ func TestStartPipelinePersistsAsyncCompletion(t *testing.T) {
 }
 
 func TestStartPipelineDeduplicatesConcurrentStarts(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:pipeline-dedupe-test?mode=memory&cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	sqlDB.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(&model.IntelligencePipelineRun{}); err != nil {
+		t.Fatal(err)
+	}
+	active := model.IntelligencePipelineRun{ID: "existing", TenantID: "dedupe", Status: "running"}
+	if err := db.Create(&active).Error; err != nil {
 		t.Fatal(err)
 	}
 	svc := &UserIntelligenceService{DB: db}
 	results := make(chan error, 2)
-	var wg sync.WaitGroup
 	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go func() { defer wg.Done(); _, callErr := svc.StartPipeline("dedupe", time.Now()); results <- callErr }()
+		go func() {
+			run, err := svc.StartPipeline("dedupe", time.Now())
+			if err == nil || run.ID != active.ID {
+				results <- fmt.Errorf("start returned %s, %v", run.ID, err)
+				return
+			}
+			results <- nil
+		}()
 	}
-	wg.Wait()
-	close(results)
-	var success, rejected int
-	for callErr := range results {
-		if callErr == nil {
-			success++
-		} else {
-			rejected++
+	for i := 0; i < 2; i++ {
+		if err := <-results; err != nil {
+			t.Error(err)
 		}
 	}
-	if success != 1 || rejected != 1 {
-		t.Fatalf("success=%d rejected=%d", success, rejected)
-	}
-	var runs []model.IntelligencePipelineRun
-	if err := db.Where("tenant_id = ?", "dedupe").Find(&runs).Error; err != nil {
-		t.Fatal(err)
-	}
-	if len(runs) != 1 {
-		t.Fatalf("runs=%d", len(runs))
+	var count int64
+	if err := db.Model(&model.IntelligencePipelineRun{}).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("runs=%d err=%v", count, err)
 	}
 }
 

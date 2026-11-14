@@ -1,0 +1,36 @@
+package service
+
+import "strings"
+
+// GlobalTagCatalog contains stable keys by entity kind. Scoring rules activate
+// supported keys only when the corresponding evidence is available.
+var GlobalTagCatalog = map[string][]string{
+	"user": strings.Fields(`
+first_time_visitor frequent_visitor reactivated_user repeat_buyer high_value_buyer discount_shopper product_researcher cart_returner checkout_retrier search_heavy_user content_regular onboarding_complete core_feature_adopter cross_device_user support_seeker subscription_renewed suspected_scraper
+new_account long_tenure_user daily_regular weekend_regular nighttime_regular seasonal_visitor lapsed_user notification_responder campaign_returner multi_feature_user wishlist_user loyalty_member loyalty_redeemer gift_buyer refund_requester trial_user trial_converted subscription_cancelled referral_advocate accessibility_feature_user
+new_player returning_player daily_player casual_player high_engagement_player tutorial_graduate tutorial_stalled fast_progressor level_stalled_player completionist achievement_hunter collector_player explorer_player competitive_player cooperative_player solo_player party_regular guild_member guild_leader spectator_regular custom_game_creator practice_regular combo_specialist precision_player season_pass_holder cosmetic_collector in_game_spender rewarded_ad_regular repeat_match_leaver suspected_game_bot`),
+	"session": strings.Fields(`
+quick_exit deep_engagement single_page_engaged search_led search_dead_end comparison_journey cart_abandoned payment_failed checkout_recovered signup_completed form_abandoned onboarding_journey help_led navigation_loop rage_click_burst performance_degraded interrupted_session
+first_visit_session reactivation_session campaign_landing organic_discovery notification_led media_focused wishlist_building coupon_led subscription_started trial_started subscription_management refund_journey support_resolved authentication_loop repeated_validation_failure download_focused multi_product_cart high_value_order cross_sell_conversion comparison_abandoned
+tutorial_session tutorial_abandoned practice_session ranked_session casual_match_session solo_progression cooperative_session party_session spectator_session custom_game_session speedrun_attempt boss_attempt boss_cleared level_retry_loop level_mastery win_streak_session loss_streak_session comeback_win close_match dominant_match high_combo_session accuracy_improved life_depletion matchmaking_abandoned early_match_exit afk_session reconnected_match reward_claim_session game_shop_session rewarded_ad_session`),
+	"event": strings.Fields(`
+entry_point external_referral cta_interaction search_query zero_results filter_change product_impression promotion_applied payment_attempt refund_confirmed validation_error authentication_failure permission_denied performance_regression duplicate_candidate unexpected_transition
+account_created email_verified login_success logout password_reset_requested notification_opened media_started media_completed file_downloaded wishlist_added cart_item_removed checkout_started shipping_option_selected payment_method_selected purchase_confirmed subscription_upgraded subscription_downgraded support_ticket_opened feature_enabled client_crash
+game_started game_completed game_paused game_resumed tutorial_step_completed tutorial_skipped level_started level_completed level_failed level_unlocked checkpoint_reached question_answered question_missed precise_hit combo_reached combo_broken life_lost power_up_used item_equipped achievement_unlocked quest_completed reward_claimed virtual_currency_earned virtual_currency_spent matchmaking_queued match_found match_won match_lost player_disconnected rewarded_ad_completed`),
+}
+
+var globalEventTags = func() map[string]bool {
+	tags := make(map[string]bool)
+	for _, tag := range GlobalTagCatalog["event"] {
+		tags[tag] = true
+	}
+	return tags
+}()
+
+var sessionEventTags = []struct{ event, tag string }{
+	{"account_created", "signup_completed"},
+	{"tutorial_step_completed", "tutorial_session"},
+	{"reward_claimed", "reward_claim_session"},
+	{"rewarded_ad_completed", "rewarded_ad_session"},
+	{"client_crash", "interrupted_session"},
+}

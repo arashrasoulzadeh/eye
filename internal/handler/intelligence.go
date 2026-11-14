@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +21,45 @@ type IntelligenceHandler struct {
 
 func (h *IntelligenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tenantID := strings.TrimSpace(r.URL.Query().Get("tenant_id"))
+	if r.Method == http.MethodGet {
+		switch r.URL.Query().Get("action") {
+		case "training-csv":
+			file, err := os.CreateTemp("", "eye-training-*.csv")
+			if err != nil {
+				http.Error(w, "training CSV export failed", http.StatusInternalServerError)
+				return
+			}
+			defer os.Remove(file.Name())
+			defer file.Close()
+			if err := h.Svc.ExportTrainingCSV(file, tenantID, time.Now().UTC()); err != nil {
+				http.Error(w, "training CSV export failed", http.StatusInternalServerError)
+				return
+			}
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				http.Error(w, "training CSV export failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+			w.Header().Set("Content-Disposition", "attachment; filename=eye-training.csv")
+			w.Header().Set("Cache-Control", "no-store")
+			_, _ = io.Copy(w, file)
+			return
+		case "inference-log":
+			runs := make([]model.IntelligenceInferenceRun, 0)
+			db := h.Svc.DB.WithContext(r.Context())
+			if tenantID != "" {
+				db = db.Where("tenant_id = ?", tenantID)
+			}
+			if err := db.Order("created_at desc, id desc").Limit(50).Find(&runs).Error; err != nil {
+				http.Error(w, "inference log unavailable", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "no-store")
+			json.NewEncoder(w).Encode(runs)
+			return
+		}
+	}
 	if tenantID == "" {
 		http.Error(w, "tenant_id required", http.StatusBadRequest)
 		return
