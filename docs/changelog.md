@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-14T16:21:20+03:30** — fix: include intelligence tags in entity responses (`bdca9db`, `bdca9db061862a227c80eb0ce16da79a030eb831`)
 - **2026-11-14T16:08:42+03:30** — fix(admin): restore tenant details and show intelligence tags (`2980692`, `29806923508af3f677804c1244aab30806d4316d`)
 - **2026-11-14T15:53:49+03:30** — train: default CNN training to 5000 epochs (`50aff0e`, `50aff0e3144385daba8416c1addb4b629c995f63`)
 - **2026-11-14T15:51:59+03:30** — train: add November 14 intelligence batch (`6519186`, `6519186dda47a5385426f3c347694be785cd652f`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T17:04:26+03:30** — feat(intelligence): show global and tenant model layers (`60ade64`, `60ade6403218e6a76da15416b03a0055c789b27d`)
 - **2026-11-13T16:59:14+03:30** — feat(intelligence): expose evaluation history (`71159fe`, `71159fee6f0e1daf99c48dd87af8d4adb37163b6`)
 - **2026-11-13T16:55:24+03:30** — feat(intelligence): expose model version history (`7430c7d`, `7430c7d1883baa7ea790ce51026cf6374fdc754c`)
-- **2026-11-13T16:51:32+03:30** — test(intelligence): cover supervised auto promotion (`ba43a39`, `ba43a399914c6cfff1eb55db26129b8a707818a6`)
