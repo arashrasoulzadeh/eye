@@ -24,13 +24,25 @@ jobs:
           python-version: '3.12'
       - name: Fetch reviewed training data
         env:
-          GH_TOKEN: ${{ secrets.TRAINING_DATA_TOKEN }}
-          TRAINING_REPO: ${{ vars.TRAINING_DATA_REPOSITORY }}
+          TRAINING_DATA_TOKEN: ${{ secrets.TRAINING_DATA_TOKEN }}
+          TRAINING_REPO: ${{ vars.TRAINING_DATA_REPOSITORY || 'arashrasoulzadeh/eye' }}
         run: |
-          if [[ -n "$TRAINING_REPO" ]]; then
-            gh repo clone "$TRAINING_REPO" "$RUNNER_TEMP/training" -- --depth=1
-            cp "$RUNNER_TEMP"/training/train/data/*.csv train/data/
+          repo="${TRAINING_REPO#https://github.com/}"
+          repo="${repo%/}"
+          repo="${repo%.git}"
+          if [[ "${repo,,}" == "${GITHUB_REPOSITORY,,}" ]]; then
+            exit 0
           fi
+          if [[ ! "$repo" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+            echo "TRAINING_DATA_REPOSITORY must be a GitHub owner/repo or HTTPS URL." >&2
+            exit 1
+          fi
+          if [[ -n "$TRAINING_DATA_TOKEN" ]]; then
+            GH_TOKEN="$TRAINING_DATA_TOKEN" gh repo clone "$repo" "$RUNNER_TEMP/training" -- --depth=1
+          else
+            GIT_TERMINAL_PROMPT=0 git clone --depth=1 "https://github.com/$repo.git" "$RUNNER_TEMP/training"
+          fi
+          cp "$RUNNER_TEMP"/training/train/data/*.csv train/data/
       - name: Install CPU trainer
         if: inputs.cnn
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
