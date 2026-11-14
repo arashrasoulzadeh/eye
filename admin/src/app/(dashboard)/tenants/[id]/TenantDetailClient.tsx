@@ -11,6 +11,7 @@ import { DataTable, Column, TableQuery } from "@/components/DataTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LineTrend, ChartPoint } from "@/components/Chart";
 import { LiveCounter } from "@/components/LiveCounter";
+import { translate, useLanguage } from "@/components/LanguageContext";
 import { useToast } from "@/components/Toast";
 
 function eventsPerHour(events: Event[]): ChartPoint[] {
@@ -27,6 +28,7 @@ export default function TenantDetailClient() {
   const params = useParams<{ id: string }>();
   const tenantId = params.id;
   const { push } = useToast();
+  const { language } = useLanguage();
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -37,6 +39,7 @@ export default function TenantDetailClient() {
   const [loadError, setLoadError] = useState("");
   const [rotated, setRotated] = useState<string | null>(null);
   const [confirmingRotate, setConfirmingRotate] = useState(false);
+  const [usageUnavailable, setUsageUnavailable] = useState(false);
   const [usage, setUsage] = useState<TenantUsage | null>(null);
   const [eventLimit, setEventLimit] = useState(0);
   const [storageLimit, setStorageLimit] = useState(0);
@@ -48,13 +51,11 @@ export default function TenantDetailClient() {
     async function load() {
       setLoading(true);
       setLoadError("");
+      setUsage(null);
+      setUsageUnavailable(false);
       try {
-        // There is no GET /tenants/{id} endpoint — the admin API only
-        // supports listing all tenants, so the detail page finds this one
-        // from that list rather than inventing a backend call that doesn't
-        // exist.
         const [tenants, allSessions, tenantEvents] = await Promise.all([
-          api.tenants.list(),
+          api.tenants.list({ filter: tenantId }),
           api.sessions.list({ tenant_id: tenantId, limit: 10, offset: 0, sort: "last_seen", dir: "desc" }),
           api.events.list({ tenant_id: tenantId, limit: 100, offset: 0, sort: "desc" }),
         ]);
@@ -70,9 +71,12 @@ export default function TenantDetailClient() {
         setSessions(sessionRows.filter((s) => s.TenantID === tenantId));
         setSessionTotal(Array.isArray(allSessions) ? sessionRows.length : allSessions.total);
         setEvents(tenantEvents);
-        if (typeof api.tenants.usage === "function") {
-          const currentUsage = await api.tenants.usage(tenantId);
-          if (!cancelled) setUsage(currentUsage);
+        if (t) {
+          void api.tenants.usage(tenantId).then((currentUsage) => {
+            if (!cancelled) setUsage(currentUsage);
+          }).catch(() => {
+            if (!cancelled) setUsageUnavailable(true);
+          });
         }
       } catch (e) {
         if (!cancelled) { const message = e instanceof ApiError ? e.message : "Failed to load tenant"; setLoadError(message); push("error", message); }
@@ -187,6 +191,7 @@ export default function TenantDetailClient() {
         <LiveCounter tenantId={tenant.ID} />
       </div>
 
+      {usageUnavailable && <p className="mt-6 text-sm text-fg-muted">{translate("Tenant usage is temporarily unavailable.", language)}</p>}
       {usage && (
         <Card className="mt-6">
           <CardHeader title="Current month usage" />

@@ -48,6 +48,20 @@ func TestGlobalTrainingCSVAndInference(t *testing.T) {
 	if err := db.First(&result, "kind = ? AND entity_id = ?", "user", "user-secret").Error; err != nil || !strings.Contains(result.Tags, "buyer") || result.Version != bundle.Version {
 		t.Fatalf("%+v %v", result, err)
 	}
+	for _, kind := range []string{"user", "session", "event"} {
+		id := "session-secret"
+		if kind == "event" {
+			id = "event-secret"
+		}
+		tags, err := s.IntelligenceTags(t.Context(), kind, []IntelligenceTagRef{
+			{TenantID: "wrong-tenant", ID: id},
+			{TenantID: "tenant-secret", ID: id},
+		})
+		if err != nil || len(tags) != 2 || len(tags[0]) != 0 || len(tags[1]) == 0 {
+			t.Fatalf("%s tags=%v err=%v", kind, tags, err)
+		}
+	}
+
 	bundle.Version = "model-next"
 	if err := s.ScoreGlobalModel(t.Context(), bundle, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)

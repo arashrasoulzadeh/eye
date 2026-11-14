@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-14T15:53:49+03:30** — train: default CNN training to 5000 epochs (`50aff0e`, `50aff0e3144385daba8416c1addb4b629c995f63`)
 - **2026-11-14T15:51:59+03:30** — train: add November 14 intelligence batch (`6519186`, `6519186dda47a5385426f3c347694be785cd652f`)
 - **2026-11-14T15:45:20+03:30** — feat: show and install latest intelligence model (`490400e`, `490400ec8eaa3f6ee64556986b3bf01e2af13d1a`)
 - **2026-11-14T15:36:24+03:30** — train: discover nested CSVs and configure CNN epochs (`360cf26`, `360cf267d0cfd4fc62a4e69c1d2f3ba9ef8dc13d`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T16:55:24+03:30** — feat(intelligence): expose model version history (`7430c7d`, `7430c7d1883baa7ea790ce51026cf6374fdc754c`)
 - **2026-11-13T16:51:32+03:30** — test(intelligence): cover supervised auto promotion (`ba43a39`, `ba43a399914c6cfff1eb55db26129b8a707818a6`)
 - **2026-11-13T16:49:46+03:30** — feat(intelligence): automate supervised model lifecycle (`1c089b5`, `1c089b559642fc7e92b06733de5bb319d0a66e40`)
-- **2026-11-13T16:47:51+03:30** — test(intelligence): verify automatic layer promotion (`b84cf0f`, `b84cf0f41efdae5180db22c16fb394350d2ab2cd`)

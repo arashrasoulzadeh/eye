@@ -141,7 +141,7 @@ export const api = {
     create: async (name: string, apiKey: string) => { const result = await req<Tenant>("tenants", { method: "POST", body: JSON.stringify({ Name: name, APIKey: apiKey }) }); invalidateTenants(); return result; },
     remove: async (id: string) => { const result = await req<void>(`tenants/${id}`, { method: "DELETE" }); invalidateTenants(); return result; },
     rotateKey: (id: string) => req<{ api_key: string }>(`tenants/${id}/rotate-key`, { method: "POST" }),
-    usage: (id: string) => req<TenantUsage>(`tenant-usage/${encodeURIComponent(id)}`),
+    usage: (id: string) => req<TenantUsage>(`tenant-usage/${encodeURIComponent(id)}/usage`),
     setQuota: (id: string, eventLimit: number, storageLimit: number) => req<void>(`tenants/${encodeURIComponent(id)}/quota`, { method: "PUT", body: JSON.stringify({ event_limit: eventLimit, storage_limit: storageLimit }) }),
   },
 

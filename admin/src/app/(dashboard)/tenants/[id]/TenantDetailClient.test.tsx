@@ -12,7 +12,7 @@ vi.mock("@/lib/api", async () => {
   return {
     ...actual,
     api: {
-      tenants: { list: vi.fn(), rotateKey: vi.fn() },
+      tenants: { list: vi.fn(), usage: vi.fn(), rotateKey: vi.fn() },
       sessions: { list: vi.fn() },
       events: { list: vi.fn() },
     },
@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 
 describe("TenantDetailPage", () => {
   beforeEach(() => {
+    vi.mocked(api.tenants.usage).mockRejectedValue(new Error("Usage unavailable"));
     vi.mocked(api.tenants.list).mockResolvedValue([{ ID: "t1", Name: "acme", APIKey: "", CreatedAt: "2024-01-01T00:00:00Z" }]);
     vi.mocked(api.sessions.list).mockResolvedValue({ items: [{ ID: "s1", TenantID: "t1", StartedAt: "", LastSeen: "", EventCount: 2 }], total: 1, limit: 10, offset: 0 });
     vi.mocked(api.events.list).mockResolvedValue([
@@ -37,6 +38,8 @@ describe("TenantDetailPage", () => {
       </ToastProvider>
     );
     await waitFor(() => expect(screen.getByText("acme")).toBeInTheDocument());
+    expect(await screen.findByText("Tenant usage is temporarily unavailable.")).toBeInTheDocument();
+    expect(api.tenants.list).toHaveBeenCalledWith({ filter: "t1" });
     expect(screen.getByText("Sessions").nextElementSibling).toHaveTextContent("1");
     expect(screen.getByText(/no per-tenant retention setting/i)).toBeInTheDocument();
 

@@ -162,7 +162,9 @@ func main() {
 		setTenantContext = nil
 	}
 	mux.Handle("/sessions", handler.Audit(db, handler.TenantOrAdminAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, &handler.SessionsHandler{DB: db, SetTenantContext: setTenantContext, GeoIP: geoIP})))
-	mux.Handle("/intelligence/users", adminAuth(&handler.IntelligenceHandler{Svc: intelligenceSvc, Registry: modelRegistry, Updates: modelUpdates}))
+	intelligenceHandler := &handler.IntelligenceHandler{Svc: intelligenceSvc, Registry: modelRegistry, Updates: modelUpdates}
+	mux.Handle("/intelligence/users", adminAuth(intelligenceHandler))
+	mux.Handle("/intelligence/tags", handler.AdminSessionAuth(db, cfg.AdminKey, http.HandlerFunc(intelligenceHandler.ServeTags)))
 	complianceSvc := &service.ComplianceService{DB: db}
 	mux.Handle("/compliance/erase", adminAuth(&handler.ComplianceHandler{Svc: complianceSvc}))
 	eventsHandler := adminAuth(&handler.EventsHandler{DB: db})
