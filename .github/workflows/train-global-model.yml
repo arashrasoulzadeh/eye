@@ -6,6 +6,10 @@ on:
         description: Evaluate a temporal CNN candidate
         type: boolean
         default: true
+      epochs:
+        description: CNN training epochs (1–100)
+        type: number
+        default: 20
 
 permissions:
   contents: write
@@ -42,13 +46,15 @@ jobs:
           else
             GIT_TERMINAL_PROMPT=0 git clone --depth=1 "https://github.com/$repo.git" "$RUNNER_TEMP/training"
           fi
-          cp "$RUNNER_TEMP"/training/train/data/*.csv train/data/
+          mkdir -p train/data/external
+          cp -R "$RUNNER_TEMP/training/train/data/." train/data/external/
       - name: Install CPU trainer
         if: inputs.cnn
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Train and publish
         env:
           GH_TOKEN: ${{ github.token }}
+          EPOCHS: ${{ inputs.epochs }}
           USE_CNN: ${{ inputs.cnn }}
         run: |
           version="eye-model-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
@@ -59,6 +65,6 @@ jobs:
           fi
           args=()
           if [[ "$USE_CNN" == true ]]; then args+=(--cnn); fi
-          python train/train.py --version "$version" --previous previous.json "${args[@]}"
+          python train/train.py --version "$version" --previous previous.json --epochs "$EPOCHS" "${args[@]}"
           gh release create "$version" eye-global-model.json --target "$GITHUB_SHA" \
             --title "Eye Intelligence $version" --notes "Evaluation and schema are included in the model bundle." --latest=false

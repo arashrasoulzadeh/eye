@@ -15,7 +15,7 @@ def load_batches(folder):
     catalog = Path(__file__).resolve().parents[1] / "internal/service/global_tags.go"
     allowed = set(catalog.read_text().split('"event": strings.Fields(`')[1].split("`")[0].split())
     allowed.update(("navigation", "engagement", "cart_add", "error", "other"))
-    for path in sorted(folder.glob("*.csv")):
+    for path in sorted(folder.rglob("*.csv")):
         with path.open(newline="", encoding="utf-8") as handle:
             reader = csv.reader(handle)
             if next(reader, None) != HEADER:
@@ -103,7 +103,7 @@ def outcome_metrics(bundle, rows):
     return {key: sum(values) / len(values) for key, values in errors.items() if values}
 
 
-def temporal_candidate(rows):
+def temporal_candidate(rows, epochs):
     import torch
     from torch import nn
 
@@ -135,7 +135,8 @@ def temporal_candidate(rows):
     model = Predictor()
     optimizer = torch.optim.Adam(model.parameters())
     tokens, targets = torch.tensor(examples), torch.tensor(outcomes)
-    for _ in range(5):
+    for epoch in range(1, epochs + 1):
+        print(f"CNN epoch {epoch}/{epochs}", flush=True)
         for batch in torch.randperm(len(tokens)).split(512):
             optimizer.zero_grad()
             nn.functional.cross_entropy(model(tokens[batch]), targets[batch]).backward()
@@ -155,14 +156,17 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--cnn", action="store_true")
+    parser.add_argument("--epochs", type=int, default=20)
     args = parser.parse_args()
+    if not 1 <= args.epochs <= 100:
+        parser.error("--epochs must be between 1 and 100")
     batches = load_batches(args.data)
     training, holdout = split_batches(batches)
     bundle = fit(training)
     baseline = evaluate(bundle, holdout)
     accuracy = baseline
     if args.cnn:
-        candidate = dict(bundle, sequence_next=temporal_candidate(training))
+        candidate = dict(bundle, sequence_next=temporal_candidate(training, args.epochs))
         score = evaluate(candidate, holdout)
         if score > accuracy:
             bundle, accuracy = candidate, score
@@ -180,6 +184,7 @@ def main():
     bundle.update(schema=1, version=args.version,
                   evaluation={"next_event_accuracy": accuracy, "transition_baseline": baseline,
                               "outcome_brier_scores": outcomes,
+                              "cnn_epochs": args.epochs if args.cnn else 0,
                               "training_sessions": len(training), "held_out_sessions": len(holdout)})
     Path("eye-global-model.json").write_text(json.dumps(bundle, sort_keys=True) + "\n")
 
