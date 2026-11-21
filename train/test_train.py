@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from train.train import load_batches
+from train.train import candidate_improved, load_batches
 
 
 class LoadBatchesTest(unittest.TestCase):
@@ -27,6 +27,17 @@ class LoadBatchesTest(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "No supported training CSV"):
                 load_batches(folder)
+
+
+class CandidateImprovementTest(unittest.TestCase):
+    def test_identical_candidate_is_not_an_improvement(self):
+        self.assertFalse(candidate_improved(0.5, {"conversion": 0.2}, 0.5, {"conversion": 0.2}))
+
+    def test_better_accuracy_is_an_improvement_without_worse_outcomes(self):
+        self.assertTrue(candidate_improved(0.5, {"conversion": 0.2}, 0.6, {"conversion": 0.2}))
+
+    def test_worse_outcome_score_is_not_an_improvement(self):
+        self.assertFalse(candidate_improved(0.5, {"conversion": 0.2}, 0.6, {"conversion": 0.3}))
 
 
 if __name__ == "__main__":

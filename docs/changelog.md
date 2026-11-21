@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-21T22:44:03+03:30** — fix(train): skip unrelated CSV exports (`ba48ae3`, `ba48ae3d0bebbe278055fc54264dcc57b72d0566`)
 - **2026-11-20T02:54:18+03:30** — new data for traniing at nov 20 (`c2c4595`, `c2c459561aefa5de2e1509621a9ea16e4ead1d53`)
 - **2026-11-14T16:50:09+03:30** — fix(admin): apply global scope and show tags across activity views (`3826021`, `3826021c590c889addb1c3e5835b9cd3cafae94c`)
 - **2026-11-14T16:26:14+03:30** — perf(ci): reuse compiled Go dependencies across image builds (`bc2a22a`, `bc2a22ac569b0a22027306dafc5e8f448352dd4f`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T17:19:27+03:30** — feat(intelligence): observe pipeline runs (`54f5f1a`, `54f5f1af03e50b5b659e95452a7251da350d6eff`)
 - **2026-11-13T17:15:51+03:30** — feat(intelligence): complete one-click pipeline (`b4b2531`, `b4b2531cde344f37d3a006647f73172403652e1d`)
 - **2026-11-13T17:12:42+03:30** — fix(intelligence): add one-click pipeline and label review feedback (`660c375`, `660c375e934b3ba0c639b00549d99e306c738390`)
-- **2026-11-13T17:06:25+03:30** — fix(intelligence): promote safe manual auto-training (`58b85be`, `58b85be35c148d9b69591d115c709d80f907bd11`)

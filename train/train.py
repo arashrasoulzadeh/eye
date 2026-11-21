@@ -105,6 +105,14 @@ def outcome_metrics(bundle, rows):
     return {key: sum(values) / len(values) for key, values in errors.items() if values}
 
 
+def candidate_improved(previous_accuracy, previous_outcomes, accuracy, outcomes):
+    if accuracy < previous_accuracy or any(
+        value > previous_outcomes[key] for key, value in outcomes.items()
+    ):
+        return False
+    return accuracy != previous_accuracy or outcomes != previous_outcomes
+
+
 def temporal_candidate(rows, epochs):
     import torch
     from torch import nn
@@ -182,8 +190,9 @@ def main():
         previous_outcomes = outcome_metrics(previous, holdout)
         if accuracy < previous_accuracy or any(value > previous_outcomes[key] for key, value in outcomes.items()):
             raise ValueError("Candidate regressed on held-out predictions")
-        if accuracy == previous_accuracy and outcomes == previous_outcomes:
-            raise ValueError("Candidate did not improve held-out predictions")
+        if not candidate_improved(previous_accuracy, previous_outcomes, accuracy, outcomes):
+            print("Candidate did not improve held-out predictions; no release will be created.")
+            return
     bundle.update(schema=1, version=args.version,
                   evaluation={"next_event_accuracy": accuracy, "transition_baseline": baseline,
                               "outcome_brier_scores": outcomes,

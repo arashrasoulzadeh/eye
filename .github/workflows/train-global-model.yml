@@ -65,6 +65,11 @@ jobs:
           fi
           args=()
           if [[ "$USE_CNN" == true ]]; then args+=(--cnn); fi
+          rm -f eye-global-model.json
           python train/train.py --version "$version" --previous previous.json --epochs "$EPOCHS" "${args[@]}"
-          gh release create "$version" eye-global-model.json --target "$GITHUB_SHA" \
-            --title "Eye Intelligence $version" --notes "Evaluation and schema are included in the model bundle." --latest=false
+          if [[ -f eye-global-model.json ]]; then
+            gh release create "$version" eye-global-model.json --target "$GITHUB_SHA" \
+              --title "Eye Intelligence $version" --notes "Evaluation and schema are included in the model bundle." --latest=false
+          else
+            echo "Training completed without an improved model; no release was created." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
