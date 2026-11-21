@@ -5,6 +5,7 @@ import csv
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 HEADER = ["schema_version", "event_sequence", "time_gap_buckets", "purchased",
           "returned_within_7d", "prior_visits"]
@@ -19,7 +20,8 @@ def load_batches(folder):
         with path.open(newline="", encoding="utf-8") as handle:
             reader = csv.reader(handle)
             if next(reader, None) != HEADER:
-                raise ValueError(f"{path}: unsupported schema")
+                print(f"Skipping {path}: not a supported training CSV", file=sys.stderr)
+                continue
             rows = []
             for version, events, gaps, purchase, returned, visits in reader:
                 sequence = tuple(events.split("|"))
@@ -35,7 +37,7 @@ def load_batches(folder):
             digest = hashlib.sha256(repr(sorted(rows)).encode()).hexdigest()
             batches[digest] = rows
     if not batches:
-        raise ValueError("Provide at least one nonempty training CSV")
+        raise ValueError("No supported training CSV found; provide at least one nonempty training CSV")
     return [batches[key] for key in sorted(batches)]
 
 
