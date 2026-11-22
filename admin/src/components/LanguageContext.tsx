@@ -7,6 +7,63 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Pinned funnel": "قیف سنجاق‌شده",
+  "Funnel name": "نام قیف",
+  "Configure funnel": "تنظیم قیف",
+  "Open pinned funnel": "باز کردن قیف سنجاق‌شده",
+  "No funnel pinned for this tenant.": "برای این تنانت قیفی سنجاق نشده است.",
+  "Loading pinned funnel…": "در حال بارگذاری قیف سنجاق‌شده…",
+  "Could not load pinned funnel.": "بارگذاری قیف سنجاق‌شده ناموفق بود.",
+  "Could not save pinned funnel.": "ذخیره قیف سنجاق‌شده ناموفق بود.",
+  "Could not remove pinned funnel.": "برداشتن قیف سنجاق‌شده ناموفق بود.",
+  "Pin to dashboard": "سنجاق به داشبورد",
+  "Update pinned funnel": "به‌روزرسانی قیف سنجاق‌شده",
+  "Load pinned funnel": "بارگذاری قیف سنجاق‌شده",
+  "Unpin funnel": "برداشتن سنجاق قیف",
+  "Funnel pinned to dashboard.": "قیف به داشبورد سنجاق شد.",
+  "Funnel removed from dashboard.": "قیف از داشبورد برداشته شد.",
+  "Change vs previous period": "تغییر نسبت به دوره قبل",
+  "percentage points": "واحد درصد",
+  "Activity overview": "خلاصه فعالیت",
+  "Technical metrics": "شاخص‌های فنی",
+  "Failed to load dashboard metrics": "بارگذاری شاخص‌های داشبورد ناموفق بود.",
+  "Estimated from distinct sessions": "برآورد بر اساس نشست‌های یکتا",
+  "All tenants · Last 5 minutes": "همه تنانت‌ها · ۵ دقیقه اخیر",
+  "All tenants · 7-day return rate": "همه تنانت‌ها · نرخ بازگشت ۷ روزه",
+  "Hourly buckets": "بازه‌های ساعتی",
+  "Cache age": "عمر کش",
+  "Last minute": "۱ دقیقه اخیر",
+  "Last 4 minutes": "۴ دقیقه اخیر",
+  "Last hour": "۱ ساعت اخیر",
+  "Last 24 hours": "۲۴ ساعت اخیر",
+  "Last 7 days": "۷ روز اخیر",
+  "Last 30 days": "۳۰ روز اخیر",
+  "Last {count} minutes": "{count} دقیقه اخیر",
+  "Last {count} hours": "{count} ساعت اخیر",
+  "Last {count} days": "{count} روز اخیر",
+  "Last {count} weeks": "{count} هفته اخیر",
+  "Last {count} months": "{count} ماه اخیر",
+  "Share of first-stage sessions": "سهم از نشست‌های مرحله اول",
+  "Funnel stages": "مراحل قیف",
+  "Largest drop-off": "بیشترین ریزش",
+  "Overall conversion": "نرخ تبدیل کل",
+  "Final stage ÷ first stage": "مرحله آخر تقسیم بر مرحله اول",
+  "Add ordered events or use a smart suggestion to analyze a session journey.": "برای تحلیل مسیر نشست، رویدادها را به ترتیب اضافه کنید یا از پیشنهاد هوشمند استفاده کنید.",
+  "Linked time range": "بازه زمانی پیوند",
+  "Use smart suggestion": "استفاده از پیشنهاد هوشمند",
+  "No funnel suggestion for this range.": "برای این بازه پیشنهادی برای قیف پیدا نشد.",
+  "Move stage earlier": "انتقال مرحله به قبل",
+  "Move stage later": "انتقال مرحله به بعد",
+  "Counts include raw and generated event records.": "شمارش شامل رکوردهای خام و رویدادهای تولیدشده است.",
+  "Top events by volume": "پرتکرارترین رویدادها",
+  "Loading event counts…": "در حال بارگذاری تعداد رویدادها…",
+  "Could not load event counts.": "بارگذاری تعداد رویدادها ناموفق بود.",
+  "Sessions entering": "نشست‌های ورودی",
+  "Sessions completing": "نشست‌های تکمیل‌کننده",
+  "Sessions reaching stage 1": "نشست‌هایی که به مرحله اول رسیده‌اند",
+  "Sessions reaching the final stage": "نشست‌هایی که به مرحله آخر رسیده‌اند",
+  "Dropped sessions": "نشست‌های ریزش‌کرده",
+  "Conversion to next stage": "نرخ عبور به مرحله بعد",
   "Download a training batch to share privately. Inference runs locally with the released model.": "یک فایل آموزشی برای اشتراک‌گذاری خصوصی دانلود کنید. مدل منتشرشده روی همین سرور اجرا می‌شود.",
   Created: "زمان ساخت",
   "first time visitor": "بازدیدکننده بار اول", "frequent visitor": "بازدیدکننده پرتکرار",
@@ -84,7 +141,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     translateDocument(language);
     if (language === "fa") {
       const observer = new MutationObserver(() => translateDocument(language));
-      observer.observe(document.body, { childList: true, subtree: true });
+      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
       return () => observer.disconnect();
     }
   }, [language]);
@@ -105,19 +162,19 @@ export function translateText(value: string, language: Language): string {
   return Object.entries(TRANSLATIONS).sort(([a], [b]) => b.length - a.length).reduce((current, [english, persian]) => current.split(english).join(persian), value);
 }
 
-const ORIGINAL_TEXT = new WeakMap<Text, string>();
+const TEXT_TRANSLATIONS = new WeakMap<Text, { original: string; rendered: string }>();
 function translateDocument(language: Language) {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
   nodes.forEach((node) => {
-    const raw = ORIGINAL_TEXT.get(node) || node.textContent || "";
-    ORIGINAL_TEXT.set(node, raw);
-    const trimmed = raw.trim();
-    if (!trimmed || node.parentElement?.closest("script,style,code,pre")) return;
-    if (language === "fa") {
-      node.textContent = translateText(raw, language);
-    } else node.textContent = raw;
+    const current = node.data;
+    if (!current.trim() || node.parentElement?.closest("script,style,code,pre")) return;
+    const previous = TEXT_TRANSLATIONS.get(node);
+    const original = previous?.rendered === current ? previous.original : current;
+    const rendered = translateText(original, language);
+    TEXT_TRANSLATIONS.set(node, { original, rendered });
+    if (current !== rendered) node.data = rendered;
   });
 }
 

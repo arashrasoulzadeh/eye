@@ -2,6 +2,7 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-21T22:51:18+03:30** — fix(train): treat unchanged candidates as no-op (`1e165e0`, `1e165e0a3a70ee91954a0ac6851ed915ba66f9e7`)
 - **2026-11-21T22:44:03+03:30** — fix(train): skip unrelated CSV exports (`ba48ae3`, `ba48ae3d0bebbe278055fc54264dcc57b72d0566`)
 - **2026-11-20T02:54:18+03:30** — new data for traniing at nov 20 (`c2c4595`, `c2c459561aefa5de2e1509621a9ea16e4ead1d53`)
 - **2026-11-14T16:50:09+03:30** — fix(admin): apply global scope and show tags across activity views (`3826021`, `3826021c590c889addb1c3e5835b9cd3cafae94c`)
@@ -51,4 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T17:22:05+03:30** — feat(intelligence): add safe pipeline retries (`9f85cd0`, `9f85cd023a627ba3e2484b28e27d0f9b262179c0`)
 - **2026-11-13T17:19:27+03:30** — feat(intelligence): observe pipeline runs (`54f5f1a`, `54f5f1af03e50b5b659e95452a7251da350d6eff`)
 - **2026-11-13T17:15:51+03:30** — feat(intelligence): complete one-click pipeline (`b4b2531`, `b4b2531cde344f37d3a006647f73172403652e1d`)
-- **2026-11-13T17:12:42+03:30** — fix(intelligence): add one-click pipeline and label review feedback (`660c375`, `660c375e934b3ba0c639b00549d99e306c738390`)

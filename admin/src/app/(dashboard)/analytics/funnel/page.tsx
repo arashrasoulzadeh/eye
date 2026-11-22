@@ -1,116 +1,177 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, Tenant } from "@/lib/api";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { api } from "@/lib/api";
 import { Card, CardHeader, StatCard } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Combobox } from "@/components/Combobox";
-import { formatEventLabel } from "@/lib/funnel";
+import { translate, useLanguage } from "@/components/LanguageContext";
+import { formatEventLabel, funnelSummary, type PinnedFunnel } from "@/lib/funnel";
 import { useTenant } from "@/components/TenantContext";
 import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 type Step = { event_name: string; sessions: number; conversion_rate: number };
 
 export default function FunnelPage() {
-  const { tenantId: globalTenant, setTenantId: setGlobalTenant, loading: scopeLoading } = useTenant();
+  return <Suspense><ScopedFunnel /></Suspense>;
+}
+
+function ScopedFunnel() {
+  const { tenantId, loading } = useTenant();
+  const { to } = useTimeRange();
+  const openPinned = useSearchParams().get("pinned") === "1";
+  return !loading && !!to && <FunnelEditor key={`${tenantId}:${openPinned}`} openPinned={openPinned} />;
+}
+
+function FunnelEditor({ openPinned }: { openPinned: boolean }) {
+  const { language } = useLanguage();
+  const t = (text: string) => translate(text, language);
+  const percent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 1 });
+  const { tenantId: tenant, setTenantId: setGlobalTenant, tenants } = useTenant();
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const timeRangeLabel = formatTimeRange(hours);
-  const [tenants, setTenants] = useState<Tenant[]>([]),
-    [tenant, setTenant] = useState(""),
-    [steps, setSteps] = useState<string[]>([]),
-    [titles, setTitles] = useState<Record<string, string>>({}),
-    [input, setInput] = useState(""),
-    [eventOptions, setEventOptions] = useState<string[]>([]),
-    [result, setResult] = useState<Step[]>([]),
-    [loading, setLoading] = useState(false),
-    [suggesting, setSuggesting] = useState(false),
-    [error, setError] = useState("");
-  const range = () => ({ from: globalFrom, to: globalTo });
-  useEffect(() => {
-    api.tenants
-      .list()
-      .then((items) => {
-        setTenants(items);
+  const [steps, setSteps] = useState<string[]>([]);
+  const [submitted, setSubmitted] = useState<string[] | null>(null);
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [input, setInput] = useState("");
+  const [eventOptions, setEventOptions] = useState<string[]>([]);
+  const [result, setResult] = useState<Step[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [error, setError] = useState("");
 
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-  useEffect(() => { setTenant(globalTenant); }, [globalTenant]);
-  // The suggestion loader intentionally uses the current range and tenant.
+  const [pin, setPin] = useState<PinnedFunnel | null>();
+  const [pinName, setPinName] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinStatus, setPinStatus] = useState("");
+
   useEffect(() => {
-    if (scopeLoading || !globalTo) return;
-    setResult([]);
+    if (!tenant) return;
+    let active = true;
+    api.analytics.pinnedFunnel(tenant).then(
+      (definition) => {
+        if (!active) return;
+        setPin(definition);
+        if (!definition) return;
+        setPinName((name) => name || definition.name);
+        if (openPinned) {
+          setSteps(definition.steps);
+          setSubmitted(definition.steps);
+        }
+      },
+      () => { if (active) setPinError("Could not load pinned funnel."); },
+    );
+    return () => { active = false; };
+  }, [tenant, openPinned]);
+
+  useEffect(() => {
+    let active = true;
+    api.eventOptions(tenant, input, false, { from_ts: globalFrom, to_ts: globalTo }).then(
+      (options) => { if (active) setEventOptions(options.map((option) => option.value)); },
+      () => { if (active) setEventOptions([]); },
+    );
+    return () => { active = false; };
+  }, [tenant, input, globalFrom, globalTo]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    let active = true;
+    setLoading(true);
     setError("");
-    void api
-      .eventOptions(tenant, "", false, { from_ts: globalFrom, to_ts: globalTo })
-      .then((options) => setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)))
-      .catch((e) => setError(e.message));
-    void loadSuggested(tenant);
-  // loadSuggested is declared below and intentionally uses the current tenant/range.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenant, globalFrom, globalTo, scopeLoading]);
-  async function loadSuggested(tenantID = tenant) {
-    if (scopeLoading || !globalTo) return;
+    api.analytics.funnel(tenant, submitted, globalFrom, globalTo).then(
+      (rows) => { if (active) setResult(rows); },
+      (e: Error) => { if (active) { setError(e.message); setResult([]); } },
+    ).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [tenant, submitted, globalFrom, globalTo]);
+
+  function editSteps(next: string[]) {
+    setSteps(next);
+    setSubmitted(null);
+    setResult([]);
+    setLoading(false);
+    setError("");
+  }
+
+  async function loadSuggested() {
     setSuggesting(true);
+    setError("");
     try {
-      const { from, to } = range();
-      const suggestion = await api.analytics.suggestedFunnel(
-        tenantID,
-        from,
-        to,
-      );
-      const valid = suggestion.filter(
-        (item) =>
-          typeof item.event_name === "string" &&
-          item.event_name.trim().length > 0,
-      );
-      const names = valid.map((item) => item.event_name);
-      setSteps(names);
-      setTitles(
-        Object.fromEntries(valid.map((item) => [item.event_name, item.title])),
-      );
-      if (names.length >= 2)
-        setResult(await api.analytics.funnel(tenantID, names, from, to));
-      else setResult([]);
+      const suggestion = await api.analytics.suggestedFunnel(tenant, globalFrom, globalTo);
+      const valid = suggestion.filter((item) => typeof item.event_name === "string" && item.event_name.trim());
+      const names = [...new Set(valid.map((item) => item.event_name))];
+      if (names.length < 2) {
+        setError(t("No funnel suggestion for this range."));
+        return;
+      }
+      editSteps(names);
+      setTitles(Object.fromEntries(valid.map((item) => [item.event_name, item.title])));
+      setSubmitted(names);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSuggesting(false);
     }
   }
-  function addStep() {
-    const value = input.trim();
-    if (value && !steps.includes(value)) setSteps([...steps, value]);
+
+  function addStep(value: string) {
+    const name = value.trim();
+    if (name && !steps.includes(name)) editSteps([...steps, name]);
     setInput("");
   }
-  function addStepValue(value: string) {
-    if (value && !steps.includes(value)) setSteps([...steps, value]);
-    setInput("");
+
+  function moveStep(index: number, destination: number) {
+    const reordered = [...steps];
+    const [step] = reordered.splice(index, 1);
+    reordered.splice(destination, 0, step);
+    editSteps(reordered);
   }
-  async function run() {
-    if (scopeLoading || !globalTo || steps.length < 2) return;
-    setLoading(true);
-    setError("");
+
+  async function savePin() {
+    setPinBusy(true);
+    setPinError("");
+    setPinStatus("");
     try {
-      const { from, to } = range();
-      setResult(await api.analytics.funnel(tenant, steps, from, to));
-    } catch (e) {
-      setError((e as Error).message);
+      const definition = await api.analytics.pinFunnel(tenant, { name: pinName.trim(), steps });
+      setPin(definition);
+      setPinName(definition.name);
+      setPinStatus("Funnel pinned to dashboard.");
+    } catch {
+      setPinError("Could not save pinned funnel.");
     } finally {
-      setLoading(false);
+      setPinBusy(false);
     }
   }
-  const safeResult = Array.isArray(result) ? result : [];
+
+  async function removePin() {
+    setPinBusy(true);
+    setPinError("");
+    setPinStatus("");
+    try {
+      await api.analytics.unpinFunnel(tenant);
+      setPin(null);
+      setPinStatus("Funnel removed from dashboard.");
+    } catch {
+      setPinError("Could not remove pinned funnel.");
+    } finally {
+      setPinBusy(false);
+    }
+  }
+
   const label = (name: unknown) => formatEventLabel(name, titles);
-  const firstSessions = safeResult[0]?.sessions || 0;
-  const completedSessions = safeResult[safeResult.length - 1]?.sessions || 0;
-  const overallConversion = firstSessions ? completedSessions / firstSessions : 0;
+  const { entered: firstSessions, completed: completedSessions, rate: overallConversion, transitions, biggestDrop } = funnelSummary(result);
+
+  if (tenant && openPinned && pin === undefined && !pinError) {
+    return <p className="text-sm text-fg-muted">{t("Loading pinned funnel…")}</p>;
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">Funnel Analysis</h1>
       <p className="mt-1 text-sm text-fg-muted">
-        A smart, session-aware funnel inferred from the tenant’s most common
-        event journey. Edit the stages to test another path.
+        {t("Add ordered events or use a smart suggestion to analyze a session journey.")}
       </p>
       <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
         <summary className="cursor-pointer font-medium text-fg">
@@ -130,15 +191,16 @@ export default function FunnelPage() {
               variant="secondary"
               onClick={() => void loadSuggested()}
               loading={suggesting}
+              disabled={loading}
             >
-              Refresh smart suggestion
+              {t("Use smart suggestion")}
             </Button>
           }
         />
         <div className="space-y-4 p-5">
           <Combobox
             value={tenant}
-            onChange={(value) => { setTenant(value); setGlobalTenant(value); }}
+            onChange={setGlobalTenant}
             options={tenants.map((item) => ({
               value: item.ID,
               label: item.Name,
@@ -148,47 +210,70 @@ export default function FunnelPage() {
           <div className="flex gap-2">
             <Combobox
               value={input}
-              onChange={(value) => {
-                setInput(value);
-                if (eventOptions.includes(value)) addStepValue(value);
-              }}
-              onSearch={(query) => {
-                if (tenant)
-                  void api
-                    .eventOptions(tenant, query)
-                    .then((options) =>
-                      setEventOptions((Array.isArray(options) ? options : []).map((option) => option.value)),
-                    );
-              }}
+              onChange={setInput}
               options={eventOptions.map((value) => ({ value }))}
               placeholder="Search event and select…"
             />
-            <Button variant="secondary" onClick={addStep}>
+            <Button variant="secondary" onClick={() => addStep(input)} disabled={suggesting}>
               Add step
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <ol className="space-y-2">
             {steps.map((step, index) => (
-              <button
-                key={step}
-                type="button"
-                onClick={() => setSteps(steps.filter((item) => item !== step))}
-                className="rounded-full bg-accent/10 px-3 py-1 text-xs text-accent"
-              >
-                {index + 1}. {label(step)} ×
-              </button>
+              <li key={step} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+                <span>{index + 1}. <bdi>{label(step)}</bdi></span>
+                <div className="flex gap-1">
+                  <Button variant="secondary" aria-label={`${t("Move stage earlier")} ${label(step)}`}
+                    disabled={suggesting || index === 0} onClick={() => moveStep(index, index - 1)}>↑</Button>
+                  <Button variant="secondary" aria-label={`${t("Move stage later")} ${label(step)}`}
+                    disabled={suggesting || index === steps.length - 1} onClick={() => moveStep(index, index + 1)}>↓</Button>
+                  <Button variant="secondary" aria-label={`${t("Remove")} ${label(step)}`}
+                    disabled={suggesting} onClick={() => editSteps(steps.filter((item) => item !== step))}>×</Button>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
           <p className="text-xs text-fg-muted">Global time range: <span className="font-medium text-fg">{timeRangeLabel}</span></p>
           <Button
-            onClick={() => void run()}
+            onClick={() => setSubmitted([...steps])}
             loading={loading}
-            disabled={scopeLoading || steps.length < 2}
+            disabled={suggesting || steps.length < 2}
           >
             Run funnel
           </Button>
         </div>
       </Card>
+      {tenant && (
+        <Card className="mt-6">
+          <CardHeader title={t("Pinned funnel")} />
+          <div className="space-y-3 p-5">
+            <label className="block text-sm font-medium">
+              {t("Funnel name")}
+              <input
+                className="mt-1 block w-full max-w-sm rounded-lg border border-border bg-surface px-3 py-2 text-fg"
+                value={pinName}
+                onChange={(event) => setPinName(event.target.value)}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button loading={pinBusy} disabled={!pinName.trim() || steps.length < 2 || suggesting || (pin === undefined && !pinError)}
+                onClick={() => void savePin()}>{t(pin ? "Update pinned funnel" : "Pin to dashboard")}</Button>
+              {pin && (
+                <>
+                  <Button variant="secondary" disabled={pinBusy || suggesting} onClick={() => {
+                    editSteps(pin.steps);
+                    setPinName(pin.name);
+                    setSubmitted(pin.steps);
+                  }}>{t("Load pinned funnel")}</Button>
+                  <Button variant="secondary" disabled={pinBusy} onClick={() => void removePin()}>{t("Unpin funnel")}</Button>
+                </>
+              )}
+            </div>
+            {pinError && <p role="alert" className="text-sm text-danger">{t(pinError)}</p>}
+            {pinStatus && <p role="status" className="text-sm text-fg-muted">{t(pinStatus)}</p>}
+          </div>
+        </Card>
+      )}
       {error && (
         <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           {error}
@@ -201,7 +286,7 @@ export default function FunnelPage() {
           </p>
         </Card>
       )}
-      {!loading && !suggesting && !result.length && !error && (
+      {submitted && !loading && !suggesting && !result.length && !error && (
         <Card className="mt-6">
           <p className="p-5 text-sm text-fg-muted">
             No ordered session path was found for this tenant.
@@ -211,82 +296,59 @@ export default function FunnelPage() {
       {result.length > 0 && (
         <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatCard label="Users entering" value={firstSessions.toLocaleString()} hint="Sessions reaching stage 1" />
-            <StatCard label="Users completing" value={completedSessions.toLocaleString()} hint="Sessions reaching the final stage" />
-            <StatCard label="Overall conversion" value={`${(overallConversion * 100).toFixed(1)}%`} hint="Final stage ÷ first stage" />
+            <StatCard label={t("Sessions entering")} value={firstSessions.toLocaleString(language)} hint={t("Sessions reaching stage 1")} />
+            <StatCard label={t("Sessions completing")} value={completedSessions.toLocaleString(language)} hint={t("Sessions reaching the final stage")} />
+            <StatCard label={t("Overall conversion")} value={overallConversion === null ? "—" : percent.format(overallConversion)} hint={t("Final stage ÷ first stage")} />
           </div>
           <Card className="mt-6">
-            <CardHeader title="Smart funnel diagram" />
-            <div className="overflow-x-auto p-6">
-              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2">
-                {result.map((item, index) => {
-                  const width = Math.max(
-                    18,
-                    Math.round(
-                      (item.sessions / Math.max(1, safeResult[0]?.sessions || 1)) * 100,
-                    ),
-                  );
-                  return (
-                    <div
-                      key={`${item.event_name}-${index}`}
-                      className="flex w-full flex-col items-center"
-                    >
-                      <div
-                        className="relative flex min-h-24 items-center justify-center border border-accent/30 bg-gradient-to-br from-accent to-accent/70 px-4 text-center text-accent-fg shadow-sm transition-all"
-                        style={{
-                          width: `${width}%`,
-                          clipPath: "polygon(4% 0, 96% 0, 88% 100%, 12% 100%)",
-                        }}
-                      >
-                        <div>
-                          <p className="text-xs uppercase tracking-wide opacity-80">
-                            Stage {index + 1}
-                          </p>
-                          <p className="mt-1 text-sm font-bold">
-                            {label(item.event_name)}
-                          </p>
-                          <p className="mt-1 text-xs">
-                            {item.sessions.toLocaleString()} sessions
-                          </p>
-                        </div>
-                      </div>
-                      {index < result.length - 1 && (
-                        <p className="mt-3 text-xs font-semibold text-fg-muted">
-                          {(item.sessions
-                            ? (result[index + 1].sessions / item.sessions) * 100
-                            : 0
-                          ).toFixed(1)}
-                          % next
-                        </p>
-                      )}
+            <CardHeader
+              title={t("Funnel stages")}
+              action={<span className="text-xs text-fg-muted">{t("Share of first-stage sessions")}</span>}
+            />
+            <ol className="divide-y divide-border">
+              {result.map((stage, index) => {
+                const name = label(stage.event_name);
+                const stageLabel = `${index + 1}. ${name}`;
+                const share = firstSessions ? stage.sessions / firstSessions : 0;
+                const transition = transitions[index];
+                const highlight = biggestDrop?.index === index;
+                return (
+                  <li key={`${stage.event_name}-${index}`} className="space-y-3 p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <p className="min-w-0 break-words font-medium text-fg">
+                        {index + 1}. <bdi>{name}</bdi>
+                      </p>
+                      <p className="flex gap-3 text-sm tabular-nums text-fg-muted">
+                        <span>{t("Sessions")} <bdi>{stage.sessions.toLocaleString(language)}</bdi></span>
+                        <bdi>{firstSessions ? percent.format(share) : "—"}</bdi>
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </Card>
-          <Card className="mt-6">
-            <CardHeader title="Stage details" />
-            <div className="divide-y divide-border">
-              {result.map((item, index) => (
-                <div
-                  key={`${item.event_name}-${index}`}
-                  className="flex items-center justify-between p-5"
-                >
-                  <div>
-                    <p className="font-medium text-fg">
-                      {index + 1}. {label(item.event_name)}
-                    </p>
-                    <p className="text-xs text-fg-muted">
-                      {item.sessions.toLocaleString()} sessions reached in order
-                    </p>
-                  </div>
-                  <p className="text-lg font-semibold text-accent">
-                    {(item.conversion_rate * 100).toFixed(1)}%
-                  </p>
-                </div>
-              ))}
-            </div>
+                    <div
+                      role={firstSessions ? "meter" : undefined}
+                      aria-hidden={firstSessions ? undefined : true}
+                      aria-label={stageLabel}
+                      aria-valuemin={0}
+                      aria-valuemax={firstSessions}
+                      aria-valuenow={stage.sessions}
+                      className="h-3 overflow-hidden rounded-full bg-surface-2"
+                    >
+                      <div className="h-full rounded-full bg-accent" style={{ width: `${share * 100}%` }} />
+                    </div>
+                    {transition && (
+                      <div className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-md px-3 py-2 text-xs ${highlight ? "bg-warning/10 font-semibold text-fg" : "bg-surface-2 text-fg-muted"}`}>
+                        {highlight && (
+                          <span className="rounded bg-warning/20 px-2 py-0.5">
+                            {t("Largest drop-off")} <bdi>{percent.format(1 - biggestDrop.rate)}</bdi>
+                          </span>
+                        )}
+                        <span>{t("Dropped sessions")} <bdi>{transition.dropped.toLocaleString(language)}</bdi></span>
+                        <span>{t("Conversion to next stage")} <bdi>{transition.rate === null ? "—" : percent.format(transition.rate)}</bdi></span>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
           </Card>
         </>
       )}

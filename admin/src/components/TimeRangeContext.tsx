@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
+import { translate, type Language } from "@/components/LanguageContext";
+
 export const TIME_RANGES = [
   { value: "0.0166667", label: "Last minute" },
   { value: "0.0666667", label: "Last 4 minutes" },
@@ -31,15 +33,18 @@ export function parseTimeRange(input: string): number | null {
   return named ? UNIT_HOURS[named[1]] : null;
 }
 
-export function formatTimeRange(hours: string): string {
+export function formatTimeRange(hours: string, language: Language = "en"): string {
   const numeric = Number(hours);
   const preset = TIME_RANGES.find((item) => Math.abs(Number(item.value) - numeric) < 0.00001);
-  if (preset) return preset.label;
-  if (numeric < 1) return `Last ${Math.round(numeric * 60)} minutes`;
-  if (numeric % 720 === 0) return `Last ${numeric / 720} months`;
-  if (numeric % 168 === 0) return `Last ${numeric / 168} weeks`;
-  if (numeric % 24 === 0) return `Last ${numeric / 24} days`;
-  return `Last ${numeric} hours`;
+  if (preset) return translate(preset.label, language);
+
+  const formatCount = (template: string, count: number) =>
+    translate(template, language).replace("{count}", language === "en" ? String(count) : count.toLocaleString(language));
+  if (numeric < 1) return formatCount("Last {count} minutes", Math.round(numeric * 60));
+  if (numeric % 720 === 0) return formatCount("Last {count} months", numeric / 720);
+  if (numeric % 168 === 0) return formatCount("Last {count} weeks", numeric / 168);
+  if (numeric % 24 === 0) return formatCount("Last {count} days", numeric / 24);
+  return formatCount("Last {count} hours", numeric);
 }
 function isValidHours(value: string | null): value is string {
   const numeric = Number(value);

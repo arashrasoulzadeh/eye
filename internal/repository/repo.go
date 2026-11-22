@@ -11,7 +11,7 @@ func New(db *gorm.DB) *Repo { return &Repo{DB: db} }
 
 func (r *Repo) Migrate() error {
 	models := []any{
-		&model.Tenant{}, &model.Session{}, &model.Schema{},
+		&model.Tenant{}, &model.PinnedFunnel{}, &model.Session{}, &model.Schema{},
 		&model.Aggregation{}, &model.Experiment{}, &model.ExperimentAssignment{}, &model.Cohort{}, &model.CohortMembership{},
 		&model.AggregateCount{}, &model.AlertRule{}, &model.RuntimeSettings{},
 		&model.WebhookDeadLetter{}, &model.AuditLog{}, &model.AdminUser{}, &model.FeatureFlag{}, &model.DashboardCache{}, &model.Question{},

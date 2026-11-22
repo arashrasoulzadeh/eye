@@ -189,6 +189,7 @@ func main() {
 		logger.Error("event bucket backfill failed", "err", err)
 	}
 	mux.Handle("/analytics/funnel", adminAuth(&handler.FunnelHandler{Svc: analyticsSvc}))
+	mux.Handle("/analytics/funnel/pinned", adminAuth(&handler.PinnedFunnelHandler{DB: db}))
 	mux.Handle("/analytics/funnel/suggested", adminAuth(&handler.SuggestedFunnelHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/retention", adminAuth(&handler.RetentionHandler{Svc: analyticsSvc}))
 	mux.Handle("/analytics/views", adminAuth(&handler.AnalyticsViewsHandler{DB: db}))

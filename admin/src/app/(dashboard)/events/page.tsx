@@ -1,6 +1,8 @@
 "use client";
 import { IntelligenceTags } from "@/components/IntelligenceTags";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { translate, useLanguage } from "@/components/LanguageContext";
 import { api, Event, Tenant, Session, ApiError } from "@/lib/api";
 import { Card, CardHeader } from "@/components/Card";
 import { DataTable, Column, TableQuery } from "@/components/DataTable";
@@ -16,13 +18,34 @@ import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 import { EventExplorer } from "@/components/EventExplorer";
 
 export default function EventsPage() {
+  return <Suspense><LinkedEvents /></Suspense>;
+}
+
+function LinkedEvents() {
+  const query = useSearchParams();
+  const eventName = query.get("event_name") ?? "";
+  return <EventsExplorer key={eventName} initialEventName={eventName} query={query} />;
+}
+
+function EventsExplorer({ initialEventName, query }: {
+  initialEventName: string;
+  query: ReturnType<typeof useSearchParams>;
+}) {
   const { tenantId: globalTenant, loading: scopeLoading, setTenantId: setGlobalTenant } = useTenant();
-  const { from: globalFrom, to: globalTo, hours } = useTimeRange();
-  const timeRangeLabel = formatTimeRange(hours);
+  const { from, to, hours } = useTimeRange();
+  const { language } = useLanguage();
+  const linkedFrom = Number(query.get("from_ts"));
+  const linkedTo = Number(query.get("to_ts"));
+  const linkedRange = Number.isSafeInteger(linkedFrom) && Number.isSafeInteger(linkedTo)
+    && linkedFrom > 0 && linkedFrom < linkedTo && linkedTo <= 8.64e15;
+  const globalFrom = linkedRange ? linkedFrom : from;
+  const globalTo = linkedRange ? linkedTo : to;
+  const dateFormat = new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "medium" });
+  const timeRangeLabel = linkedRange ? dateFormat.formatRange(globalFrom, globalTo) : formatTimeRange(hours);
   const [events, setEvents] = useState<Event[]>([]);
   const [totalEvents, setTotalEvents] = useState(0);
-  const [eventName, setEventName] = useState("");
-  const [tenantId, setTenantId] = useState("");
+  const [eventName, setEventName] = useState(initialEventName);
+  const tenantId = query.get("tenant_id") ?? globalTenant;
   const [sessionId, setSessionId] = useState("");
   const [loading, setLoading] = useState(false);
   const [exploring, setExploring] = useState<Event | null>(null);
@@ -31,7 +54,24 @@ export default function EventsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [eventNameOptions, setEventNameOptions] = useState<ComboOption[]>([]);
   const { push } = useToast();
-  useEffect(() => { setTenantId(globalTenant); setSessionId(""); }, [globalTenant]);
+  useEffect(() => { setSessionId(""); }, [tenantId]);
+
+  useEffect(() => {
+    function clearLinkedFilters(keys: string[]) {
+      const url = new URL(window.location.href);
+      if (!keys.some((key) => url.searchParams.has(key))) return;
+      keys.forEach((key) => url.searchParams.delete(key));
+      window.history.replaceState(null, "", url);
+    }
+    const clearTenant = () => clearLinkedFilters(["tenant_id"]);
+    const clearTime = () => clearLinkedFilters(["from_ts", "to_ts"]);
+    window.addEventListener("eye-tenant-change", clearTenant);
+    window.addEventListener("eye-time-range-change", clearTime);
+    return () => {
+      window.removeEventListener("eye-tenant-change", clearTenant);
+      window.removeEventListener("eye-time-range-change", clearTime);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (scopeLoading || !globalTo) return;
@@ -126,7 +166,10 @@ export default function EventsPage() {
             <Label>Session ID</Label>
             <Combobox value={sessionId} onChange={setSessionId} options={sessionOptions} placeholder="session id" />
           </div>
-          <span className="text-xs text-fg-muted">Global range: <span className="font-medium text-fg">{timeRangeLabel}</span></span>
+          <span className="text-xs text-fg-muted">
+            {translate(linkedRange ? "Linked time range" : "Global range", language)}{" "}
+            <bdi className="font-medium text-fg">{timeRangeLabel}</bdi>
+          </span>
           <Button onClick={load} loading={loading}>
             Apply
           </Button>

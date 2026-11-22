@@ -437,3 +437,11 @@ type AnalyticsView struct {
 	CreatedAt int64  `json:"created_at"`
 	UpdatedAt int64  `json:"updated_at"`
 }
+
+// PinnedFunnel stores the ordered funnel shown on a tenant's dashboard.
+type PinnedFunnel struct {
+	TenantID string   `gorm:"primaryKey" json:"-"`
+	Name     string   `json:"name"`
+	Steps    []string `gorm:"serializer:json" json:"steps"`
+	Tenant   Tenant   `gorm:"foreignKey:TenantID;constraint:OnDelete:CASCADE" json:"-"`
+}

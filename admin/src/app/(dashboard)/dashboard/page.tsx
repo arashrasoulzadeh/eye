@@ -1,22 +1,59 @@
 "use client";
 import { useTenant } from "@/components/TenantContext";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, DashboardCache } from "@/lib/api";
 import { StatCard, Card, CardHeader } from "@/components/Card";
 import { LineTrend, BarBreakdown } from "@/components/Chart";
+import { PinnedFunnelCard } from "@/components/PinnedFunnelCard";
+import { previousPeriod } from "@/lib/funnel";
+import { DashboardEvents } from "@/components/DashboardEvents";
+import { translate, useLanguage } from "@/components/LanguageContext";
 import { Button } from "@/components/Button";
 import Link from "next/link";
 import { formatTimeRange, useTimeRange } from "@/components/TimeRangeContext";
 
 export default function Dashboard() {
-  const [cache, setCache] = useState<DashboardCache | null>(null);
+  const { language } = useLanguage();
+  const t = (text: string) => translate(text, language);
+  const [snapshot, setSnapshot] = useState<{ tenantId: string; hours: string; cache: DashboardCache; previous: DashboardCache | null }>();
+  const request = useRef(0);
   const { from: globalFrom, to: globalTo, hours } = useTimeRange();
   const [error, setError] = useState(""), [loading, setLoading] = useState(true);
   const timeRangeLabel = formatTimeRange(hours);
+  const localizedRange = formatTimeRange(hours, language);
+  const { tenantId, tenants, loading: scopeLoading } = useTenant();
+  const tenantLabel = tenantId ? tenants.find((tenant) => tenant.ID === tenantId)?.Name || tenantId : t("All tenants");
+  const current = snapshot?.tenantId === tenantId && snapshot.hours === hours ? snapshot : undefined;
+  const cache = current?.cache;
+  const previous = current?.previous;
+  const changeFormat = new Intl.NumberFormat(language, { style: "percent", signDisplay: "exceptZero", maximumFractionDigits: 1 });
+  function change(value: number | undefined, prior: number | undefined) {
+    if (value === undefined || !prior) return "—";
+    return changeFormat.format((value - prior) / prior);
+  }
 
-  const { tenantId, loading: scopeLoading } = useTenant();
-  const load = useCallback(async () => { if (scopeLoading || !globalFrom || !globalTo) return; setLoading(true); setError(""); try { setCache(await api.dashboardCache({ tenant_id: tenantId, from_ts: globalFrom, to_ts: globalTo })); } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics"); } finally { setLoading(false); } }, [globalFrom, globalTo, tenantId, scopeLoading]);
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(async () => {
+    if (scopeLoading || !globalFrom || !globalTo) return;
+    const id = ++request.current;
+    setLoading(true);
+    setError("");
+    try {
+      const [data, prior] = await Promise.all([
+        api.dashboardCache({ tenant_id: tenantId, from_ts: globalFrom, to_ts: globalTo }),
+        api.dashboardCache({ tenant_id: tenantId, ...previousPeriod(globalFrom, globalTo) }).catch(() => null),
+      ]);
+      if (request.current === id) setSnapshot({ tenantId, hours, cache: data, previous: prior });
+    } catch (e) {
+      if (request.current === id) setError(e instanceof ApiError ? e.message : "Failed to load dashboard metrics");
+    } finally {
+      if (request.current === id) setLoading(false);
+    }
+  }, [globalFrom, globalTo, tenantId, scopeLoading, hours]);
+
+  useEffect(() => {
+    void load();
+    return () => { request.current++; };
+  }, [load]);
   const hourlyAverage = cache?.events_by_hour?.length ? cache.events_by_hour.reduce((sum, point) => sum + point.value, 0) / cache.events_by_hour.length : 0;
   const cachedAtMs = cache ? (cache.cached_at < 100000000000 ? cache.cached_at * 1000 : cache.cached_at) : 0;
   const eventsPerMinute = hourlyAverage / 60;
@@ -31,32 +68,41 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-fg">Dashboard</h1>
-      <p className="mt-1 text-sm text-fg-muted">Metrics for the global <span className="font-medium text-fg">{timeRangeLabel}</span> (refreshed every minute).</p>
-      </div><div className="flex gap-2"><Button variant="secondary" onClick={() => window.print()}>Print report</Button><Button variant="secondary" onClick={downloadReport} disabled={!cache}>Download CSV</Button><Button variant="secondary" onClick={() => void load()} loading={loading}>Refresh</Button></div></div>
-      <details className="mt-4 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm">
-        <summary className="cursor-pointer font-medium text-fg">What am I seeing?</summary>
-        <p className="mt-2 text-fg-muted">These totals come from the server-side dashboard cache, not the browser. The charts summarize the latest materialized event window and refresh automatically once per minute.</p>
-      </details>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-fg">{t("Dashboard")}</h1>
+          <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+            <li className="max-w-full rounded-md border border-border bg-surface px-2.5 py-1">
+              <span className="text-fg-muted">{t("Tenant scope")}</span>{" "}
+              <bdi className="break-words font-medium text-fg">{scopeLoading ? "…" : tenantLabel}</bdi>
+            </li>
+            <li className="rounded-md border border-border bg-surface px-2.5 py-1">
+              <span className="text-fg-muted">{t("Global time range")}</span>{" "}
+              <bdi className="font-medium text-fg">{localizedRange}</bdi>
+            </li>
+          </ul>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => window.print()}>{t("Print report")}</Button>
+          <Button variant="secondary" onClick={downloadReport} disabled={!cache}>{t("Download CSV")}</Button>
+          <Button variant="secondary" onClick={() => void load()} loading={loading}>{t("Refresh")}</Button>
+        </div>
+      </header>
 
-      {error && <p className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-4 rounded border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{t(error)}</p>}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        <StatCard label="Events" value={cache ? cache.events.toLocaleString() : "…"} hint="Server-cached total" />
-        <StatCard label="Sessions" value={cache ? cache.sessions.toLocaleString() : "…"} hint="Server-cached total" />
-        <StatCard label="Users" value={cache ? (cache.users ?? cache.sessions ?? 0).toLocaleString() : "…"} hint="Distinct sessions (user proxy)" />
-        <StatCard label="Online users" value={cache ? (cache.online_users ?? 0).toLocaleString() : "…"} hint="Seen in the last 5 minutes" />
-        <StatCard label="Retention" value={cache ? `${((cache.retention_rate ?? 0) * 100).toFixed(1)}%` : "…"} hint="7-day return rate" />
-        <StatCard label="Tenants" value={cache ? cache.tenants.toLocaleString() : "…"} hint="Active tenant records" />
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Events / hour" value={cache ? Math.round(hourlyAverage).toLocaleString() : "…"} hint="Average cached hourly volume" />
-        <StatCard label="Events / minute" value={cache ? eventsPerMinute.toFixed(1) : "…"} hint="Derived from hourly trend" />
-        <StatCard label="Events / second" value={cache ? eventsPerSecond.toFixed(2) : "…"} hint="Derived average rate" />
-        <StatCard label="Active sessions" value={cache ? (cache.online_users ?? 0).toLocaleString() : "…"} hint="Seen in the last 5 minutes" />
-        <StatCard label="Hourly buckets" value={cache ? cache.events_by_hour.length.toLocaleString() : "…"} hint="Available trend points" />
-        <StatCard label="Cache age" value={cache ? `${Math.max(0, Math.round((Date.now() - cachedAtMs) / 1000))}s` : "…"} hint="Since server snapshot" />
-      </div>
+      <section aria-label={t("Activity overview")} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard label={t("Events")} value={cache ? cache.events.toLocaleString(language) : "…"} hint={cache && `${t("Change vs previous period")} ${change(cache.events, previous?.events)}`} />
+        <StatCard label={t("Sessions")} value={cache ? cache.sessions.toLocaleString(language) : "…"} hint={cache && `${t("Change vs previous period")} ${change(cache.sessions, previous?.sessions)}`} />
+      </section>
+
+      {!scopeLoading && !!tenantId && !!globalFrom && !!globalTo && (
+        <PinnedFunnelCard key={tenantId} tenantId={tenantId} from={globalFrom} to={globalTo} />
+      )}
+
+      {!scopeLoading && !!globalFrom && !!globalTo && (
+        <DashboardEvents tenantId={tenantId} from={globalFrom} to={globalTo} />
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
@@ -73,12 +119,28 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      <details className="mt-6 rounded-lg border border-border bg-surface px-4 py-3">
+        <summary className="cursor-pointer text-sm font-semibold text-fg">{t("Technical metrics")}</summary>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label={t("Users")} value={cache ? (cache.users ?? cache.sessions).toLocaleString(language) : "…"} hint={t("Estimated from distinct sessions")} />
+          <StatCard label={t("Tenants")} value={cache ? cache.tenants.toLocaleString(language) : "…"} />
+          <StatCard label={t("Online users")} value={cache ? (cache.online_users ?? 0).toLocaleString(language) : "…"} hint={t("All tenants · Last 5 minutes")} />
+          <StatCard label={t("Retention")} value={cache ? (cache.retention_rate ?? 0).toLocaleString(language, { style: "percent", maximumFractionDigits: 1 }) : "…"} hint={t("All tenants · 7-day return rate")} />
+          <StatCard label={t("Events / hour")} value={cache ? Math.round(hourlyAverage).toLocaleString(language) : "…"} />
+          <StatCard label={t("Events / minute")} value={cache ? eventsPerMinute.toLocaleString(language, { maximumFractionDigits: 1 }) : "…"} />
+          <StatCard label={t("Events / second")} value={cache ? eventsPerSecond.toLocaleString(language, { maximumFractionDigits: 2 }) : "…"} />
+          <StatCard label={t("Hourly buckets")} value={cache ? cache.events_by_hour.length.toLocaleString(language) : "…"} />
+          <StatCard label={t("Cache age")} value={cache ? Math.max(0, Math.round((Date.now() - cachedAtMs) / 1000)).toLocaleString(language, { style: "unit", unit: "second" }) : "…"} />
+        </div>
+      </details>
+
       <Card className="mt-6">
         <CardHeader title="Quick links" />
         <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3">
           {[
             ["Manage tenants", "/tenants"],
             ["Browse events", "/events"],
+            ["Funnels", "/analytics/funnel"],
             ["Send a test event", "/test-event"],
             ["Register a schema", "/schemas"],
             ["View sessions", "/sessions"],
@@ -88,7 +150,7 @@ export default function Dashboard() {
               href={href}
               className="rounded-lg border border-border px-3 py-2.5 text-sm text-fg hover:border-accent hover:text-accent"
             >
-              {label}
+              {translate(label, language)}
             </Link>
           ))}
         </div>
