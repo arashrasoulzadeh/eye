@@ -169,7 +169,7 @@ func (u *GlobalModelUpdates) download(ctx context.Context, svc *UserIntelligence
 }
 
 func RunGlobalModelJob(ctx context.Context, svc *UserIntelligenceService, updates *GlobalModelUpdates, logger *slog.Logger) {
-	ticker := time.NewTicker(15 * time.Minute)
+	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for {
 		if _, err := updates.download(ctx, svc); err != nil {

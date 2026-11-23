@@ -87,8 +87,8 @@ func main() {
 	defer cancelIntelligence()
 	modelUpdates := service.NewGlobalModelUpdates()
 	go service.RunGlobalModelJob(intelligenceCtx, intelligenceSvc, modelUpdates, logger)
-	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, &modelRegistry, 15*time.Minute, logger)
-	go service.RunIntelligenceEvaluationJob(intelligenceCtx, intelligenceSvc, 15*time.Minute, logger)
+	go service.RunUserIntelligenceJob(intelligenceCtx, intelligenceSvc, &modelRegistry, time.Hour, logger)
+	go service.RunIntelligenceEvaluationJob(intelligenceCtx, intelligenceSvc, time.Hour, logger)
 	defer geoIP.Close()
 	if updated, backfillErr := geoIP.Backfill(db); backfillErr != nil {
 		logger.Error("geoip backfill failed", "err", backfillErr)
