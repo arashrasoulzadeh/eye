@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/metrics"
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type UserIntelligenceService struct{ DB *gorm.DB }
@@ -900,8 +902,8 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 	}).Error; err != nil {
 		return 0, err
 	}
-	count := 0
-	for key, g := range groups {
+	rows := make([]model.UserIntelligence, 0, len(groups))
+	for _, g := range groups {
 		tags := []string{"new_user"}
 		scores := map[string]float64{}
 		features := map[string]float64{"sessions": float64(g.sessionCount), "events": float64(g.eventCount)}
@@ -966,11 +968,16 @@ func (s *UserIntelligenceService) Refresh(tenantID string, now time.Time) (int, 
 		encodedScores, _ := json.Marshal(scores)
 		encodedFeatures, _ := json.Marshal(features)
 		row.Tags, row.Scores, row.Features = string(encodedTags), string(encodedScores), string(encodedFeatures)
-		if err := s.DB.Where("id = ?", row.ID).Assign(row).FirstOrCreate(&row).Error; err != nil {
+		rows = append(rows, row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	count := 0
+	conflict := clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, UpdateAll: true}
+	for batch := range slices.Chunk(rows, intelligenceRefreshBatchSize) {
+		if err := s.DB.Clauses(conflict).Create(&batch).Error; err != nil {
 			return count, err
 		}
-		count++
-		_ = key
+		count += len(batch)
 	}
 	if err := s.ApplyBehaviorLayers(tenantID); err != nil {
 		return count, err
@@ -998,10 +1005,11 @@ func (s *UserIntelligenceService) ApplyBehaviorLayers(tenantID string) error {
 	globalMetrics := behaviorMetrics(global.Metrics)
 	localMetrics := behaviorMetrics(local.Metrics)
 	var rows []model.UserIntelligence
-	if err := s.DB.Where("tenant_id = ?", tenantID).Find(&rows).Error; err != nil {
+	if err := s.DB.Where("tenant_id = ?", tenantID).Order("id").Find(&rows).Error; err != nil {
 		return err
 	}
-	for _, row := range rows {
+	for i := range rows {
+		row := &rows[i]
 		var tags []string
 		var scores map[string]float64
 		_ = json.Unmarshal([]byte(row.Tags), &tags)
@@ -1038,7 +1046,13 @@ func (s *UserIntelligenceService) ApplyBehaviorLayers(tenantID string) error {
 		encodedTags, _ := json.Marshal(tags)
 		encodedScores, _ := json.Marshal(scores)
 		row.Tags, row.Scores = string(encodedTags), string(encodedScores)
-		if err := s.DB.Save(&row).Error; err != nil {
+	}
+	conflict := clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"tags", "scores", "anomaly_score", "confidence"}),
+	}
+	for batch := range slices.Chunk(rows, intelligenceRefreshBatchSize) {
+		if err := s.DB.Clauses(conflict).Create(&batch).Error; err != nil {
 			return err
 		}
 	}

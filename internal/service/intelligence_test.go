@@ -437,3 +437,59 @@ func TestModelLayersIncludeGlobalAndTenantOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestIntelligenceRefreshBatchesProfileAndBehaviorWrites(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Session{}, &model.Event{}, &model.UserIntelligence{}, &model.IntelligenceModel{}); err != nil {
+		t.Fatal(err)
+	}
+	sessions := []model.Session{
+		{ID: "one", TenantID: "tenant", UserID: "user-one"},
+		{ID: "two", TenantID: "tenant", UserID: "user-two"},
+		{ID: "three", TenantID: "tenant", UserID: "user-three"},
+	}
+	if err := db.Create(&sessions).Error; err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserIntelligenceService{DB: db}
+	now := time.Now()
+	if _, err := svc.Refresh("tenant", now); err != nil {
+		t.Fatal(err)
+	}
+	global := model.IntelligenceModel{ID: "global", Label: "behavior", Status: "promoted", Version: 1}
+	if err := db.Create(&global).Error; err != nil {
+		t.Fatal(err)
+	}
+	writes := 0
+	countProfileWrite := func(tx *gorm.DB) {
+		if tx.Statement.Table == "user_intelligences" {
+			writes++
+		}
+	}
+	if err := db.Callback().Create().Before("gorm:create").Register("test:count_profile_inserts", countProfileWrite); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Callback().Update().Before("gorm:update").Register("test:count_profile_updates", countProfileWrite); err != nil {
+		t.Fatal(err)
+	}
+	refreshedAt := now.Add(time.Hour)
+	count, err := svc.Refresh("tenant", refreshedAt)
+	if err != nil || count != len(sessions) {
+		t.Fatalf("refreshed %d profiles: %v", count, err)
+	}
+	if writes != 2 {
+		t.Fatalf("got %d profile writes; want one refresh and one behavior write", writes)
+	}
+	var rows []model.UserIntelligence
+	if err := db.Find(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		if !row.ComputedAt.Equal(refreshedAt) || !strings.Contains(row.Scores, "global_behavior") || row.Confidence != 0.1 {
+			t.Fatalf("unexpected refreshed profile: %+v", row)
+		}
+	}
+}
