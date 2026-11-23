@@ -217,10 +217,7 @@ func main() {
 	// and check flags per tenant.
 	flagSvc := &service.FeatureFlagService{DB: db}
 	mux.Handle("/feature-flags", adminAuth(&handler.FeatureFlagsHandler{Svc: flagSvc}))
-	// Phase 8: adaptive sampling under load. The controller's rate is driven
-	// by the Phase 7 stream's queue depth (see the ticker below) and shared
-	// across both ingest paths so a backed-up async queue also throttles the
-	// synchronous one, since they feed the same downstream storage.
+	// Both ingest handlers use the durable queue depth for adaptive sampling.
 	sampler := service.NewSamplingController()
 
 	// Phase 12: retention + the ingest rate limit become genuinely
@@ -230,7 +227,10 @@ func main() {
 	mux.Handle("/settings", adminAuth(&handler.SettingsHandler{Svc: settingsSvc}))
 	liveLimiter := &service.LiveRateLimiter{Provider: settingsSvc}
 
-	ih := &handler.IngestHandler{Svc: svc, Sampler: sampler, Limiter: liveLimiter}
+	ingestQueue := &service.IngestQueue{DB: db, SetTenantContext: svc.SetTenantContext, Sessions: liveSessions}
+	queuedIngest := *svc
+	queuedIngest.Queue = ingestQueue
+	ih := &handler.IngestHandler{Svc: &queuedIngest, Sampler: sampler, Limiter: liveLimiter}
 	lookupSessionTenant := func(sessionID string) (string, bool) {
 		var session model.Session
 		if err := db.First(&session, "id = ?", sessionID).Error; err != nil {
@@ -240,35 +240,10 @@ func main() {
 	}
 	mux.Handle("/ingest", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, ih))
 
-	// Phase 7: an async ingest path backed by an in-process stream
-	// (ChannelStream — see internal/service/stream.go for why this is an
-	// honest dev substitute for Kafka/Redpanda, not the real thing) whose
-	// consumer inserts events and maintains materialized aggregate counts.
-	var stream service.StreamProducer
-	var streamConsumer service.StreamConsumer
-	queueDepth := func() int { return 0 }
-	if cfg.BrokerURL != "" {
-		redisStream, err := service.NewRedisStream(cfg.BrokerURL, cfg.BrokerStream, cfg.BrokerGroup, cfg.BrokerConsumer)
-		if err != nil {
-			logger.Error("broker setup failed", "err", err)
-			os.Exit(1)
-		}
-		stream, streamConsumer = redisStream, redisStream
-	} else {
-		channelStream := service.NewChannelStream(256)
-		stream, streamConsumer = channelStream, channelStream
-		queueDepth = channelStream.QueueDepth
-	}
-	streamPipeline := &service.StreamIngestPipeline{Repo: repo, DB: db, QueueDB: db, Producer: stream, Sessions: liveSessions, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, PIIFields: piiFields, DetectPII: cfg.PIIDetection, SchemaMode: cfg.SchemaMode}
-	if cfg.DBDriver == "postgres" || cfg.DBDriver == "postgresql" || cfg.DBDriver == "timescale" {
-		streamPipeline.SetTenantContext = storage.SetTenantContext
-	}
+	streamPipeline := &service.StreamIngestPipeline{Repo: repo, Queue: ingestQueue, TierLimiter: tenantLimiter, QuotaLimiter: quotaLimiter, PIIFields: piiFields, DetectPII: cfg.PIIDetection, SchemaMode: cfg.SchemaMode}
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
-	streamConsumer.Start(streamCtx, streamPipeline.Consume)
-	if err := streamPipeline.ReplayPending(stream); err != nil {
-		logger.Error("pending stream replay failed", "err", err)
-	}
+	go ingestQueue.Run(streamCtx, logger)
 	mux.Handle("/ingest/stream", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter}))
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
@@ -310,7 +285,7 @@ func main() {
 			case <-queueCtx.Done():
 				return
 			case <-ticker.C:
-				depth := queueDepth()
+				depth := ingestQueue.Depth()
 				metrics.StreamQueueDepth.Set(float64(depth))
 				metrics.IngestSampleRate.Set(sampler.UpdateRate(depth))
 			case <-statsTicker.C:

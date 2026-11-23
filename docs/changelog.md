@@ -2,6 +2,9 @@
 
 The 50 most recent commits on the current branch, newest first. Each entry includes the commit timestamp, subject, short hash, and full hash. This page is regenerated automatically by the commit hook.
 
+- **2026-11-22T16:33:17+03:30** — Improve dashboard analytics and pin tenant funnels (`2415c9e`, `2415c9e734cb7eddebb78d400ac3ff07a26e64ed`)
+- **2026-11-22T12:47:50+03:30** — Add files via upload (`0ab582b`, `0ab582b4814455db035ae39b45842c4492f8a68f`)
+- **2026-11-22T12:39:56+03:30** — Delete train/data/eye_nov_20_2_50.csv.csv (`4b7a222`, `4b7a22253098c32e22ddf0019b519820ea374e28`)
 - **2026-11-21T22:51:18+03:30** — fix(train): treat unchanged candidates as no-op (`1e165e0`, `1e165e0a3a70ee91954a0ac6851ed915ba66f9e7`)
 - **2026-11-21T22:44:03+03:30** — fix(train): skip unrelated CSV exports (`ba48ae3`, `ba48ae3d0bebbe278055fc54264dcc57b72d0566`)
 - **2026-11-20T02:54:18+03:30** — new data for traniing at nov 20 (`c2c4595`, `c2c459561aefa5de2e1509621a9ea16e4ead1d53`)
@@ -49,6 +52,3 @@ The 50 most recent commits on the current branch, newest first. Each entry inclu
 - **2026-11-13T17:28:12+03:30** — feat(intelligence): report pipeline stage progress (`1e2aec3`, `1e2aec321ca418c9e7595cd46d67e2c79bc68c52`)
 - **2026-11-13T17:26:12+03:30** — fix(deploy): stage and rollback model artifacts (`7c5c580`, `7c5c58036d845585baf0986d33abd44dbe4f97bf`)
 - **2026-11-13T17:24:18+03:30** — fix(intelligence): harden model artifact writes (`d07926b`, `d07926bdb13f7117fdee91989ff31554073ac934`)
-- **2026-11-13T17:22:05+03:30** — feat(intelligence): add safe pipeline retries (`9f85cd0`, `9f85cd023a627ba3e2484b28e27d0f9b262179c0`)
-- **2026-11-13T17:19:27+03:30** — feat(intelligence): observe pipeline runs (`54f5f1a`, `54f5f1af03e50b5b659e95452a7251da350d6eff`)
-- **2026-11-13T17:15:51+03:30** — feat(intelligence): complete one-click pipeline (`b4b2531`, `b4b2531cde344f37d3a006647f73172403652e1d`)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // BucketPoint is a pre-aggregated event count for one time bucket.
@@ -121,31 +122,52 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 }
 
 // UpsertEventBuckets updates all durable resolutions for one accepted event.
-func UpsertEventBuckets(db *gorm.DB, event *model.Event) error {
-	if event.IsAggregated {
-		return nil
+func UpsertEventBuckets(db *gorm.DB, events ...*model.Event) error {
+	type bucketKey struct {
+		tenant, event, name string
+		start               int64
 	}
-	for _, spec := range []struct {
-		name  string
-		width int64
-	}{{"minute", 60_000}, {"10minute", 600_000}, {"hour", 3_600_000}} {
-		start := (event.ClientTS / spec.width) * spec.width
-		var row model.EventBucket
-		err := db.Where("tenant_id = ? AND event_name = ? AND bucket = ? AND bucket_start = ?", event.TenantID, event.EventName, spec.name, start).First(&row).Error
-		if err == gorm.ErrRecordNotFound {
-			if err := db.Create(&model.EventBucket{TenantID: event.TenantID, EventName: event.EventName, Bucket: spec.name, BucketStart: start, Count: 1, UpdatedAt: time.Now()}).Error; err != nil {
-				return err
-			}
+	counts := make(map[bucketKey]int64)
+	for _, event := range events {
+		if event.IsAggregated {
 			continue
 		}
-		if err != nil {
-			return err
-		}
-		if err := db.Model(&row).Updates(map[string]any{"count": row.Count + 1, "updated_at": time.Now()}).Error; err != nil {
-			return err
+		for _, spec := range []struct {
+			name  string
+			width int64
+		}{{"minute", 60_000}, {"10minute", 600_000}, {"hour", 3_600_000}} {
+			start := (event.ClientTS / spec.width) * spec.width
+			counts[bucketKey{event.TenantID, event.EventName, spec.name, start}]++
 		}
 	}
-	return nil
+	if len(counts) == 0 {
+		return nil
+	}
+	now := time.Now()
+	rows := make([]model.EventBucket, 0, len(counts))
+	for key, count := range counts {
+		rows = append(rows, model.EventBucket{TenantID: key.tenant, EventName: key.event, Bucket: key.name, BucketStart: key.start, Count: count, UpdatedAt: now})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if a.TenantID != b.TenantID {
+			return a.TenantID < b.TenantID
+		}
+		if a.EventName != b.EventName {
+			return a.EventName < b.EventName
+		}
+		if a.Bucket != b.Bucket {
+			return a.Bucket < b.Bucket
+		}
+		return a.BucketStart < b.BucketStart
+	})
+	return db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "event_name"}, {Name: "bucket"}, {Name: "bucket_start"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"count":      gorm.Expr("event_buckets.count + excluded.count"),
+			"updated_at": gorm.Expr("excluded.updated_at"),
+		}),
+	}).Create(&rows).Error
 }
 
 // Backfill creates missing durable buckets for events ingested before the

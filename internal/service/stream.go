@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
@@ -83,26 +84,14 @@ func (c *ChannelStream) QueueDepth() int { return len(c.ch) }
 // of Phase 7. dimsKey is the event's raw Dims JSON string, used verbatim as
 // the grouping key.
 func UpsertAggregateCount(db *gorm.DB, tenantID, eventName, dimsKey string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		var ac model.AggregateCount
-		err := tx.Where("tenant_id = ? AND event_name = ? AND dims_key = ?", tenantID, eventName, dimsKey).First(&ac).Error
-		if err == gorm.ErrRecordNotFound {
-			ac = model.AggregateCount{TenantID: tenantID, EventName: eventName, DimsKey: dimsKey, Count: 1, UpdatedAt: time.Now().Unix()}
-			return tx.Create(&ac).Error
-		}
-		if err != nil {
-			return err
-		}
-		// Not tx.Save(&ac): AggregateCount's composite primary key can
-		// legitimately have an empty-string DimsKey (the "no dims" case), and
-		// GORM's Save() treats any zero-value primary key field as "this is a
-		// new record," silently turning the intended UPDATE into a duplicate
-		// INSERT that fails the table's unique constraint. An explicit
-		// Updates() against the matched WHERE clause has no such ambiguity.
-		return tx.Model(&model.AggregateCount{}).
-			Where("tenant_id = ? AND event_name = ? AND dims_key = ?", tenantID, eventName, dimsKey).
-			Updates(map[string]any{"count": ac.Count + 1, "updated_at": time.Now().Unix()}).Error
-	})
+	row := model.AggregateCount{TenantID: tenantID, EventName: eventName, DimsKey: dimsKey, Count: 1, UpdatedAt: time.Now().Unix()}
+	return db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "event_name"}, {Name: "dims_key"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"count":      gorm.Expr("aggregate_counts.count + excluded.count"),
+			"updated_at": gorm.Expr("excluded.updated_at"),
+		}),
+	}).Create(&row).Error
 }
 
 // GetAggregateCount reads back a materialized count. Returns 0, nil if no

@@ -38,7 +38,8 @@ type TenantLimiter interface {
 }
 
 type IngestService struct {
-	Repo *repository.Repo
+	Queue *IngestQueue
+	Repo  *repository.Repo
 	// SetTenantContext is provided by the PostgreSQL runtime. It sets the
 	// transaction-local RLS tenant; nil keeps SQLite/dev behavior unchanged.
 	SetTenantContext func(*gorm.DB, string) error
@@ -64,6 +65,7 @@ type IngestService struct {
 
 func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 	accepted, rejected := 0, 0
+	var queued []*model.Event
 	for _, e := range events {
 		sid, _ := e["session_id"].(string)
 		eid, _ := e["event_id"].(string)
@@ -153,6 +155,10 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 				continue
 			}
 		}
+		if s.Queue != nil {
+			queued = append(queued, ev)
+			continue
+		}
 		if err := s.insertAndUpdateSession(ev, sess); err != nil {
 			rejected++
 			continue
@@ -165,6 +171,19 @@ func (s *IngestService) Ingest(events []map[string]any) (int, int) {
 			s.Sessions.Update(sess)
 			s.Sessions.AddEvent(sid, ev)
 		}
+	}
+	if len(queued) > 0 {
+		stored, err := s.Queue.Enqueue(queued, false)
+		if err != nil {
+			return accepted, rejected + len(queued)
+		}
+		for _, ev := range stored {
+			if s.Counters != nil {
+				s.Counters.Increment(ev.TenantID)
+			}
+		}
+		accepted += len(stored)
+		rejected += len(queued) - len(stored)
 	}
 	return accepted, rejected
 }

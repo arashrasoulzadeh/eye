@@ -18,6 +18,7 @@ import (
 // materialized aggregate update — decoupling the ingest request path from
 // storage, which is Phase 7's goal.
 type StreamIngestPipeline struct {
+	Queue   *IngestQueue
 	Repo    *repository.Repo
 	DB      *gorm.DB
 	QueueDB *gorm.DB
@@ -43,6 +44,7 @@ type StreamIngestPipeline struct {
 // inline.
 func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 	accepted, rejected := 0, 0
+	var queued []*model.Event
 	for _, e := range events {
 		sid, _ := e["session_id"].(string)
 		eid, _ := e["event_id"].(string)
@@ -120,6 +122,10 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 			rejected++
 			continue
 		}
+		if p.Queue != nil {
+			queued = append(queued, ev)
+			continue
+		}
 		if p.QueueDB != nil {
 			encoded, _ := json.Marshal(ev)
 			if err := p.QueueDB.Where("event_id = ?", ev.EventID).FirstOrCreate(&model.PendingStreamEvent{EventID: ev.EventID, Payload: string(encoded), CreatedAt: time.Now()}).Error; err != nil {
@@ -132,6 +138,14 @@ func (p *StreamIngestPipeline) Ingest(events []map[string]any) (int, int) {
 			continue
 		}
 		accepted++
+	}
+	if len(queued) > 0 {
+		stored, err := p.Queue.Enqueue(queued, true)
+		if err != nil {
+			return accepted, rejected + len(queued)
+		}
+		accepted += len(stored)
+		rejected += len(queued) - len(stored)
 	}
 	return accepted, rejected
 }

@@ -206,9 +206,12 @@ type EventBucket struct {
 }
 
 type PendingStreamEvent struct {
-	EventID   string `gorm:"primaryKey"`
-	Payload   string
-	CreatedAt time.Time
+	EventID       string `gorm:"primaryKey"`
+	Payload       string
+	CreatedAt     time.Time `gorm:"index"`
+	ContentHash   *string   `gorm:"uniqueIndex"`
+	SkipAggregate bool
+	DecodeError   *string
 }
 
 type Aggregation struct {
