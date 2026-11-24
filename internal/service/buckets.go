@@ -36,6 +36,8 @@ type BucketService struct {
 	once sync.Once
 	gate chan struct{}
 	queue chan struct{}
+	tenantMu sync.Mutex
+	tenants map[string]int
 }
 
 func bucketWidth(name string) (int64, bool) {
@@ -58,12 +60,17 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 func (s *BucketService) EventsContext(ctx context.Context, tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
 	keyBytes, _ := json.Marshal(struct { Tenant, Event, Bucket string; From, To int64 }{tenantID, eventName, bucket, fromTS, toTS})
 	key := string(keyBytes)
-	s.once.Do(func(){ s.gate = make(chan struct{}, 4); s.queue = make(chan struct{}, 64) })
+	s.once.Do(func(){ s.gate = make(chan struct{}, 4); s.queue = make(chan struct{}, 64); s.tenants = make(map[string]int) })
 	if err := ctx.Err(); err != nil { return nil, err }
 	ch := s.flights.DoChan(key, func() (any, error) {
 		select { case s.queue <- struct{}{}: defer func(){ <-s.queue }(); default: return nil, gorm.ErrInvalidData }
 		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
+		s.tenantMu.Lock()
+		if s.tenants[tenantID] >= 2 { s.tenantMu.Unlock(); return nil, gorm.ErrInvalidData }
+		s.tenants[tenantID]++
+		s.tenantMu.Unlock()
+		defer func() { s.tenantMu.Lock(); s.tenants[tenantID]--; if s.tenants[tenantID] == 0 { delete(s.tenants, tenantID) }; s.tenantMu.Unlock() }()
 		select { case s.gate <- struct{}{}: defer func(){ <-s.gate }(); case <-work.Done(): return nil, work.Err() }
 		select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-work.Done(): return nil, work.Err() }
 		return s.events(work, key, tenantID, eventName, bucket, fromTS, toTS)
