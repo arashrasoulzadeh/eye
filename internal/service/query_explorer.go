@@ -23,7 +23,7 @@ var explorerToken = regexp.MustCompile(`(?i)^(?:[a-z_][a-z_0-9]*(?:\.[a-z_][a-z_
 var explorerIdentifier = regexp.MustCompile(`^[a-z_][a-z_0-9]*$`)
 var explorerNumber = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)?$`)
 var explorerFields = map[string]string{"event_id":"event_id","tenant_id":"tenant_id","session_id":"session_id","user_id":"user_id","type":"event_name","event_name":"event_name","timestamp":"client_ts","client_ts":"client_ts","ingest_ts":"ingest_ts","payload":"payload","dims":"dims","source":"source","is_aggregated":"is_aggregated","aggregation_id":"aggregation_id","experiment_id":"experiment_id","variant":"variant"}
-var explorerKeywords = map[string]bool{"where":true,"and":true,"or":true,"not":true,"is":true,"null":true,"in":true,"between":true,"like":true,"group":true,"by":true,"having":true,"order":true,"asc":true,"desc":true,"limit":true,"offset":true,"distinct":true,"as":true,"true":true,"false":true}
+var explorerKeywords = map[string]bool{"where":true,"join":true,"inner":true,"left":true,"on":true,"exists":true,"and":true,"or":true,"not":true,"is":true,"null":true,"in":true,"between":true,"like":true,"group":true,"by":true,"having":true,"order":true,"asc":true,"desc":true,"limit":true,"offset":true,"distinct":true,"as":true,"true":true,"false":true}
 var explorerFunctions = map[string]bool{"count":true,"sum":true,"avg":true,"min":true,"max":true,"round":true,"lower":true,"upper":true,"coalesce":true,"length":true,"abs":true}
 
 func compileExplorer(input, dialect string) (string, []any, error) {
@@ -41,17 +41,21 @@ func compileExplorer(input, dialect string) (string, []any, error) {
  parts:=[]string{"SELECT"}
  args:=[]any{}
  from:=false
+ relations:=map[string]bool{"events":true,"event":true}
+ // Collect only explicit aliases of the scoped events relation.
+ for i:=1;i+1<len(tokens);i++ {if strings.EqualFold(tokens[i],"from")||strings.EqualFold(tokens[i],"join") {if !strings.EqualFold(tokens[i+1],"events"){return bad()};if i+3<len(tokens)&&strings.EqualFold(tokens[i+2],"as"){a:=strings.ToLower(tokens[i+3]);if !explorerIdentifier.MatchString(a){return bad()};relations[a]=true}}}
  depth:=0
  aliases:=map[string]bool{}
  for i:=1;i<len(tokens);i++ {
   raw:=tokens[i]; t:=strings.ToLower(raw)
   if t=="(" {depth++}; if t==")" {depth--;if depth<0{return bad()}}
-  if t=="from" {
-   if depth!=0 || from || i+1>=len(tokens) || !strings.EqualFold(tokens[i+1],"events") { return bad() }
-   if i+2<len(tokens) { next:=strings.ToLower(tokens[i+2]); if next!="where" && next!="group" && next!="order" && next!="limit" && next!="offset" && next!="having" {return bad()} }
-   from=true; i++; parts=append(parts,"FROM scoped_events AS events"); continue
+  if t=="from" || t=="join" {
+   if i+1>=len(tokens) || !strings.EqualFold(tokens[i+1],"events") { return bad() }
+   if i+2<len(tokens) { next:=strings.ToLower(tokens[i+2]); if next!="where" && next!="group" && next!="order" && next!="limit" && next!="offset" && next!="having" && next!="as" && next!="join" && next!="inner" && next!="left" && next!="on" && next!=")" {return bad()} }
+   from=true; i++; relation:="events"; if i+2<len(tokens)&&strings.EqualFold(tokens[i+1],"as"){relation=strings.ToLower(tokens[i+2]);i+=2}; parts=append(parts,strings.ToUpper(t)+" scoped_events AS \""+relation+"\""); continue
   }
-  if t=="select" || t=="union" || t=="join" || t=="intersect" || t=="except" || t=="with" || t=="into" || t=="over" || t=="returning" { return bad() }
+  if t=="select" {if i==0||tokens[i-1]!="(" {return bad()};parts=append(parts,"SELECT");continue}
+  if t=="union" || t=="intersect" || t=="except" || t=="with" || t=="into" || t=="over" || t=="returning" { return bad() }
   if strings.HasPrefix(raw,"'") {
    args=append(args,strings.ReplaceAll(raw[1:len(raw)-1],"''","'")); parts=append(parts,"?"); continue
   }
@@ -66,15 +70,16 @@ func compileExplorer(input, dialect string) (string, []any, error) {
    parts=append(parts,strings.ToUpper(t)); continue
   }
   if aliases[t] { parts=append(parts,"\""+t+"\""); continue }
-  field:=strings.TrimPrefix(strings.TrimPrefix(t,"events."),"event.")
-  if col,ok:=explorerFields[field];ok { parts=append(parts,"events."+col); continue }
+  field:=t; qualifier:="events"; if p:=strings.SplitN(t,".",2);len(p)==2&&relations[p[0]] {qualifier=p[0];if qualifier=="event"{qualifier="events"};field=p[1]}
+  qualified:="\""+qualifier+"\"."
+  if col,ok:=explorerFields[field];ok { parts=append(parts,qualified+col); continue }
   source:=""; key:=field
   if strings.HasPrefix(field,"payload.") { source="payload"; key=strings.TrimPrefix(field,"payload.") }
   if strings.HasPrefix(field,"dims.") { source="dims"; key=strings.TrimPrefix(field,"dims.") }
   if !explorerIdentifier.MatchString(key) { return bad() }
   // All identifiers are validated; only fixed SQL fragments are emitted.
   extract:=func(col string) string {
-   if dialect=="postgres" { return "(NULLIF(events."+col+", '')::jsonb -> '"+key+"')" }
+   if dialect=="postgres" { return "(NULLIF("+qualified+col+", '')::jsonb -> '"+key+"')" }
    return "json_extract(CASE WHEN json_valid(events."+col+") THEN events."+col+" ELSE '{}' END, '$."+key+"')"
   }
   expr:=extract("payload")
