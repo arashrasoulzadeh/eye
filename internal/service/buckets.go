@@ -59,8 +59,9 @@ func (s *BucketService) EventsContext(ctx context.Context, tenantID, eventName, 
 	keyBytes, _ := json.Marshal(struct { Tenant, Event, Bucket string; From, To int64 }{tenantID, eventName, bucket, fromTS, toTS})
 	key := string(keyBytes)
 	s.once.Do(func(){ s.gate = make(chan struct{}, 4); s.queue = make(chan struct{}, 64) })
-	select { case s.queue <- struct{}{}: defer func(){ <-s.queue }(); default: return nil, gorm.ErrInvalidData }
+	if err := ctx.Err(); err != nil { return nil, err }
 	ch := s.flights.DoChan(key, func() (any, error) {
+		select { case s.queue <- struct{}{}: defer func(){ <-s.queue }(); default: return nil, gorm.ErrInvalidData }
 		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
 		select { case s.gate <- struct{}{}: defer func(){ <-s.gate }(); case <-work.Done(): return nil, work.Err() }
