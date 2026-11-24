@@ -38,11 +38,14 @@ func compileExplorer(input, dialect string) (string, []any, error) {
  parts:=[]string{"SELECT"}
  args:=[]any{}
  from:=false
+ depth:=0
  aliases:=map[string]bool{}
  for i:=1;i<len(tokens);i++ {
   raw:=tokens[i]; t:=strings.ToLower(raw)
+  if t=="(" {depth++}; if t==")" {depth--;if depth<0{return bad()}}
   if t=="from" {
-   if from || i+1>=len(tokens) || !strings.EqualFold(tokens[i+1],"events") { return bad() }
+   if depth!=0 || from || i+1>=len(tokens) || !strings.EqualFold(tokens[i+1],"events") { return bad() }
+   if i+2<len(tokens) { next:=strings.ToLower(tokens[i+2]); if next!="where" && next!="group" && next!="order" && next!="limit" && next!="offset" && next!="having" {return bad()} }
    from=true; i++; parts=append(parts,"FROM scoped_events AS events"); continue
   }
   if t=="select" || t=="union" || t=="join" || t=="intersect" || t=="except" || t=="with" || t=="into" || t=="over" || t=="returning" { return bad() }
@@ -80,7 +83,7 @@ func compileExplorer(input, dialect string) (string, []any, error) {
   }
   parts=append(parts,expr)
  }
- if !from { return bad() }
+ if !from || depth!=0 { return bad() }
  return strings.Join(parts," "),args,nil
 }
 
