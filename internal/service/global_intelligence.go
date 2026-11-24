@@ -248,6 +248,18 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 	batchSize:=500
 	if db.Dialector.Name()=="sqlite" {batchSize=100}
 	results := make([]model.IntelligenceInference, 0, batchSize)
+	type eventCandidate struct { EntityID string; Category string; EntryPoint bool }
+	eventBatch := make([]eventCandidate,0,batchSize)
+	postgres := db.Dialector.Name()=="postgres"
+	if postgres {
+		if err := db.Exec("CREATE TEMP TABLE eye_event_candidates (entity_id text NOT NULL, category text NOT NULL, entry_point boolean NOT NULL) ON COMMIT DROP").Error; err != nil { return err }
+	}
+	flushEvents := func() error {
+		if len(eventBatch)==0 { return nil }
+		if err := db.Table("pg_temp.eye_event_candidates").Create(&eventBatch).Error; err != nil { return err }
+		eventBatch=eventBatch[:0]
+		return nil
+	}
 	flush := func() error {
 		if len(results) == 0 {
 			return nil
@@ -301,6 +313,12 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 		seen := map[string]bool{}
 		for i, category := range journey.Sequence {
 			seen[category] = true
+			if postgres {
+				eventBatch=append(eventBatch,eventCandidate{journey.Events[i].EventID,category,i==0 && category!="entry_point"})
+				if len(eventBatch)==batchSize { if err:=flushEvents();err!=nil{return err} }
+				run.Events++
+				continue
+			}
 			eventTags := []string{}
 			if category != "other" {
 				eventTags = append(eventTags, category)
@@ -413,7 +431,30 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 		}
 		run.Users++
 	}
-	return flush()
+	if err:=flush();err!=nil{return err}
+	if !postgres {return nil}
+	if err:=flushEvents();err!=nil{return err}
+	if err:=db.Exec("INSERT INTO pg_temp.eye_scored_entities (kind,entity_id) SELECT 'event',entity_id FROM pg_temp.eye_event_candidates ON CONFLICT DO NOTHING").Error;err!=nil{return err}
+	// Match the Go JSON representation, including compact arrays and null predictions.
+	// Only missing or changed snapshots reach the INSERT/UPDATE operation.
+	return db.Exec(`
+WITH candidates AS (
+ SELECT DISTINCT ON (entity_id) entity_id, category, entry_point
+ FROM pg_temp.eye_event_candidates ORDER BY entity_id, category, entry_point
+), desired AS (
+ SELECT entity_id,
+ CASE WHEN category='other' THEN CASE WHEN entry_point THEN '["entry_point"]' ELSE '[]' END
+ ELSE '[' || to_json(category)::text || CASE WHEN entry_point THEN ',"entry_point"]' ELSE ']' END END AS tags,
+ '{"category":' || to_json(category)::text || '}' AS evidence
+ FROM candidates
+)
+INSERT INTO intelligence_inferences (tenant_id,kind,entity_id,version,tags,predictions,evidence,scored_at)
+SELECT ?, 'event', d.entity_id, ?, d.tags, 'null', d.evidence, ?
+FROM desired d LEFT JOIN intelligence_inferences i ON i.tenant_id=? AND i.kind='event' AND i.entity_id=d.entity_id
+WHERE i.entity_id IS NULL OR (i.version,i.tags,i.predictions,i.evidence) IS DISTINCT FROM (?,d.tags,'null',d.evidence)
+ON CONFLICT (tenant_id,kind,entity_id) DO UPDATE SET version=excluded.version,tags=excluded.tags,predictions=excluded.predictions,evidence=excluded.evidence,scored_at=excluded.scored_at
+WHERE (intelligence_inferences.version,intelligence_inferences.tags,intelligence_inferences.predictions,intelligence_inferences.evidence) IS DISTINCT FROM (excluded.version,excluded.tags,excluded.predictions,excluded.evidence)
+`,run.TenantID,bundle.Version,now,run.TenantID,bundle.Version).Error
 }
 
  // scoringInputSignature streams canonical scoring inputs rather than loading all events into memory.
