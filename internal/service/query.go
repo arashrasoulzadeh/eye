@@ -155,7 +155,31 @@ func (q *QueryService) filterDB(ctx context.Context, f EventFilter, limit, offse
 }
 
 func (q *QueryService) Count(f EventFilter) (int64, error) {
-	db := q.DB.Model(&model.Event{})
+	return q.CountContext(context.Background(), f)
+}
+
+func (q *QueryService) CountContext(ctx context.Context, f EventFilter) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return 0, fmt.Errorf("query queue full") }
+	select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-ctx.Done(): return 0, ctx.Err() }
+	db := q.DB.WithContext(ctx)
+	if q.SetTenantContext != nil && f.TenantID != "" {
+		var total int64
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := q.SetTenantContext(tx, f.TenantID); err != nil { return err }
+			var err error
+			total, err = countEvents(tx, f)
+			return err
+		})
+		return total, err
+	}
+	return countEvents(db, f)
+}
+
+func countEvents(db *gorm.DB, f EventFilter) (int64, error) {
+	db = db.Model(&model.Event{})
 	if f.TenantID != "" {
 		db = db.Where("tenant_id = ?", f.TenantID)
 	}
@@ -175,5 +199,6 @@ func (q *QueryService) Count(f EventFilter) (int64, error) {
 		db = db.Where("client_ts <= ?", *f.ToTS)
 	}
 	var total int64
-	return total, db.Count(&total).Error
+	err := db.Count(&total).Error
+	return total, err
 }
