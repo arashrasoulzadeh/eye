@@ -4,7 +4,7 @@ import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
 type Group = {dimension_bytes:number;name:string; records:number; payload_bytes:number; savings:number};
-type Inventory = {stale_inferences?:number;old_inference_runs?:number;derived_records?:{name:string;records:number}[];duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
+type Inventory = {bucket_resolutions?:{resolution:string;records:number;events:number}[];dimension_repetition?:{records:number;distinct_values:number;logical_bytes:number;dictionary_bytes:number};stale_inferences?:number;old_inference_runs?:number;derived_records?:{name:string;records:number}[];duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
 type Storage = { inventory?: Inventory; database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
 type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
@@ -143,6 +143,11 @@ function StorageInventory({data,onSelect,tenant}:{tenant:string;data:Inventory;o
  <p>{data.stale_inferences??0} current inference snapshots older than 30 days (preserved).</p>
  {!!data.old_inference_runs && <InferenceRetention key={tenant} tenant={tenant} count={data.old_inference_runs}/>}
  <p>Current predictions and model training data are preserved.</p>
+ <h3 className="font-semibold">Bucket resolution inventory</h3>
+ {(data.bucket_resolutions??[]).map(b=><p key={b.resolution}>{b.resolution}: {b.records.toLocaleString()} rows, {b.events.toLocaleString()} represented events</p>)}
+ <p>Resolutions overlap; do not sum represented events across resolutions.</p>
+ <h3 className="font-semibold">Dimension repetition</h3>
+ {data.dimension_repetition && <div><p>{data.dimension_repetition.distinct_values.toLocaleString()} distinct serialized dimension values across {data.dimension_repetition.records.toLocaleString()} records.</p><p>Logical dimension bytes: {bytes(data.dimension_repetition.logical_bytes)}. Distinct values alone: {bytes(data.dimension_repetition.dictionary_bytes)}.</p><p>Dictionary estimate excludes references, indexes and database overhead; native compression may already eliminate repetition.</p></div>}
  <h3 className="font-semibold">Recommended actions</h3>
  {largest && largest.savings>0 && <p>Review {largest.name} first: up to {bytes(largest.savings)} logical payload pruning potential. This is destructive, not lossless compression.</p>}
  {!!data.chunks?.older_uncompressed && <p>Review native Timescale compression for historical chunks before deleting raw events.</p>}
