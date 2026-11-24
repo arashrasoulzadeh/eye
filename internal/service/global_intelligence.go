@@ -206,11 +206,7 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if !acquired{return errors.New("tenant scoring already running on another instance")}
             }
 			if tx.Dialector.Name()=="postgres" {
-                // Bound redundant full scans; always reconcile after the interval.
-                // This is throttling, not an event-level incremental checkpoint.
-                var recent int64
-                if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND version = ? AND error = ? AND created_at > ? AND created_at <= ?",tenant,bundle.Version,"",now.Add(-time.Minute),now).Count(&recent).Error;err!=nil{return err}
-                if recent>0 {skipped=true;return nil}
+                // Check actual model and input changes before deciding to skip.
                 // Exact input fingerprint includes event ordering, identity and inactivity state.
                 if err:=tx.Exec("CREATE TABLE IF NOT EXISTS eye_scoring_checkpoints (tenant_id text PRIMARY KEY, signature text NOT NULL, reconciled_at timestamptz NOT NULL)").Error;err!=nil{return err}
                 signature,err:=scoringInputSignature(tx,tenant,bundle,now)
