@@ -4,7 +4,7 @@ import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
 type Group = {dimension_bytes:number;name:string; records:number; payload_bytes:number; savings:number};
-type Inventory = {derived_records?:{name:string;records:number}[];duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
+type Inventory = {stale_inferences?:number;old_inference_runs?:number;derived_records?:{name:string;records:number}[];duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
 type Storage = { inventory?: Inventory; database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
 type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
@@ -84,7 +84,7 @@ export default function CompressionPage() {
     {error && <p role="alert">{error}</p>}
     {result && result.tenant === tenantId && <div className="space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Assessment results</h2>
-      {result.storage.inventory && <StorageInventory data={result.storage.inventory} onSelect={name=>{setEvent(name);setResult(null);}}/>}
+      {result.storage.inventory && <StorageInventory tenant={result.tenant} data={result.storage.inventory} onSelect={name=>{setEvent(name);setResult(null);}}/>}
       <p>Fixed cutoff: {new Date(result.cutoff).toISOString()}</p>
       <div className="grid gap-3 md:grid-cols-2">
       <p>Database allocation: {bytes(result.storage.database_bytes)} ({result.storage.size_scope})</p>
@@ -117,7 +117,7 @@ export default function CompressionPage() {
   </div>;
 }
 
-function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)=>void}) {
+function StorageInventory({data,onSelect,tenant}:{tenant:string;data:Inventory;onSelect:(name:string)=>void}) {
  const groups=(rows:Group[]|undefined,select:boolean)=><table className="w-full text-sm"><thead><tr><th>Name</th><th>Records</th><th>Payload</th><th>Dimensions</th><th>Pruning potential</th></tr></thead><tbody>{(rows??[]).map(row=><tr key={row.name}><td>{select?<button className="underline" onClick={()=>onSelect(row.name)}>{row.name}</button>:row.name}</td><td>{row.records.toLocaleString()}</td><td>{bytes(row.payload_bytes)}</td><td>{bytes(row.dimension_bytes??0)}</td><td>{bytes(row.savings)}</td></tr>)}</tbody></table>;
  const largest=data.events?.[0];
  return <section className="space-y-4">
@@ -139,7 +139,9 @@ function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)
  {data.chunks && <p>{data.chunks.compressed} of {data.chunks.total} chunks compressed; {data.chunks.older_uncompressed} uncompressed chunks older than seven days. Physical savings require a compression trial.</p>}
  <h3 className="font-semibold">Derived intelligence and bucket records</h3>
  {(data.derived_records??[]).map(d=><p key={d.name}>{d.name}: {d.records.toLocaleString()} tenant records</p>)}
- <p>Review intelligence history retention separately from current predictions and model training data.</p>
+ <p>{data.stale_inferences??0} current inference snapshots older than 30 days (preserved).</p>
+ {!!data.old_inference_runs && <InferenceRetention key={tenant} tenant={tenant} count={data.old_inference_runs}/>}
+ <p>Current predictions and model training data are preserved.</p>
  <h3 className="font-semibold">Recommended actions</h3>
  {largest && largest.savings>0 && <p>Review {largest.name} first: up to {bytes(largest.savings)} logical payload pruning potential. This is destructive, not lossless compression.</p>}
  {!!data.chunks?.older_uncompressed && <p>Review native Timescale compression for historical chunks before deleting raw events.</p>}
@@ -165,4 +167,21 @@ function ColumnstoreAction(){
   }catch(e){setStatus(String(e));}finally{setBusy(false);}
  }
  return <div className="border rounded p-3 space-y-2"><p>Owner only: convert one historical chunk to columnstore. This affects all tenants, preserves raw events and may briefly block writes. Back up first.</p><label>Type COMPRESS GLOBAL EVENTS<input className="block border rounded p-2" value={confirm} disabled={busy} onChange={e=>setConfirm(e.target.value)}/></label><button className="border rounded p-2 disabled:opacity-50" disabled={busy||confirm!=="COMPRESS GLOBAL EVENTS"} onClick={run}>{busy?"Compressing…":"Compress oldest eligible chunk"}</button><p role="status">{status}</p></div>;
+}
+
+function InferenceRetention({tenant,count}:{tenant:string;count:number}){
+ const [confirm,setConfirm]=useState("");
+ const [busy,setBusy]=useState(false);
+ const [status,setStatus]=useState("");
+ const phrase="DELETE INFERENCE RUNS "+tenant;
+ async function run(){
+  if(busy||confirm!==phrase)return;
+  setBusy(true);
+  try{
+   const r=await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"inference_run_retention",tenant_id:tenant,to_ts:Date.now()-30*86400000,confirm})});
+   if(!r.ok)throw new Error(await r.text());
+   const d=await r.json();setStatus("Deleted "+d.updated+" historical run records. Refresh assessment.");setConfirm("");
+  }catch(e){setStatus(String(e));}finally{setBusy(false);}
+ }
+ return <div className="border rounded p-3"><p>{count} historical inference runs older than 30 days. Delete at most 500 per operation; current inference snapshots are not deleted.</p><label>Type {phrase}<input className="block border p-2" value={confirm} onChange={e=>setConfirm(e.target.value)} disabled={busy}/></label><button disabled={busy||confirm!==phrase} onClick={run}>Delete old inference runs</button><p role="status">{status}</p></div>;
 }
