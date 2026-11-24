@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+ "crypto/sha256"
+ "encoding/hex"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -208,6 +210,14 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 var recent int64
                 if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND version = ? AND error = ? AND created_at > ? AND created_at <= ?",tenant,bundle.Version,"",now.Add(-time.Minute),now).Count(&recent).Error;err!=nil{return err}
                 if recent>0 {skipped=true;return nil}
+                // Exact input fingerprint includes event ordering, identity and inactivity state.
+                if err:=tx.Exec("CREATE TABLE IF NOT EXISTS eye_scoring_checkpoints (tenant_id text PRIMARY KEY, signature text NOT NULL, reconciled_at timestamptz NOT NULL)").Error;err!=nil{return err}
+                signature,err:=scoringInputSignature(tx,tenant,bundle,now)
+                if err!=nil{return err}
+                var checkpoint struct {Signature string; ReconciledAt time.Time}
+                if err:=tx.Table("eye_scoring_checkpoints").Where("tenant_id = ?",tenant).Scan(&checkpoint).Error;err!=nil{return err}
+                if checkpoint.Signature==signature && now.Sub(checkpoint.ReconciledAt)>=0 && now.Sub(checkpoint.ReconciledAt)<time.Hour {skipped=true;return nil}
+                if err:=tx.Exec("INSERT INTO eye_scoring_checkpoints (tenant_id,signature,reconciled_at) VALUES (?,?,?) ON CONFLICT (tenant_id) DO UPDATE SET signature=excluded.signature,reconciled_at=excluded.reconciled_at",tenant,signature,now).Error;err!=nil{return err}
                 if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
             }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
@@ -402,3 +412,30 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 	}
 	return flush()
 }
+
+ // scoringInputSignature streams canonical scoring inputs rather than loading all events into memory.
+ func scoringInputSignature(db *gorm.DB,tenant string,bundle GlobalIntelligenceBundle,now time.Time)(string,error){
+ h:=sha256.New()
+ enc:=json.NewEncoder(h)
+ if err:=enc.Encode(bundle);err!=nil{return "",err}
+ rows,err:=db.Raw("SELECT id,user_id,ip,user_agent,last_seen FROM sessions WHERE tenant_id=? ORDER BY id",tenant).Rows()
+ if err!=nil{return "",err}
+ for rows.Next(){
+ var id,user,ip,ua string
+ var last time.Time
+ if err:=rows.Scan(&id,&user,&ip,&ua,&last);err!=nil{rows.Close();return "",err}
+ if err:=enc.Encode([]any{id,user,ip,ua,last.IsZero(),now.Sub(last)>=sessionObservation});err!=nil{rows.Close();return "",err}
+ }
+ err=rows.Err();rows.Close();if err!=nil{return "",err}
+ rows,err=db.Raw("SELECT event_id,session_id,user_id,event_name,client_ts FROM events WHERE tenant_id=? AND is_aggregated=false ORDER BY session_id,client_ts,event_id,user_id,event_name",tenant).Rows()
+ if err!=nil{return "",err}
+ defer rows.Close()
+ for rows.Next(){
+ var id,session,user,name string
+ var ts int64
+ if err:=rows.Scan(&id,&session,&user,&name,&ts);err!=nil{return "",err}
+ if err:=enc.Encode([]any{id,session,user,name,ts});err!=nil{return "",err}
+ }
+ if err:=rows.Err();err!=nil{return "",err}
+ return hex.EncodeToString(h.Sum(nil)),nil
+ }
