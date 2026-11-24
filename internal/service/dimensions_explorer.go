@@ -12,7 +12,13 @@ import (
  "gorm.io/gorm"
 )
 
+type DimensionFilter struct { Key string `json:"key"`; Value string `json:"value"`; Mode string `json:"mode"` }
 type DimensionInput struct {
+ Filters []DimensionFilter `json:"filters"`
+ FilterLogic string `json:"filter_logic"`
+ DrillGroup *string `json:"drill_group"`
+ DrillSplit *string `json:"drill_split"`
+ Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
  From int64 `json:"from_ts"`
  To int64 `json:"to_ts"`
@@ -34,7 +40,12 @@ type DimensionRow struct {
  Count int `json:"count"`
  Valid int `json:"valid"`
 }
+type DimensionEvent struct { Type string `json:"type"`; Timestamp int64 `json:"timestamp"`; Dims map[string]any `json:"dims"` }
 type DimensionResult struct {
+ Events []DimensionEvent `json:"events,omitempty"`
+ Correlation *float64 `json:"correlation,omitempty"`
+ CorrelationN int `json:"correlation_n"`
+ Matched int `json:"matched"`
  Types []string `json:"types"`
  Keys []string `json:"keys"`
  Rows []DimensionRow `json:"rows"`
@@ -49,11 +60,12 @@ func dimensionValues(v any, explode bool) []string {
 }
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  out:=DimensionResult{Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
- if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100{return out,fmt.Errorf("invalid dimension scope")}
+ if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100||len(in.Filters)>20{return out,fmt.Errorf("invalid dimension scope")}
  switch in.Operation {case "count","sum","avg","min","max","distinct","missing","median","p90","p95","p99","stddev":default:return out,fmt.Errorf("invalid operation")}
  ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
  type bucket struct{row DimensionRow; n int; distinct map[string]bool; samples []float64; mean,m2 float64}
  sampleCount:=0
+ var sx,sy,sxx,syy,sxy float64
  buckets:=map[[2]string]*bucket{}
  keys,types:=map[string]bool{},map[string]bool{}
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
@@ -69,9 +81,13 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  dims=flattenDimensions(dims,"",0)
  for k:=range dims{if len(keys)<2000{keys[k]=true}}
  if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
+ if len(in.Filters)>0{matches:=0;for _,f:=range in.Filters{if matchDimensionFilter(dims,f){matches++}};if (in.FilterLogic=="or"&&matches==0)||(in.FilterLogic!="or"&&matches!=len(in.Filters)){continue}}
+ out.Matched++
+ if in.Correlate!=""{x,xok:=dims[in.Metric].(float64);y,yok:=dims[in.Correlate].(float64);if xok&&yok{out.CorrelationN++;sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y}}
  if in.Group==""&&in.TimeBucket==""{continue}
  groups:=dimensionValues(dims[in.Group],in.Explode);if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
  if len(groups)*len(splits)>1000{out.Truncated=true;continue}
+ if in.DrillGroup!=nil&&len(out.Events)<100{found:=false;for _,g:=range groups{for _,s:=range splits{if g==*in.DrillGroup&&(in.DrillSplit==nil||s==*in.DrillSplit){found=true}}};if found{out.Events=append(out.Events,DimensionEvent{Type:typ,Timestamp:ts,Dims:dims})}}
  for _,g:=range groups{for _,s:=range splits{
  k:=[2]string{g,s};b:=buckets[k];if b==nil{if len(buckets)>=5000{out.Truncated=true;continue};b=&bucket{row:DimensionRow{Group:g,Split:s},distinct:map[string]bool{}};buckets[k]=b};b.row.Count++
  if in.Operation=="count"{b.row.Value++;continue};if in.Operation=="missing"{if dims[in.Metric]==nil{b.row.Value++};continue}
@@ -83,6 +99,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  }}
  };return rows.Err()
  })
+ n:=float64(out.CorrelationN);den:=math.Sqrt((n*sxx-sx*sx)*(n*syy-sy*sy));if n>1&&den>0{v:=(n*sxy-sx*sy)/den;if !math.IsNaN(v)&&!math.IsInf(v,0){out.Correlation=&v}}
  for k:=range keys{out.Keys=append(out.Keys,k)};sort.Strings(out.Keys);sort.Strings(out.Types)
  for _,b:=range buckets{if in.Operation=="stddev"&&b.n>0{b.row.Value=math.Sqrt(b.m2/float64(b.n))};if len(b.samples)>0{sort.Float64s(b.samples);p:=map[string]float64{"median":.5,"p90":.9,"p95":.95,"p99":.99}[in.Operation];pos:=p*float64(len(b.samples)-1);lo:=int(pos);hi:=int(math.Ceil(pos));b.row.Value=b.samples[lo]+(b.samples[hi]-b.samples[lo])*(pos-float64(lo))};if in.Operation=="avg"&&b.n>0{b.row.Value/=float64(b.n)};if in.Operation=="distinct"{b.row.Value=float64(len(b.distinct))};out.Rows=append(out.Rows,b.row)}
  sort.Slice(out.Rows,func(i,j int)bool{a,b:=out.Rows[i],out.Rows[j];if a.Value!=b.Value{return a.Value>b.Value};if a.Group!=b.Group{return a.Group<b.Group};return a.Split<b.Split})
@@ -100,3 +117,9 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if depth==0{for k,v:=range dims{if !strings.HasPrefix(k,"/"){out[k]=v}}}
  return out
  }
+
+func matchDimensionFilter(dims map[string]any,f DimensionFilter)bool{
+ v:=dims[f.Key];if f.Mode=="exists"{return v!=nil};if f.Mode=="missing"{return v==nil}
+ matched:=false;for _,s:=range dimensionValues(v,true){if f.Mode=="contains"{matched=matched||strings.Contains(strings.ToLower(s),strings.ToLower(f.Value))}else{matched=matched||s==f.Value}}
+ if f.Mode=="not_equal"{return !matched};return matched
+}
