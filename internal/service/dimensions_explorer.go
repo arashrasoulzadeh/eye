@@ -68,18 +68,24 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  sampleCount:=0
  var sx,sy,sxx,syy,sxy float64
  buckets:=map[[2]string]*bucket{}
- keys,types:=map[string]bool{},map[string]bool{}
+ keys:=map[string]bool{}
+ distinctCount:=0;drillBytes:=0
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
  if q.SetTenantContext!=nil{if err:=q.SetTenantContext(tx,in.Tenant);err!=nil{return err}}
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
  if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
  if in.FullRange && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;return nil}
+ if in.FullRange && in.Group!="" && in.Group!="@event" && in.Split=="" && !in.Explode && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil && in.Operation=="count" && explorerIdentifier.MatchString(in.Group) {
+  var expr string
+  if tx.Dialector.Name()=="postgres"{expr="COALESCE(NULLIF(dims, '')::jsonb ->> '"+in.Group+"', '(missing)')"}else if tx.Dialector.Name()=="sqlite"{expr="COALESCE(CAST(json_extract(CASE WHEN json_valid(dims) THEN dims ELSE '{}' END, '$."+in.Group+"') AS TEXT), '(missing)')"}
+  if expr!=""{var grouped []struct{GroupValue string; Count int};if err:=base.Select(expr+" AS group_value, count(*) AS count").Group(expr).Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.GroupValue,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Keys=append(out.Keys,in.Group);return nil}
+ }
  rows,err:=base.Select("event_name,dims,client_ts").Order("client_ts DESC").Limit(20001).Rows();if err!=nil{return err};defer rows.Close()
  for rows.Next(){
  if out.Scanned==20000{out.Truncated=true;break};out.Scanned++
- var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};types[typ]=true
- var dims map[string]any;if json.Unmarshal([]byte(raw),&dims)!=nil{continue}
+ var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};
+ var dims map[string]any;if len(raw)>262144{out.Truncated=true;continue};if json.Unmarshal([]byte(raw),&dims)!=nil{dims=nil}
  dims=flattenDimensions(dims,"",0)
  for k:=range dims{if len(keys)<2000{keys[k]=true}}
  if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
@@ -89,11 +95,11 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if in.Group==""&&in.TimeBucket==""{continue}
  groups:=dimensionValues(dims[in.Group],in.Explode);if in.Group=="@event"{groups=[]string{typ}};if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
  if len(groups)*len(splits)>1000{out.Truncated=true;continue}
- if in.DrillGroup!=nil&&len(out.Events)<100{found:=false;for _,g:=range groups{for _,s:=range splits{if g==*in.DrillGroup&&(in.DrillSplit==nil||s==*in.DrillSplit){found=true}}};if found{out.Events=append(out.Events,DimensionEvent{Type:typ,Timestamp:ts,Dims:dims})}}
+ if in.DrillGroup!=nil&&len(out.Events)<100{found:=false;for _,g:=range groups{for _,s:=range splits{if g==*in.DrillGroup&&(in.DrillSplit==nil||s==*in.DrillSplit){found=true}}};if found&&drillBytes+len(raw)<=524288{drillBytes+=len(raw);out.Events=append(out.Events,DimensionEvent{Type:typ,Timestamp:ts,Dims:dims})}}
  for _,g:=range groups{for _,s:=range splits{
  k:=[2]string{g,s};b:=buckets[k];if b==nil{if len(buckets)>=5000{out.Truncated=true;continue};b=&bucket{row:DimensionRow{Group:g,Split:s},distinct:map[string]bool{}};buckets[k]=b};b.row.Count++
  if in.Operation=="count"{b.row.Value++;continue};if in.Operation=="missing"{if dims[in.Metric]==nil{b.row.Value++};continue}
- if in.Operation=="distinct"{for _,v:=range dimensionValues(dims[in.Metric],in.Explode){if dims[in.Metric]!=nil{b.distinct[v]=true}};continue}
+ if in.Operation=="distinct"{for _,v:=range dimensionValues(dims[in.Metric],in.Explode){if dims[in.Metric]!=nil&&!b.distinct[v]{if distinctCount<200000{b.distinct[v]=true;distinctCount++}else{out.Truncated=true}}};continue}
  v,ok:=dims[in.Metric].(float64);if !ok{continue};b.n++;b.row.Valid++
  if in.Operation=="stddev"{delta:=v-b.mean;b.mean+=delta/float64(b.n);b.m2+=delta*(v-b.mean)}
  if in.Operation=="median"||in.Operation=="p90"||in.Operation=="p95"||in.Operation=="p99"{if sampleCount<200000{b.samples=append(b.samples,v);sampleCount++}else{out.Truncated=true}}
