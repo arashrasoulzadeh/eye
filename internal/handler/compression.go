@@ -8,6 +8,7 @@ import (
  "time"
  "sync"
  "sort"
+ "log"
 
  "gorm.io/gorm"
 )
@@ -43,17 +44,21 @@ func (h *CompressionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   byteExpr = "octet_length(COALESCE(payload,''))"
  default: http.Error(w,"unsupported database",501); return
  }
- query := db.Table("events").Where("tenant_id = ? AND client_ts <= ?",tenant,cutoff)
- if event := r.URL.Query().Get("event_name"); event != "" { query = query.Where("event_name = ?",event) }
+ event := r.URL.Query().Get("event_name")
+ query := func() *gorm.DB {
+  q := db.Table("events").Where("tenant_id = ? AND client_ts <= ?",tenant,cutoff)
+  if event != "" { q = q.Where("event_name = ?",event) }
+  return q
+ }
  var stats struct { Records int64; PayloadBytes int64; PrunedBytes int64 }
  start := time.Now()
- if err := query.Select("COUNT(*) AS records, COALESCE(SUM("+byteExpr+"),0) AS payload_bytes, COUNT(*) * 2 AS pruned_bytes").Scan(&stats).Error; err != nil { http.Error(w,"event assessment failed",500); return }
+ if err := query().Select("COUNT(*) AS records, COALESCE(SUM("+byteExpr+"),0) AS payload_bytes, COUNT(*) * 2 AS pruned_bytes").Scan(&stats).Error; err != nil { http.Error(w,"event assessment failed",500); return }
  scanMS := float64(time.Since(start).Microseconds())/1000
  timings := make([]float64,0,5)
  for i:=0;i<5;i++ {
   var count int64
   started := time.Now()
-  if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil { http.Error(w,"benchmark failed",500); return }
+  if err := query().Count(&count).Error; err != nil { log.Printf("compression count benchmark: %v",err); http.Error(w,"benchmark failed",500); return }
   timings=append(timings,float64(time.Since(started).Microseconds())/1000)
  }
  sort.Float64s(timings)
