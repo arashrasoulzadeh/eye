@@ -13,6 +13,7 @@ export default function CompressionPage() {
   const [resolution, setResolution] = useState(3600000);
   const [confirmation, setConfirmation] = useState("");
   const [operation, setOperation] = useState("");
+  const [comparison, setComparison] = useState<{before: Storage; after: Storage} | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
@@ -44,13 +45,17 @@ export default function CompressionPage() {
   async function prune(action: "prune" | "compact" = "prune") {
     const expected = action.toUpperCase()+" "+tenantId+" "+event;
     if (!result || result.tenant !== tenantId || !event || busy || confirmation !== expected) return;
-    setBusy(true); setError(""); setOperation("");
+    setBusy(true); setError(""); setOperation(""); setComparison(null);
     try {
       const res = await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,event_name:event,to_ts:result.cutoff,confirm:confirmation,action})});
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setOperation(action === "compact" ? "Compacted "+data.updated+" records into historical counts. Individual event details are permanently removed." : "Updated "+data.updated+" records; actual logical payload bytes "+data.before_payload_bytes+" → "+data.after_payload_bytes+"; operation "+data.duration_ms.toFixed(1)+" ms. Run assessment again to measure database allocation.");
       setResult(null); setConfirmation("");
+      const measured = await fetch("/api/proxy/compression/assessment?" + new URLSearchParams({tenant_id:tenantId,event_name:event,to_ts:String(result.cutoff)}),{cache:"no-store"});
+      if (!measured.ok) throw new Error("Operation committed; post-operation assessment failed: "+await measured.text());
+      const after: Storage = await measured.json();
+      setComparison({before:result.storage,after});
     } catch(e) {setError(e instanceof Error?e.message:String(e));}
     finally {setBusy(false);}
   }
@@ -64,6 +69,16 @@ export default function CompressionPage() {
       <button className="rounded bg-accent p-2 text-accent-fg disabled:opacity-50" disabled={!tenantId || busy || !Number.isFinite(days) || days < 1 || days > 36500} onClick={()=>assess()}>{busy ? "Measuring…" : "Run assessment"}</button>
     </div>
     {operation && <p role="status">{operation}</p>}
+    {comparison && <div className="rounded border border-border p-4 space-y-2">
+      <h2 className="font-semibold">Measured before / after</h2>
+      <p>Database allocation: {bytes(comparison.before.database_bytes)} → {bytes(comparison.after.database_bytes)}</p>
+      <p>Reusable space: {bytes(comparison.before.reusable_bytes)} → {bytes(comparison.after.reusable_bytes)}</p>
+      <p>Matching payload: {bytes(comparison.before.payload_bytes)} → {bytes(comparison.after.payload_bytes)}</p>
+      <p>Raw records: {comparison.before.records} → {comparison.after.records}</p>
+      <p>Count median: {comparison.before.count_median_ms.toFixed(2)} → {comparison.after.count_median_ms.toFixed(2)} ms</p>
+      <p>Count p95: {comparison.before.count_p95_ms.toFixed(2)} → {comparison.after.count_p95_ms.toFixed(2)} ms</p>
+      <p>Database allocation is global; concurrent activity can affect these measurements. Raw count latency does not measure historical rollup accuracy.</p>
+    </div>}
     {error && <p role="alert">{error}</p>}
     {result && result.tenant === tenantId && <div className="space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Assessment results</h2>
