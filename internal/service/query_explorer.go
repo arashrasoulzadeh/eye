@@ -19,7 +19,7 @@ type ExplorerResult struct {
  DurationMS int64 `json:"duration_ms"`
 }
 
-var explorerToken = regexp.MustCompile(`(?i)^(?:[a-z_][a-z_0-9]*(?:\.[a-z_][a-z_0-9]*)*|'(?:[^']|'')*'|[0-9]+(?:\.[0-9]+)?|<=|>=|<>|!=|[(),*+/%=<>-])`)
+var explorerToken = regexp.MustCompile(`(?i)^(?:[a-z_][a-z_0-9]*(?:\.[a-z_][a-z_0-9]*)*|'(?:[^']|'')*'|"(?:[^"]|"")*"|[0-9]+(?:\.[0-9]+)?|<=|>=|<>|!=|[(),*+/%=<>-])`)
 var explorerIdentifier = regexp.MustCompile(`^[a-z_][a-z_0-9]*$`)
 var explorerNumber = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)?$`)
 var explorerFields = map[string]string{"event_id":"event_id","tenant_id":"tenant_id","session_id":"session_id","user_id":"user_id","type":"event_name","event_name":"event_name","timestamp":"client_ts","client_ts":"client_ts","ingest_ts":"ingest_ts","payload":"payload","dims":"dims","source":"source","is_aggregated":"is_aggregated","aggregation_id":"aggregation_id","experiment_id":"experiment_id","variant":"variant"}
@@ -57,8 +57,9 @@ func compileExplorer(input, dialect string) (string, []any, error) {
   }
   if t=="select" {if i==0||tokens[i-1]!="(" {return bad()};parts=append(parts,"SELECT");continue}
   if t=="union" || t=="intersect" || t=="except" || t=="with" || t=="into" || t=="over" || t=="returning" { return bad() }
-  if strings.HasPrefix(raw,"'") {
-   args=append(args,strings.ReplaceAll(raw[1:len(raw)-1],"''","'")); parts=append(parts,"?"); continue
+  if strings.HasPrefix(raw,"'") || strings.HasPrefix(raw,"\"") {
+   quote:=raw[:1]
+   args=append(args,strings.ReplaceAll(raw[1:len(raw)-1],quote+quote,quote)); parts=append(parts,"?"); continue
   }
   if explorerNumber.MatchString(t) || strings.Contains("(),*+/%=<>-",t) || t=="<=" || t==">=" || t=="!=" || t=="<>" { parts=append(parts,t); continue }
   if i>0 && strings.EqualFold(tokens[i-1],"as") {
