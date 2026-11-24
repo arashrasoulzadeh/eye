@@ -12,6 +12,9 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
+// Shared read budget leaves capacity in the production connection pool for writes.
+var analyticsReadGate = make(chan struct{}, 8)
+
 type QueryService struct {
 	DB *gorm.DB
 	// SetTenantContext is configured for PostgreSQL/Timescale deployments so
@@ -20,7 +23,6 @@ type QueryService struct {
 	SetTenantContext func(*gorm.DB, string) error
 	flights singleflight.Group
 	gateOnce sync.Once
-	gate chan struct{}
 	queue chan struct{}
 	tenantMu sync.Mutex
 	tenants map[string]int
@@ -119,7 +121,7 @@ func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, 
 	key := string(keyBytes)
 	if err := ctx.Err(); err != nil { return nil, err }
 	// Bound waiting callers as well as actual database work.
-	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	q.gateOnce.Do(func() { q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
 	if err := ctx.Err(); err != nil { return nil, err }
 	ch := q.flights.DoChan(key, func() (any, error) {
 		select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return nil, fmt.Errorf("query queue full") }
@@ -130,7 +132,7 @@ func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, 
 		q.tenants[f.TenantID]++
 		q.tenantMu.Unlock()
 		defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
-		select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-work.Done(): return nil, work.Err() }
+		select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-work.Done(): return nil, work.Err() }
 		if rows, ok := q.cached(key); ok { return rows, nil }
 		rows, err := q.filterDB(work, f, limit, offset)
 		if err == nil { q.store(key, rows) }
@@ -212,14 +214,14 @@ func (q *QueryService) Count(f EventFilter) (int64, error) {
 func (q *QueryService) CountContext(ctx context.Context, f EventFilter) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	q.gateOnce.Do(func() { q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
 	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return 0, fmt.Errorf("query queue full") }
 	q.tenantMu.Lock()
 	if q.tenants[f.TenantID] >= 4 { q.tenantMu.Unlock(); return 0, fmt.Errorf("tenant query limit reached") }
 	q.tenants[f.TenantID]++
 	q.tenantMu.Unlock()
 	defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
-	select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-ctx.Done(): return 0, ctx.Err() }
+	select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-ctx.Done(): return 0, ctx.Err() }
 	db := q.DB.WithContext(ctx)
 	if q.SetTenantContext != nil && f.TenantID != "" {
 		var total int64
