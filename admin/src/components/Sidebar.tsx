@@ -32,6 +32,7 @@ const NAV = [
   { href: "/schemas", label: "Schemas", icon: "{ }" },
   { href: "/cohorts", label: "Cohorts", icon: "◔" },
   { href: "/feature-flags", label: "Feature Flags", icon: "⚙" },
+  { href: "/compression", label: "Compression & Storage", icon: "▣" },
   { href: "/aggregations", label: "Aggregations", icon: "Σ" },
   { href: "/anomalies", label: "Anomalies", icon: "△" },
   { href: "/audit-log", label: "Audit Log", icon: "≡" },
