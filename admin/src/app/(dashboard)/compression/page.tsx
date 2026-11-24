@@ -136,6 +136,7 @@ function StorageInventory({data,onSelect,tenant}:{tenant:string;data:Inventory;o
  <h3 className="font-semibold">Compression opportunities</h3>
  <p>{data.timescale_version?"TimescaleDB "+data.timescale_version:"TimescaleDB not detected or unavailable"}</p>
  {!!data.chunks?.older_uncompressed && <ColumnstoreAction/>}
+ {!!data.chunks?.compressed && <ColumnstoreAction key="rowstore" decompress/>}
  {data.chunks && <p>{data.chunks.compressed} of {data.chunks.total} chunks compressed; {data.chunks.older_uncompressed} uncompressed chunks older than seven days. Physical savings require a compression trial.</p>}
  <h3 className="font-semibold">Derived intelligence and bucket records</h3>
  {(data.derived_records??[]).map(d=><p key={d.name}>{d.name}: {d.records.toLocaleString()} tenant records</p>)}
@@ -151,22 +152,23 @@ function StorageInventory({data,onSelect,tenant}:{tenant:string;data:Inventory;o
  </section>;
 }
 
-function ColumnstoreAction(){
+function ColumnstoreAction({decompress=false}:{decompress?:boolean}){
+ const phrase=decompress?"DECOMPRESS GLOBAL EVENTS":"COMPRESS GLOBAL EVENTS";
  const [confirm,setConfirm]=useState("");
  const [busy,setBusy]=useState(false);
  const [status,setStatus]=useState("");
  async function run(){
-  if(busy||confirm!=="COMPRESS GLOBAL EVENTS")return;
+  if(busy||confirm!==phrase)return;
   setBusy(true);setStatus("");
   try{
-   const r=await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"columnstore",confirm})});
+   const r=await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:decompress?"rowstore":"columnstore",confirm})});
    if(!r.ok)throw new Error(await r.text());
    const d=await r.json();
-   setStatus(d.chunk?d.chunk+": hypertable "+bytes(d.before_bytes)+" → "+bytes(d.after_bytes)+"; rows "+d.before_count+" → "+d.after_count+"; count latency "+d.before_count_ms.toFixed(2)+" → "+d.after_count_ms.toFixed(2)+" ms (single measurement); operation "+d.duration_ms.toFixed(0)+" ms. Refresh assessment.":"No eligible chunk.");
+   setStatus(d.chunk?d.chunk+": hypertable "+bytes(d.before_bytes)+" → "+bytes(d.after_bytes)+"; rows "+d.before_count+" → "+d.after_count+"; count latency "+(d.before_count_ms??0).toFixed(2)+" → "+(d.after_count_ms??0).toFixed(2)+" ms (single measurement); operation "+d.duration_ms.toFixed(0)+" ms. Refresh assessment.":"No eligible chunk.");
    setConfirm("");
   }catch(e){setStatus(String(e));}finally{setBusy(false);}
  }
- return <div className="border rounded p-3 space-y-2"><p>Owner only: convert one historical chunk to columnstore. This affects all tenants, preserves raw events and may briefly block writes. Back up first.</p><label>Type COMPRESS GLOBAL EVENTS<input className="block border rounded p-2" value={confirm} disabled={busy} onChange={e=>setConfirm(e.target.value)}/></label><button className="border rounded p-2 disabled:opacity-50" disabled={busy||confirm!=="COMPRESS GLOBAL EVENTS"} onClick={run}>{busy?"Compressing…":"Compress oldest eligible chunk"}</button><p role="status">{status}</p></div>;
+ return <div className="border rounded p-3 space-y-2"><p>Owner only: {decompress?"restore the newest compressed chunk to rowstore; ensure sufficient free disk space":"convert one historical chunk to columnstore"}. This affects all tenants, preserves raw events and may briefly block writes. Back up first.</p><label>Type {phrase}<input className="block border rounded p-2" value={confirm} disabled={busy} onChange={e=>setConfirm(e.target.value)}/></label><button className="border rounded p-2 disabled:opacity-50" disabled={busy||confirm!==phrase} onClick={run}>{busy?"Working…":decompress?"Decompress newest compressed chunk":"Compress oldest eligible chunk"}</button><p role="status">{status}</p></div>;
 }
 
 function InferenceRetention({tenant,count}:{tenant:string;count:number}){
