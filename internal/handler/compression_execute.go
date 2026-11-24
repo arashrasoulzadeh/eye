@@ -57,19 +57,28 @@ func (h *CompressionExecuteHandler) columnstore(w http.ResponseWriter,r *http.Re
  started:=time.Now()
  var chunk string
  var before,after int64
+ var beforeCount,afterCount int64
+ var beforeMS,afterMS float64
  err:=h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
   if err:=tx.Exec("SET LOCAL lock_timeout = '3s'").Error;err!=nil{return err}
   if err:=tx.Exec("SET LOCAL statement_timeout = '110s'").Error;err!=nil{return err}
   if err:=tx.Raw("SELECT format('%I.%I',chunk_schema,chunk_name) FROM timescaledb_information.chunks WHERE hypertable_schema=current_schema() AND hypertable_name='events' AND NOT is_compressed AND range_end < now()-interval '7 days' ORDER BY range_end LIMIT 1").Scan(&chunk).Error;err!=nil{return err}
   if chunk=="" {return nil}
   if err:=tx.Raw("SELECT hypertable_size('events')").Scan(&before).Error;err!=nil{return err}
+  t:=time.Now()
+  if err:=tx.Table(chunk).Count(&beforeCount).Error;err!=nil{return err}
+  beforeMS=float64(time.Since(t).Microseconds())/1000
   if err:=tx.Exec("ALTER TABLE events SET (timescaledb.enable_columnstore=true, timescaledb.segmentby='tenant_id,event_name', timescaledb.orderby='ingest_ts DESC')").Error;err!=nil{return err}
   if err:=tx.Exec("CALL convert_to_columnstore(CAST(? AS regclass))",chunk).Error;err!=nil{return err}
+  t=time.Now()
+  if err:=tx.Table(chunk).Count(&afterCount).Error;err!=nil{return err}
+  afterMS=float64(time.Since(t).Microseconds())/1000
+  if beforeCount!=afterCount{return gorm.ErrInvalidData}
   return tx.Raw("SELECT hypertable_size('events')").Scan(&after).Error
  })
  if err!=nil {log.Printf("columnstore compression: %v",err);http.Error(w,"columnstore operation failed; see server logs",500);return}
  w.Header().Set("Content-Type","application/json")
- json.NewEncoder(w).Encode(map[string]any{"chunk":chunk,"before_bytes":before,"after_bytes":after,"duration_ms":float64(time.Since(started).Microseconds())/1000})
+ json.NewEncoder(w).Encode(map[string]any{"chunk":chunk,"before_bytes":before,"after_bytes":after,"before_count":beforeCount,"after_count":afterCount,"before_count_ms":beforeMS,"after_count_ms":afterMS,"duration_ms":float64(time.Since(started).Microseconds())/1000})
 }
 
 func (h *CompressionExecuteHandler) inferenceRunRetention(w http.ResponseWriter,r *http.Request,tenant string,cutoff int64,confirm string) {
