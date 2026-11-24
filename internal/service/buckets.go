@@ -112,7 +112,7 @@ func (s *BucketService) events(ctx context.Context, key, tenantID, eventName, bu
 		query = query.Where("event_name = ?", eventName)
 	}
 	var rows []model.EventBucket
-	if err := query.Find(&rows).Error; err != nil {
+	if err := query.Model(&model.EventBucket{}).Select("bucket_start, SUM(count) AS count").Group("bucket_start").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	counts := make(map[int64]int)
