@@ -7,6 +7,13 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Quick analysis": "تحلیل سریع",
+  "Event breakdown": "تفکیک رویدادها",
+  "Event trend": "روند رویدادها",
+  "Show result table": "نمایش جدول نتایج",
+  "Hide result table": "پنهان کردن جدول نتایج",
+  "Exact scalar counts": "شمارش دقیق مقادیر",
+  "Comparison or drill-down failed": "مقایسه یا بررسی جزئیات ناموفق بود",
   "Filter logic": "منطق فیلتر",
   "Add filter": "افزودن فیلتر",
   "Remove filter": "حذف فیلتر",
