@@ -7,6 +7,19 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Smart recommendations": "پیشنهادهای هوشمند",
+  "Find dimension": "جستجوی بعد",
+  "Numeric": "عددی",
+  "Array": "آرایه",
+  "Categorical": "دسته‌ای",
+  "Leading group": "گروه پیشرو",
+  "Focus group": "تمرکز بر گروه",
+  "Groups with numeric values": "گروه‌های دارای مقادیر عددی",
+  "Execution mode": "روش اجرا",
+  "database": "پایگاه داده",
+  "bounded_scan": "پویش محدود",
+  "full_range_stream": "پویش کامل جریانی",
+  "Average": "میانگین",
   "Quick analysis": "تحلیل سریع",
   "Event breakdown": "تفکیک رویدادها",
   "Event trend": "روند رویدادها",
