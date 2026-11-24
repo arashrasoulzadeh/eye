@@ -126,6 +126,10 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
   intelligence=append(intelligence,struct { Name string `json:"name"`; Records int64 `json:"records"` }{table,count})
  }
  out["derived_records"]=intelligence
+ var stale int64
+ if err:=db.Table("intelligence_inferences").Where("tenant_id = ? AND scored_at < ?",tenant,time.Now().Add(-30*24*time.Hour)).Count(&stale).Error;err==nil{out["stale_inferences"]=stale}
+ var runs int64
+ if err:=db.Table("intelligence_inference_runs").Where("tenant_id = ? AND created_at < ?",tenant,time.Now().Add(-30*24*time.Hour)).Count(&runs).Error;err==nil{out["old_inference_runs"]=runs}
  out["warnings"]=warnings
  return out
 }
