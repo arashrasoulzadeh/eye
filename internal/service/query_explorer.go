@@ -38,6 +38,7 @@ func compileExplorer(input, dialect string) (string, []any, error) {
   input=strings.TrimSpace(input[len(token):])
  }
  if len(tokens)<4 || !strings.EqualFold(tokens[0],"select") { return bad() }
+ tokens = normalizeExplorerAggregateOrder(tokens)
  parts:=[]string{"SELECT"}
  args:=[]any{}
  from:=false
@@ -148,4 +149,31 @@ func (q *QueryService) Explore(ctx context.Context, tenant, input string, from, 
   sort.Strings(result)
   if len(result)>500 {result=result[:500]}
   return result,err
+ }
+
+ // normalizeExplorerAggregateOrder removes redundant ordering only for a
+ // single top-level COUNT(*) projection (optionally with an explicit alias).
+ // Grouped queries and other projections retain normal SQL semantics.
+ func normalizeExplorerAggregateOrder(tokens []string) []string {
+  if len(tokens)<6 || !strings.EqualFold(tokens[1],"count") || tokens[2]!="(" || tokens[3]!="*" || tokens[4]!=")" {return tokens}
+  from:=5
+  if len(tokens)>7 && strings.EqualFold(tokens[from],"as") && explorerIdentifier.MatchString(strings.ToLower(tokens[from+1])) {from+=2}
+  if from>=len(tokens) || !strings.EqualFold(tokens[from],"from") {return tokens}
+  depth,order,end:=0,-1,len(tokens)
+  for i:=from+1;i<len(tokens);i++ {
+   switch strings.ToLower(tokens[i]) {
+   case "(": depth++
+   case ")": depth--
+   case "group","having": if depth==0{return tokens}
+   case "order": if depth==0 && i+1<len(tokens) && strings.EqualFold(tokens[i+1],"by"){order=i}
+   case "limit","offset": if depth==0 && order>=0 && end==len(tokens){end=i}
+   }
+  }
+  if order<0{return tokens}
+  // Only normalize a simple timestamp sort, never discard arbitrary SQL.
+  clause:=tokens[order+2:end]
+  if len(clause)<1 || len(clause)>2{return tokens}
+  switch strings.ToLower(clause[0]) {case "timestamp","events.timestamp","event.timestamp","client_ts","events.client_ts": default:return tokens}
+  if len(clause)==2 && !strings.EqualFold(clause[1],"asc") && !strings.EqualFold(clause[1],"desc"){return tokens}
+  return append(append([]string{},tokens[:order]...),tokens[end:]...)
  }
