@@ -162,7 +162,7 @@ function ColumnstoreAction(){
    const r=await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"columnstore",confirm})});
    if(!r.ok)throw new Error(await r.text());
    const d=await r.json();
-   setStatus(d.chunk?d.chunk+": hypertable "+bytes(d.before_bytes)+" → "+bytes(d.after_bytes)+"; "+d.duration_ms.toFixed(0)+" ms. Refresh assessment.":"No eligible chunk.");
+   setStatus(d.chunk?d.chunk+": hypertable "+bytes(d.before_bytes)+" → "+bytes(d.after_bytes)+"; rows "+d.before_count+" → "+d.after_count+"; count latency "+d.before_count_ms.toFixed(2)+" → "+d.after_count_ms.toFixed(2)+" ms (single measurement); operation "+d.duration_ms.toFixed(0)+" ms. Refresh assessment.":"No eligible chunk.");
    setConfirm("");
   }catch(e){setStatus(String(e));}finally{setBusy(false);}
  }
