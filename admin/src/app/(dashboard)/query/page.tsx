@@ -37,6 +37,7 @@ export default function QueryPage() {
   const [scopedTime, setScopedTime] = useState(true);
   const [page, setPage] = useState(0);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const highlight = useRef<HTMLPreElement>(null);
   const [cursor, setCursor] = useState(0);
   const [properties, setProperties] = useState<string[]>([]);
   const prefix = sql.slice(0,cursor).match(/[a-zA-Z_][a-zA-Z_0-9.]*$/)?.[0] || "";
@@ -103,7 +104,7 @@ export default function QueryPage() {
     {!tenantId && <p role="status" className="rounded-lg border border-border p-3">{t("Select a tenant before running a query.")}</p>}
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
       <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-        <textarea ref={editor} onSelect={e=>setCursor(e.currentTarget.selectionStart)} aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={10} value={sql} onChange={e=>{setSql(e.target.value);setCursor(e.target.selectionStart);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();}}} className="w-full rounded-lg border border-border bg-surface-2 p-4 font-mono text-sm" />
+        <div className="relative rounded-lg border border-border bg-surface-2" dir="ltr"><pre ref={highlight} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6">{sql.split(/('(?:[^']|'')*'|\b(?:SELECT|FROM|WHERE|AND|OR|JOIN|LEFT|INNER|ON|AS|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|IN|EXISTS|NOT|NULL|DISTINCT|COUNT|SUM|AVG|MIN|MAX)\b|\b\d+(?:\.\d+)?\b)/gi).map((token,i)=><span key={i} className={token.startsWith("'")?"text-emerald-600 dark:text-emerald-400":i%2===1?"text-violet-600 dark:text-violet-400":"text-fg"}>{token}</span>)}{"\n"}</pre><textarea ref={editor} onScroll={e=>{if(highlight.current){highlight.current.scrollTop=e.currentTarget.scrollTop;highlight.current.scrollLeft=e.currentTarget.scrollLeft;}}} onSelect={e=>setCursor(e.currentTarget.selectionStart)} aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={10} value={sql} onChange={e=>{setSql(e.target.value);setCursor(e.target.selectionStart);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();}}} className="relative block w-full resize-y bg-transparent p-4 font-mono text-sm leading-6 text-transparent caret-current outline-none focus:ring-2 focus:ring-accent/30" style={{caretColor:"var(--color-fg, currentColor)"}} /></div>
         <div className="flex flex-wrap gap-1">{suggestions.map(word=><button key={word} className={button+" font-mono"} onClick={()=>insert(word)}>{word}</button>)}</div>
         <div className="flex flex-wrap items-center gap-2">
           <button className={button+" bg-accent text-accent-fg"} disabled={busy||loading||!tenantId||!sql.trim()||(scopedTime&&!to)} onClick={()=>void run()}>{t(busy?"Running query…":"Run query")}</button>
