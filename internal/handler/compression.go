@@ -95,8 +95,8 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
  if err:=q().Select("event_name AS name, "+fields).Group("event_name").Order("payload_bytes DESC").Limit(100).Scan(&groups).Error;err!=nil{warnings=append(warnings,"event breakdown unavailable")}else{out["events"]=groups}
  now:=time.Now().UnixMilli()
  day:=int64(86400000)
- age:="CASE WHEN client_ts >= ? THEN '0-1 days' WHEN client_ts >= ? THEN '1-7 days' WHEN client_ts >= ? THEN '7-30 days' WHEN client_ts >= ? THEN '30-90 days' ELSE '90+ days' END"
- aged:=q().Select(age+" AS name, payload, dims",now-day,now-7*day,now-30*day,now-90*day)
+ age:="CASE WHEN client_ts > ? THEN 'Future timestamp' WHEN client_ts >= ? THEN '0-1 days' WHEN client_ts >= ? THEN '1-7 days' WHEN client_ts >= ? THEN '7-30 days' WHEN client_ts >= ? THEN '30-90 days' ELSE '90+ days' END"
+ aged:=q().Select(age+" AS name, payload, dims",now,now-day,now-7*day,now-30*day,now-90*day)
  if err:=db.Table("(?) AS aged",aged).Select("name, "+fields).Group("name").Scan(&ages).Error;err!=nil{warnings=append(warnings,"age breakdown unavailable")}else{out["ages"]=ages}
  if db.Dialector.Name()=="postgres" {
   if err:=db.Raw("SELECT schemaname || '.' || relname AS name, pg_table_size(relid) AS table_bytes, pg_indexes_size(relid) AS index_bytes FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"relation sizes unavailable")}else{out["relations"]=relations}
