@@ -245,6 +245,22 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
             keys:=make([]scoredKey,0,len(results))
             for _,row:=range results {keys=append(keys,scoredKey{row.Kind,row.EntityID})}
             if err:=db.Table("pg_temp.eye_scored_entities").Clauses(clause.OnConflict{DoNothing:true}).Create(&keys).Error;err!=nil{return err}
+            // Compare the batch against persisted snapshots before attempting writes.
+            // Keep membership for every entity, including unchanged snapshots.
+            var existing []model.IntelligenceInference
+            ids:=make([]string,0,len(results))
+            for _,row:=range results {ids=append(ids,row.EntityID)}
+            if err:=db.Select("kind","entity_id","version","tags","predictions","evidence").Where("tenant_id = ? AND entity_id IN ?",run.TenantID,ids).Find(&existing).Error;err!=nil{return err}
+            type identity struct {kind,id string}
+            previous:=make(map[identity]model.IntelligenceInference,len(existing))
+            for _,row:=range existing {previous[identity{row.Kind,row.EntityID}]=row}
+            changed:=results[:0]
+            for _,row:=range results {
+                old,ok:=previous[identity{row.Kind,row.EntityID}]
+                if !ok || old.Version!=row.Version || old.Tags!=row.Tags || old.Predictions!=row.Predictions || old.Evidence!=row.Evidence {changed=append(changed,row)}
+            }
+            results=changed
+            if len(results)==0 {return nil}
             conflict.Where=clause.Where{Exprs:[]clause.Expression{clause.Expr{SQL:"(intelligence_inferences.version, intelligence_inferences.tags, intelligence_inferences.predictions, intelligence_inferences.evidence) IS DISTINCT FROM (excluded.version, excluded.tags, excluded.predictions, excluded.evidence)"}}}
         }
         err:=db.Clauses(conflict).Create(&results).Error
