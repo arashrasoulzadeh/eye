@@ -9,7 +9,12 @@ import (
 type QueryExplorerHandler struct { Svc *service.QueryService }
 
 func (h *QueryExplorerHandler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
- if r.Method!=http.MethodPost { w.Header().Set("Allow","POST");http.Error(w,"method not allowed",405);return }
+ if r.Method==http.MethodGet {
+  properties,err:=h.Svc.ExplorerProperties(r.Context(),r.URL.Query().Get("tenant_id"))
+  if err!=nil {http.Error(w,"schema discovery failed",400);return}
+  w.Header().Set("Content-Type","application/json");w.Header().Set("Cache-Control","no-store");json.NewEncoder(w).Encode(properties);return
+ }
+ if r.Method!=http.MethodPost { w.Header().Set("Allow","GET, POST");http.Error(w,"method not allowed",405);return }
  var input struct {
  Tenant string `json:"tenant_id"`
  SQL string `json:"sql"`
