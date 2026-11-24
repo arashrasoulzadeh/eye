@@ -42,7 +42,9 @@ type DimensionRow struct {
  Valid int `json:"valid"`
 }
 type DimensionEvent struct { Type string `json:"type"`; Timestamp int64 `json:"timestamp"`; Dims map[string]any `json:"dims"` }
+type DimensionProfile struct { Key string `json:"key"`; Present int `json:"present"`; Numeric int `json:"numeric"`; Arrays int `json:"arrays"`; Examples []string `json:"examples"` }
 type DimensionResult struct {
+ Profiles []DimensionProfile `json:"profiles"`
  Events []DimensionEvent `json:"events,omitempty"`
  Correlation *float64 `json:"correlation,omitempty"`
  CorrelationN int `json:"correlation_n"`
@@ -73,6 +75,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  var meanX,meanY,m2X,m2Y,cov float64
  buckets:=map[[2]string]*bucket{}
  keys:=map[string]bool{}
+ profiles:=map[string]*DimensionProfile{}
  distinctCount:=0;drillBytes:=0
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
  if q.SetTenantContext!=nil{if err:=q.SetTenantContext(tx,in.Tenant);err!=nil{return err}}
@@ -92,7 +95,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};
  var dims map[string]any;if len(raw)>262144{out.Truncated=true;continue};if json.Unmarshal([]byte(raw),&dims)!=nil{dims=nil}
  dims=flattenDimensions(dims,"",0)
- for k:=range dims{if len(keys)<2000{keys[k]=true}}
+ for k,v:=range dims{if len(keys)<2000{keys[k]=true};if strings.HasPrefix(k,"/")&&strings.Count(k,"/")==1{continue};p:=profiles[k];if p==nil&&len(profiles)<200{p=&DimensionProfile{Key:k,Examples:[]string{}};profiles[k]=p};if p==nil||v==nil{continue};p.Present++;switch v.(type){case float64:p.Numeric++;case []any:p.Arrays++};if len(p.Examples)<5{for _,example:=range dimensionValues(v,true){if len(example)>120{continue};found:=false;for _,old:=range p.Examples{if old==example{found=true}};if !found&&len(p.Examples)<5{p.Examples=append(p.Examples,example)}}}}
  if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
  if len(in.Filters)>0{matches:=0;for _,f:=range in.Filters{if matchDimensionFilter(dims,f){matches++}};if (in.FilterLogic=="or"&&matches==0)||(in.FilterLogic!="or"&&matches!=len(in.Filters)){continue}}
  out.Matched++
@@ -113,6 +116,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  };return rows.Err()
  })
  n:=float64(out.CorrelationN);den:=math.Sqrt(m2X*m2Y);if n>1&&den>0{v:=math.Max(-1,math.Min(1,cov/den));if !math.IsNaN(v)&&!math.IsInf(v,0){out.Correlation=&v}}
+ for _,p:=range profiles{out.Profiles=append(out.Profiles,*p)};sort.Slice(out.Profiles,func(i,j int)bool{a,b:=out.Profiles[i],out.Profiles[j];if a.Present!=b.Present{return a.Present>b.Present};return a.Key<b.Key})
  for k:=range keys{out.Keys=append(out.Keys,k)};sort.Strings(out.Keys);sort.Strings(out.Types)
  for _,b:=range buckets{if in.Operation=="stddev"&&b.n>0{b.row.Value=math.Sqrt(b.m2/float64(b.n))};if len(b.samples)>0{sort.Float64s(b.samples);p:=map[string]float64{"median":.5,"p90":.9,"p95":.95,"p99":.99}[in.Operation];pos:=p*float64(len(b.samples)-1);lo:=int(pos);hi:=int(math.Ceil(pos));b.row.Value=b.samples[lo]+(b.samples[hi]-b.samples[lo])*(pos-float64(lo))};if in.Operation=="avg"&&b.n>0{b.row.Value/=float64(b.n)};if in.Operation=="distinct"{b.row.Value=float64(len(b.distinct))};out.Rows=append(out.Rows,b.row)}
  sort.Slice(out.Rows,func(i,j int)bool{a,b:=out.Rows[i],out.Rows[j];if a.Value!=b.Value{return a.Value>b.Value};if a.Group!=b.Group{return a.Group<b.Group};return a.Split<b.Split})
