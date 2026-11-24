@@ -32,6 +32,7 @@ vi.mock("@/lib/api", () => ({
 }));
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
   query.pinned = false;
   scope.from = 100;
   scope.to = 200;
@@ -40,8 +41,12 @@ afterEach(() => {
 it("refreshes results after the clock ticks using the reordered stages", async () => {
   const { rerender } = render(<FunnelPage />);
   fireEvent.click(screen.getByRole("button", { name: "Use smart suggestion" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Move stage earlier Purchase" }));
-  fireEvent.click(screen.getByRole("button", { name: "Run funnel" }));
+  const move = await screen.findByRole("button", { name: "Move stage earlier Purchase" });
+  await waitFor(() => expect(move).toBeEnabled());
+  fireEvent.click(move);
+  const run = screen.getByRole("button", { name: "Run funnel" });
+  await waitFor(() => expect(run).toBeEnabled());
+  fireEvent.click(run);
   await waitFor(() => expect(api.analytics.funnel).toHaveBeenLastCalledWith("shop", ["purchase", "view"], 100, 200));
   scope.from = 160;
   scope.to = 260;
