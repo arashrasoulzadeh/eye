@@ -21,6 +21,7 @@ func (h *CompressionExecuteHandler) ServeHTTP(w http.ResponseWriter,r *http.Requ
  if json.NewDecoder(http.MaxBytesReader(w,r.Body,4096)).Decode(&p)!=nil {http.Error(w,"invalid request",400);return}
  if !h.mu.TryLock(){http.Error(w,"storage operation running",429);return};defer h.mu.Unlock()
  if p.Action=="inference_run_retention" {h.inferenceRunRetention(w,r,p.Tenant,p.Cutoff,p.Confirm);return}
+ if p.Action=="rowstore" {h.rowstore(w,r,p.Confirm);return}
  if p.Action=="columnstore" {h.columnstore(w,r,p.Confirm);return}
  if (p.Action!="" && p.Action!="prune" && p.Action!="compact") || p.Tenant=="" || p.Event=="" || p.Cutoff<=0 || p.Cutoff>time.Now().Add(-24*time.Hour).UnixMilli() || (p.Action!="compact" && p.Confirm!="PRUNE "+p.Tenant+" "+p.Event) || (p.Action=="compact" && p.Confirm!="COMPACT "+p.Tenant+" "+p.Event) {http.Error(w,"explicit tenant, event, historical cutoff and confirmation required",400);return}
  ctx,cancel:=context.WithTimeout(r.Context(),15*time.Second);defer cancel()
@@ -97,4 +98,28 @@ func (h *CompressionExecuteHandler) inferenceRunRetention(w http.ResponseWriter,
  if err!=nil{http.Error(w,"inference run retention failed",500);return}
  w.Header().Set("Content-Type","application/json")
  json.NewEncoder(w).Encode(map[string]any{"updated":deleted,"duration_ms":float64(time.Since(started).Microseconds())/1000})
+}
+
+func (h *CompressionExecuteHandler) rowstore(w http.ResponseWriter,r *http.Request,confirm string) {
+ if confirm!="DECOMPRESS GLOBAL EVENTS" {http.Error(w,"global confirmation required",400);return}
+ if h.DB.Dialector.Name()!="postgres" {http.Error(w,"TimescaleDB required",400);return}
+ ctx,cancel:=context.WithTimeout(r.Context(),120*time.Second);defer cancel()
+ var chunk string
+ var before,after,beforeCount,afterCount int64
+ started:=time.Now()
+ err:=h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+  if err:=tx.Exec("SET LOCAL lock_timeout = '3s'").Error;err!=nil{return err}
+  if err:=tx.Exec("SET LOCAL statement_timeout = '110s'").Error;err!=nil{return err}
+  if err:=tx.Raw("SELECT format('%I.%I',chunk_schema,chunk_name) FROM timescaledb_information.chunks WHERE hypertable_schema=current_schema() AND hypertable_name='events' AND is_compressed ORDER BY range_end DESC LIMIT 1").Scan(&chunk).Error;err!=nil{return err}
+  if chunk==""{return nil}
+  if err:=tx.Raw("SELECT hypertable_size('events')").Scan(&before).Error;err!=nil{return err}
+  if err:=tx.Table(chunk).Count(&beforeCount).Error;err!=nil{return err}
+  if err:=tx.Exec("CALL convert_to_rowstore(CAST(? AS regclass))",chunk).Error;err!=nil{return err}
+  if err:=tx.Table(chunk).Count(&afterCount).Error;err!=nil{return err}
+  if beforeCount!=afterCount{return gorm.ErrInvalidData}
+  return tx.Raw("SELECT hypertable_size('events')").Scan(&after).Error
+ })
+ if err!=nil{log.Printf("rowstore conversion: %v",err);http.Error(w,"rowstore conversion failed",500);return}
+ w.Header().Set("Content-Type","application/json")
+ json.NewEncoder(w).Encode(map[string]any{"chunk":chunk,"before_bytes":before,"after_bytes":after,"before_count":beforeCount,"after_count":afterCount,"duration_ms":float64(time.Since(started).Microseconds())/1000})
 }
