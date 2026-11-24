@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, Tooltip } from "recharts";
 import { useTenant } from "@/components/TenantContext";
 import { useTimeRange } from "@/components/TimeRangeContext";
@@ -36,6 +36,17 @@ export default function QueryPage() {
   const [error, setError] = useState("");
   const [scopedTime, setScopedTime] = useState(true);
   const [page, setPage] = useState(0);
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const [cursor, setCursor] = useState(0);
+  const [properties, setProperties] = useState<string[]>([]);
+  const prefix = sql.slice(0,cursor).match(/[a-zA-Z_][a-zA-Z_0-9.]*$/)?.[0] || "";
+  const suggestions = prefix ? [...fields,...properties,"SELECT","FROM","events","WHERE","AND","OR","GROUP BY","ORDER BY","HAVING","LIMIT","COUNT","SUM","AVG","MIN","MAX","DISTINCT"].filter(w=>w.toLowerCase().startsWith(prefix.toLowerCase()) && w.toLowerCase()!==prefix.toLowerCase()).slice(0,8) : [];
+  function insert(word:string) {
+    const start = cursor-prefix.length;
+    setSql(sql.slice(0,start)+word+sql.slice(cursor));
+    setCursor(start+word.length);
+    requestAnimationFrame(()=>{editor.current?.focus();editor.current?.setSelectionRange(start+word.length,start+word.length);});
+  }
   const [chart, setChart] = useState("Table");
   const [xColumn, setXColumn] = useState(0);
   const [yColumn, setYColumn] = useState(1);
@@ -61,7 +72,13 @@ export default function QueryPage() {
       setSaved(Array.isArray(stored.saved) ? stored.saved : []);
     } catch { setHistory([]); setSaved([]); }
     setResult(null);
-  }, [key]);
+    setProperties([]);
+    if (!tenantId) return;
+    const controller = new AbortController();
+    fetch("/api/proxy/query-explorer?tenant_id="+encodeURIComponent(tenantId),{signal:controller.signal})
+      .then(r=>r.ok?r.json():[]).then(data=>{if(!controller.signal.aborted&&Array.isArray(data))setProperties(data);}).catch(()=>undefined);
+    return ()=>controller.abort();
+  }, [key, tenantId]);
   function persist(h: string[], s: Saved[]) {
     setHistory(h); setSaved(s);
     try { localStorage.setItem(key, JSON.stringify({history:h,saved:s})); }
@@ -86,7 +103,8 @@ export default function QueryPage() {
     {!tenantId && <p role="status" className="rounded-lg border border-border p-3">{t("Select a tenant before running a query.")}</p>}
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
       <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-        <textarea aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={10} value={sql} onChange={e=>setSql(e.target.value)} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();}}} className="w-full rounded-lg border border-border bg-surface-2 p-4 font-mono text-sm" />
+        <textarea ref={editor} onSelect={e=>setCursor(e.currentTarget.selectionStart)} aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={10} value={sql} onChange={e=>{setSql(e.target.value);setCursor(e.target.selectionStart);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();}}} className="w-full rounded-lg border border-border bg-surface-2 p-4 font-mono text-sm" />
+        <div className="flex flex-wrap gap-1">{suggestions.map(word=><button key={word} className={button+" font-mono"} onClick={()=>insert(word)}>{word}</button>)}</div>
         <div className="flex flex-wrap items-center gap-2">
           <button className={button+" bg-accent text-accent-fg"} disabled={busy||loading||!tenantId||!sql.trim()||(scopedTime&&!to)} onClick={()=>void run()}>{t(busy?"Running query…":"Run query")}</button>
           <label className="text-sm"><input type="checkbox" checked={scopedTime} onChange={e=>setScopedTime(e.target.checked)} /> {t("Use the global time range")}</label>
@@ -98,7 +116,7 @@ export default function QueryPage() {
       <aside className="space-y-4 rounded-xl border border-border bg-surface p-4">
         <h2 className="font-semibold">{t("Schema explorer")}</h2>
         <code dir="ltr">events</code>
-        <div className="flex flex-wrap gap-1">{fields.map(field=><button key={field} className="rounded border border-border px-2 py-1 font-mono text-xs" onClick={()=>setSql(s=>s+" "+field)}>{field}</button>)}</div>
+        <div className="flex flex-wrap gap-1">{[...fields,...properties].map(field=><button key={field} className="rounded border border-border px-2 py-1 font-mono text-xs" onClick={()=>insert(field)}>{field}</button>)}</div>
         <p className="text-xs text-fg-muted">{t("Custom properties")}: <code>payload.streak, dims.level, streak</code></p>
         <h2 className="font-semibold">{t("Query examples")}</h2>
         {examples.map(e=><button key={e.name} className={button+" block w-full text-start"} onClick={()=>setSql(e.sql)}>{t(e.name)}</button>)}
