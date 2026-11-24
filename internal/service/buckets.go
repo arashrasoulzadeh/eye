@@ -21,6 +21,7 @@ type BucketPoint struct {
 
 type bucketCacheEntry struct {
 	expires time.Time
+	accessed time.Time
 	points  []BucketPoint
 }
 
@@ -81,6 +82,8 @@ func (s *BucketService) events(ctx context.Context, key, tenantID, eventName, bu
 	}
 	s.mu.Lock()
 	if entry, found := s.cache[key]; found && time.Now().Before(entry.expires) {
+		entry.accessed = time.Now()
+		s.cache[key] = entry
 		points := append([]BucketPoint(nil), entry.points...)
 		s.mu.Unlock()
 		return points, nil
@@ -137,13 +140,23 @@ func (s *BucketService) events(ctx context.Context, key, tenantID, eventName, bu
 	if s.cache == nil {
 		s.cache = make(map[string]bucketCacheEntry)
 	}
-	if len(s.cache) >= 512 {
-		for oldKey := range s.cache {
-			delete(s.cache, oldKey)
-			break
-		}
+	now := time.Now()
+	for k, entry := range s.cache {
+		if !now.Before(entry.expires) { delete(s.cache, k) }
 	}
-	s.cache[key] = bucketCacheEntry{expires: time.Now().Add(10 * time.Second), points: append([]BucketPoint(nil), points...)}
+	if len(points) > 4096 {
+		s.mu.Unlock()
+		return points, nil
+	}
+	if len(s.cache) >= 512 {
+		var oldest string
+		var at time.Time
+		for k, entry := range s.cache {
+			if at.IsZero() || entry.accessed.Before(at) { oldest, at = k, entry.accessed }
+		}
+		delete(s.cache, oldest)
+	}
+	s.cache[key] = bucketCacheEntry{expires: now.Add(10 * time.Second), accessed: now, points: append([]BucketPoint(nil), points...)}
 	s.mu.Unlock()
 	return points, nil
 }
