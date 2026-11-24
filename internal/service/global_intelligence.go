@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+ "sync"
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
@@ -170,7 +171,10 @@ func inferenceJSON(value any) string {
 	return string(data)
 }
 
+var globalScoringMu sync.Mutex
+
 func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle GlobalIntelligenceBundle, now time.Time) error {
+ if !globalScoringMu.TryLock() { return errors.New("global intelligence scoring already running") }; defer globalScoringMu.Unlock()
 	db := s.DB.WithContext(ctx)
 	ids, err := scopedTenants(db, "")
 	if err != nil {
@@ -182,12 +186,30 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 			return err
 		}
 		run := model.IntelligenceInferenceRun{TenantID: tenant, Version: bundle.Version, CreatedAt: now}
+        skipped := false
 		err := db.Transaction(func(tx *gorm.DB) error {
+			if tx.Dialector.Name()=="postgres" {
+                var acquired bool
+                if err:=tx.Raw("SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))", "eye:global-scoring:"+tenant).Scan(&acquired).Error;err!=nil{return err}
+                if !acquired{return errors.New("tenant scoring already running on another instance")}
+            }
+			if tx.Dialector.Name()=="postgres" {
+                // Bound redundant full scans; always reconcile after the interval.
+                // This is throttling, not an event-level incremental checkpoint.
+                var recent int64
+                if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND version = ? AND error = ? AND created_at > ? AND created_at <= ?",tenant,bundle.Version,"",now.Add(-time.Minute),now).Count(&recent).Error;err!=nil{return err}
+                if recent>0 {skipped=true;return nil}
+                if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
+            }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
 				return err
 			}
-			return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
+			if tx.Dialector.Name()=="postgres" {
+                return tx.Exec("DELETE FROM intelligence_inferences i WHERE i.tenant_id = ? AND NOT EXISTS (SELECT 1 FROM pg_temp.eye_scored_entities k WHERE k.kind=i.kind AND k.entity_id=i.entity_id)",tenant).Error
+            }
+            return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
 		})
+        if skipped {continue}
 		if err != nil {
 			run.Error = err.Error()
 			run.Events, run.Sessions, run.Users = 0, 0, 0
@@ -205,13 +227,44 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIntelligenceBundle, run *model.IntelligenceInferenceRun, now time.Time) error {
 	type profile struct{ visits, purchases, games, adSessions int }
 	users := map[string]profile{}
-	results := make([]model.IntelligenceInference, 0, 100)
+	batchSize:=500
+	if db.Dialector.Name()=="sqlite" {batchSize=100}
+	results := make([]model.IntelligenceInference, 0, batchSize)
 	flush := func() error {
 		if len(results) == 0 {
 			return nil
 		}
-		err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&results).Error
-		results = results[:0]
+		// Batch inference writes and explicitly preserve the composite identity.
+		// PostgreSQL tracks membership separately so unchanged snapshots need no update.
+		conflict := clause.OnConflict{
+			Columns: []clause.Column{{Name:"tenant_id"},{Name:"kind"},{Name:"entity_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"version","tags","predictions","evidence","scored_at"}),
+		 }
+        if db.Dialector.Name()=="postgres" {
+            type scoredKey struct { Kind string; EntityID string }
+            keys:=make([]scoredKey,0,len(results))
+            for _,row:=range results {keys=append(keys,scoredKey{row.Kind,row.EntityID})}
+            if err:=db.Table("pg_temp.eye_scored_entities").Clauses(clause.OnConflict{DoNothing:true}).Create(&keys).Error;err!=nil{return err}
+            // Compare the batch against persisted snapshots before attempting writes.
+            // Keep membership for every entity, including unchanged snapshots.
+            var existing []model.IntelligenceInference
+            ids:=make([]string,0,len(results))
+            for _,row:=range results {ids=append(ids,row.EntityID)}
+            if err:=db.Select("kind","entity_id","version","tags","predictions","evidence").Where("tenant_id = ? AND entity_id IN ?",run.TenantID,ids).Find(&existing).Error;err!=nil{return err}
+            type identity struct {kind,id string}
+            previous:=make(map[identity]model.IntelligenceInference,len(existing))
+            for _,row:=range existing {previous[identity{row.Kind,row.EntityID}]=row}
+            changed:=results[:0]
+            for _,row:=range results {
+                old,ok:=previous[identity{row.Kind,row.EntityID}]
+                if !ok || old.Version!=row.Version || old.Tags!=row.Tags || old.Predictions!=row.Predictions || old.Evidence!=row.Evidence {changed=append(changed,row)}
+            }
+            results=changed
+            if len(results)==0 {return nil}
+            conflict.Where=clause.Where{Exprs:[]clause.Expression{clause.Expr{SQL:"(intelligence_inferences.version, intelligence_inferences.tags, intelligence_inferences.predictions, intelligence_inferences.evidence) IS DISTINCT FROM (excluded.version, excluded.tags, excluded.predictions, excluded.evidence)"}}}
+        }
+        err:=db.Clauses(conflict).Create(&results).Error
+        results = results[:0]
 		return err
 	}
 	add := func(kind, id string, tags []string, predictions, evidence map[string]any) error {
