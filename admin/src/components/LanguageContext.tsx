@@ -7,6 +7,10 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Insights may not represent the entire time range": "بینش‌ها ممکن است نماینده کل بازه زمانی نباشند",
+  "No events in this scope": "رویدادی در این محدوده وجود ندارد",
+  "Chart display limit": "محدودیت نمایش نمودار",
+  "Only 12 split series are displayed": "فقط ۱۲ سری تفکیک‌شده نمایش داده می‌شود",
   "Hide overview": "پنهان کردن نمای کلی",
   "Smart overview": "نمای کلی هوشمند",
   "Leading groups": "گروه‌های پیشرو",
