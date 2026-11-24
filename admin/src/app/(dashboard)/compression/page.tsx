@@ -11,14 +11,16 @@ export default function CompressionPage() {
   const [event, setEvent] = useState("");
   const [days, setDays] = useState(30);
   const [resolution, setResolution] = useState(3600000);
+  const [confirmation, setConfirmation] = useState("");
+  const [operation, setOperation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
-  async function assess() {
+  async function assess(fixedCutoff?: number) {
     if (!tenantId || busy || days < 1) return;
     setBusy(true); setError(""); setResult(null);
     try {
-      const filters = { tenant_id: tenantId, event_name: event || undefined, to_ts: Date.now() - days * 86400000, limit: 100 };
+      const filters = { tenant_id: tenantId, event_name: event || undefined, to_ts: fixedCutoff ?? Date.now() - days * 86400000, limit: 100 };
       const response = await fetch('/api/proxy/compression/assessment?' + new URLSearchParams({tenant_id: tenantId, event_name: event, to_ts: String(filters.to_ts)}), {cache: 'no-store'});
       if (!response.ok) throw new Error(await response.text());
       const storage: Storage = await response.json();
@@ -39,15 +41,28 @@ export default function CompressionPage() {
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
+  async function prune() {
+    if (!result || result.tenant !== tenantId || !event || busy || confirmation !== "PRUNE "+tenantId+" "+event) return;
+    setBusy(true); setError(""); setOperation("");
+    try {
+      const res = await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,event_name:event,to_ts:result.cutoff,confirm:confirmation})});
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setOperation("Updated "+data.updated+" records; actual logical payload bytes "+data.before_payload_bytes+" → "+data.after_payload_bytes+"; operation "+data.duration_ms.toFixed(1)+" ms. Run assessment again to measure database allocation.");
+      setResult(null); setConfirmation("");
+    } catch(e) {setError(e instanceof Error?e.message:String(e));}
+    finally {setBusy(false);}
+  }
   return <div className="space-y-6">
     <h1 className="text-2xl font-semibold">Compression &amp; Storage</h1>
-    <p className="text-fg-muted">Read-only assessment. Select a tenant before measuring. No events are modified or deleted.</p>
+    <p className="text-fg-muted">Assessment is read-only. Owner-authorized payload pruning permanently removes event payloads.</p>
     <div className="grid gap-4 rounded-lg border border-border p-4 md:grid-cols-3">
       <label>Event name<input className="block w-full rounded border border-border bg-surface p-2" value={event} disabled={busy} onChange={e=>{setEvent(e.target.value);setResult(null);}} placeholder="All event types"/></label>
       <label>Older than (days)<input className="block w-full rounded border border-border bg-surface p-2" type="number" min={1} max={36500} value={days} disabled={busy} onChange={e=>{setDays(Number(e.target.value));setResult(null);}}/></label>
       <label>Aggregation resolution<select className="block w-full rounded border border-border bg-surface p-2" value={resolution} disabled={busy} onChange={e=>{setResolution(Number(e.target.value));setResult(null);}}><option value={60000}>Minute</option><option value={3600000}>Hour</option><option value={86400000}>Day</option></select></label>
-      <button className="rounded bg-accent p-2 text-accent-fg disabled:opacity-50" disabled={!tenantId || busy || !Number.isFinite(days) || days < 1 || days > 36500} onClick={assess}>{busy ? "Measuring…" : "Run assessment"}</button>
+      <button className="rounded bg-accent p-2 text-accent-fg disabled:opacity-50" disabled={!tenantId || busy || !Number.isFinite(days) || days < 1 || days > 36500} onClick={()=>assess()}>{busy ? "Measuring…" : "Run assessment"}</button>
     </div>
+    {operation && <p role="status">{operation}</p>}
     {error && <p role="alert">{error}</p>}
     {result && result.tenant === tenantId && <div className="space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Assessment results</h2>
@@ -69,6 +84,12 @@ export default function CompressionPage() {
       <p>Aggregation: {result.sample} sampled records into {result.groups} event/time groups. Full-range size and speed are not yet measured.</p>
       <p>Deletion: {result.count.toLocaleString()} matching records would be removed; historical analytics may be lost.</p>
       <p>Baseline API latency (5 requests): median {result.median.toFixed(1)} ms; p95 {result.p95.toFixed(1)} ms.</p>
+      {event && <div className="space-y-2 border border-border rounded p-3">
+      <h3 className="font-semibold">Prune payloads (owner only)</h3>
+      <p>Permanently replace payloads with empty JSON for up to 500 matching records. Payload-based analytics will change. Back up first.</p>
+      <label>Type PRUNE {tenantId} {event}<input className="block w-full border rounded p-2" value={confirmation} disabled={busy} onChange={e=>setConfirmation(e.target.value)}/></label>
+      <button disabled={busy || confirmation !== "PRUNE "+tenantId+" "+event} onClick={prune} className="border rounded p-2 disabled:opacity-50">Prune up to 500 payloads</button>
+      </div>}
       <p className="text-fg-muted">Serialized JSON is not physical database size. Sample is newest-first, not representative by design. Cached API timings include network overhead. Post-operation latency and disk savings require server-side execution and measurement.</p>
     </div>}
   </div>;
