@@ -20,6 +20,7 @@ func (h *CompressionExecuteHandler) ServeHTTP(w http.ResponseWriter,r *http.Requ
  var p struct { Tenant string `json:"tenant_id"`; Event string `json:"event_name"`; Cutoff int64 `json:"to_ts"`; Confirm string `json:"confirm"`; Action string `json:"action"` }
  if json.NewDecoder(http.MaxBytesReader(w,r.Body,4096)).Decode(&p)!=nil {http.Error(w,"invalid request",400);return}
  if !h.mu.TryLock(){http.Error(w,"storage operation running",429);return};defer h.mu.Unlock()
+ if p.Action=="inference_run_retention" {h.inferenceRunRetention(w,r,p.Tenant,p.Cutoff,p.Confirm);return}
  if p.Action=="columnstore" {h.columnstore(w,r,p.Confirm);return}
  if (p.Action!="" && p.Action!="prune" && p.Action!="compact") || p.Tenant=="" || p.Event=="" || p.Cutoff<=0 || p.Cutoff>time.Now().Add(-24*time.Hour).UnixMilli() || (p.Action!="compact" && p.Confirm!="PRUNE "+p.Tenant+" "+p.Event) || (p.Action=="compact" && p.Confirm!="COMPACT "+p.Tenant+" "+p.Event) {http.Error(w,"explicit tenant, event, historical cutoff and confirmation required",400);return}
  ctx,cancel:=context.WithTimeout(r.Context(),15*time.Second);defer cancel()
@@ -69,4 +70,22 @@ func (h *CompressionExecuteHandler) columnstore(w http.ResponseWriter,r *http.Re
  if err!=nil {log.Printf("columnstore compression: %v",err);http.Error(w,"columnstore operation failed; see server logs",500);return}
  w.Header().Set("Content-Type","application/json")
  json.NewEncoder(w).Encode(map[string]any{"chunk":chunk,"before_bytes":before,"after_bytes":after,"duration_ms":float64(time.Since(started).Microseconds())/1000})
+}
+
+func (h *CompressionExecuteHandler) inferenceRunRetention(w http.ResponseWriter,r *http.Request,tenant string,cutoff int64,confirm string) {
+ if tenant=="" || cutoff<=0 || cutoff>time.Now().Add(-30*24*time.Hour).UnixMilli() || confirm!="DELETE INFERENCE RUNS "+tenant {http.Error(w,"tenant, cutoff older than 30 days and explicit confirmation required",400);return}
+ ctx,cancel:=context.WithTimeout(r.Context(),15*time.Second);defer cancel()
+ var deleted int64
+ started:=time.Now()
+ err:=h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+  var ids []uint
+  if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND created_at < ?",tenant,time.UnixMilli(cutoff)).Order("created_at,id").Limit(500).Pluck("id",&ids).Error;err!=nil{return err}
+  if len(ids)==0{return nil}
+  res:=tx.Where("tenant_id = ? AND created_at < ? AND id IN ?",tenant,time.UnixMilli(cutoff),ids).Delete(&model.IntelligenceInferenceRun{})
+  deleted=res.RowsAffected
+  return res.Error
+ })
+ if err!=nil{http.Error(w,"inference run retention failed",500);return}
+ w.Header().Set("Content-Type","application/json")
+ json.NewEncoder(w).Encode(map[string]any{"updated":deleted,"duration_ms":float64(time.Since(started).Microseconds())/1000})
 }
