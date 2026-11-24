@@ -93,10 +93,15 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
  now:=time.Now().UnixMilli()
  day:=int64(86400000)
  age:="CASE WHEN client_ts >= ? THEN '0-1 days' WHEN client_ts >= ? THEN '1-7 days' WHEN client_ts >= ? THEN '7-30 days' WHEN client_ts >= ? THEN '30-90 days' ELSE '90+ days' END"
- if err:=q().Select(age+" AS name, "+fields,now-day,now-7*day,now-30*day,now-90*day).Group("1").Scan(&ages).Error;err!=nil{warnings=append(warnings,"age breakdown unavailable")}else{out["ages"]=ages}
+ aged:=q().Select(age+" AS name, payload",now-day,now-7*day,now-30*day,now-90*day)
+ if err:=db.Table("(?) AS aged",aged).Select("name, "+fields).Group("name").Scan(&ages).Error;err!=nil{warnings=append(warnings,"age breakdown unavailable")}else{out["ages"]=ages}
  if db.Dialector.Name()=="postgres" {
   if err:=db.Raw("SELECT schemaname || '.' || relname AS name, pg_table_size(relid) AS table_bytes, pg_indexes_size(relid) AS index_bytes FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"relation sizes unavailable")}else{out["relations"]=relations}
-  var extension string
+  var indexes []struct {
+ Name string `json:"name"`; Relation string `json:"relation"`; Bytes int64 `json:"bytes"`; Scans int64 `json:"scans"`; Unique bool `json:"unique"`; Definition string `json:"definition"`
+ }
+ if err:=db.Raw("SELECT s.schemaname || '.' || s.indexrelname AS name, s.schemaname || '.' || s.relname AS relation, pg_relation_size(s.indexrelid) AS bytes, COALESCE(s.idx_scan,0) AS scans, i.indisunique AS \"unique\", pg_get_indexdef(s.indexrelid) AS definition FROM pg_stat_user_indexes s JOIN pg_index i ON i.indexrelid=s.indexrelid ORDER BY pg_relation_size(s.indexrelid) DESC LIMIT 100").Scan(&indexes).Error;err==nil{out["indexes"]=indexes}else{warnings=append(warnings,"index diagnostics unavailable")}
+ var extension string
   if err:=db.Raw("SELECT COALESCE(MAX(extversion),'') FROM pg_extension WHERE extname='timescaledb'").Scan(&extension).Error;err==nil {
    out["timescale_version"]=extension
    if extension!="" {
