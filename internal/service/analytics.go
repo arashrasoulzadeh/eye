@@ -183,20 +183,17 @@ func (a *AnalyticsService) SlidingWindowCounts(tenantID, eventName string, windo
 	if toTS != nil {
 		query = query.Where("client_ts <= ?", *toTS)
 	}
-	var events []model.Event
-	if err := query.Find(&events).Error; err != nil {
+	// Aggregate in SQL rather than transferring full event payloads.
+	var rows []WindowCount
+	width := windowSeconds * 1000
+	if width <= 0 || width/1000 != windowSeconds {
+		return nil, fmt.Errorf("window_seconds too large")
+	}
+	if err := query.Select("(client_ts / ?) * ? AS window_start, COUNT(*) AS count", width, width).
+		Group("window_start").Order("window_start asc").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	counts := map[int64]int{}
-	for _, event := range events {
-		start := event.ClientTS / (windowSeconds * 1000) * (windowSeconds * 1000)
-		counts[start]++
-	}
-	rows := make([]WindowCount, 0, len(counts))
-	for start, count := range counts {
-		rows = append(rows, WindowCount{WindowStart: start, Count: count})
-	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].WindowStart < rows[j].WindowStart })
+	if rows == nil { rows = []WindowCount{} }
 	return rows, nil
 }
 
@@ -242,24 +239,12 @@ func (a *AnalyticsService) DeviceBreakdown(tenantID string) ([]DeviceBreakdownRo
 // busiest session to least busy. It intentionally counts raw events so the
 // result reflects the same data visible to query consumers.
 func (a *AnalyticsService) EventsPerSession(tenantID string) ([]SessionEventCount, error) {
-	var events []model.Event
-	if err := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID).Find(&events).Error; err != nil {
+	result := make([]SessionEventCount, 0)
+	if err := a.DB.Model(&model.Event{}).Where("tenant_id = ?", tenantID).
+		Select("session_id, COUNT(*) AS count").Group("session_id").
+		Order("count desc, session_id asc").Scan(&result).Error; err != nil {
 		return nil, err
 	}
-	counts := make(map[string]int)
-	for _, event := range events {
-		counts[event.SessionID]++
-	}
-	result := make([]SessionEventCount, 0, len(counts))
-	for sessionID, count := range counts {
-		result = append(result, SessionEventCount{SessionID: sessionID, Count: count})
-	}
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Count == result[j].Count {
-			return result[i].SessionID < result[j].SessionID
-		}
-		return result[i].Count > result[j].Count
-	})
 	return result, nil
 }
 
@@ -285,7 +270,8 @@ type SuggestedFunnelStep struct {
 // operator to guess event names. It chooses the most common first event, then
 // greedily follows the most common next distinct event across sessions.
 func (a *AnalyticsService) SuggestedFunnel(tenantID string, fromTS, toTS *int64) ([]SuggestedFunnelStep, error) {
-	key := fmt.Sprintf("%s|%v|%v", tenantID, fromTS, toTS)
+	keyBytes, _ := json.Marshal(struct { Tenant string; From, To *int64 }{tenantID, fromTS, toTS})
+	key := string(keyBytes)
 	a.cacheMu.Lock()
 	if entry, ok := a.suggestedCache[key]; ok && time.Now().Before(entry.expires) {
 		value := append([]SuggestedFunnelStep(nil), entry.value...)
@@ -422,7 +408,8 @@ func (a *AnalyticsService) Funnel(tenantID string, steps []string, fromTS, toTS 
 	if len(steps) == 0 {
 		return nil, nil
 	}
-	key := fmt.Sprintf("%s|%s|%v|%v", tenantID, strings.Join(steps, "\x00"), fromTS, toTS)
+	keyBytes, _ := json.Marshal(struct { Tenant string; Steps []string; From, To *int64 }{tenantID, steps, fromTS, toTS})
+	key := string(keyBytes)
 	a.cacheMu.Lock()
 	if entry, ok := a.funnelCache[key]; ok && time.Now().Before(entry.expires) {
 		value := append([]FunnelStepResult(nil), entry.value...)
