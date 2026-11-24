@@ -26,8 +26,6 @@ const TRANSLATIONS: Record<string, string> = {
   "Custom properties": "ویژگی‌های سفارشی",
   "Use the global time range": "استفاده از بازه زمانی سراسری",
   "No results": "بدون نتیجه",
-  "Previous": "قبلی",
-  "Next": "بعدی",
   "Query examples": "نمونه‌های پرس‌وجو",
   "Event counts": "تعداد رویدادها",
   "Answer streak": "زنجیره پاسخ‌ها",
