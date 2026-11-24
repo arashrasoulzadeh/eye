@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+ "crypto/sha256"
+ "database/sql"
+ "encoding/hex"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -58,8 +61,17 @@ type trainingJourney struct {
 }
 
 func (s *UserIntelligenceService) trainingJourneys(db *gorm.DB, tenant string, visit func(trainingJourney) error) error {
-	var sessions []model.Session
-	return db.Where("tenant_id = ?", tenant).FindInBatches(&sessions, 200, func(_ *gorm.DB, _ int) error {
+	return s.trainingJourneysScoped(db,tenant,nil,visit)
+}
+
+func (s *UserIntelligenceService) trainingJourneysScoped(db *gorm.DB, tenant string, sessionIDs []string, visit func(trainingJourney) error) error {
+ var sessions []model.Session
+ query:=db.Where("tenant_id = ?",tenant)
+ if sessionIDs!=nil {
+  if len(sessionIDs)==0{return nil}
+  query=query.Where("id IN ?",sessionIDs)
+ }
+ return query.FindInBatches(&sessions, 200, func(_ *gorm.DB, _ int) error {
 		ids := make([]string, 0, len(sessions))
 		for _, session := range sessions {
 			ids = append(ids, session.ID)
@@ -194,11 +206,15 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if !acquired{return errors.New("tenant scoring already running on another instance")}
             }
 			if tx.Dialector.Name()=="postgres" {
-                // Bound redundant full scans; always reconcile after the interval.
-                // This is throttling, not an event-level incremental checkpoint.
-                var recent int64
-                if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND version = ? AND error = ? AND created_at > ? AND created_at <= ?",tenant,bundle.Version,"",now.Add(-time.Minute),now).Count(&recent).Error;err!=nil{return err}
-                if recent>0 {skipped=true;return nil}
+                // Check actual model and input changes before deciding to skip.
+                // Exact input fingerprint includes event ordering, identity and inactivity state.
+                if err:=tx.Exec("CREATE TABLE IF NOT EXISTS eye_scoring_checkpoints (tenant_id text PRIMARY KEY, signature text NOT NULL, reconciled_at timestamptz NOT NULL)").Error;err!=nil{return err}
+                signature,err:=scoringInputSignature(tx,tenant,bundle,now)
+                if err!=nil{return err}
+                var checkpoint struct {Signature string; ReconciledAt time.Time}
+                if err:=tx.Table("eye_scoring_checkpoints").Where("tenant_id = ?",tenant).Scan(&checkpoint).Error;err!=nil{return err}
+                if checkpoint.Signature==signature && now.Sub(checkpoint.ReconciledAt)>=0 && now.Sub(checkpoint.ReconciledAt)<time.Hour {skipped=true;return nil}
+                if err:=tx.Exec("INSERT INTO eye_scoring_checkpoints (tenant_id,signature,reconciled_at) VALUES (?,?,?) ON CONFLICT (tenant_id) DO UPDATE SET signature=excluded.signature,reconciled_at=excluded.reconciled_at",tenant,signature,now).Error;err!=nil{return err}
                 if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
             }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
@@ -393,3 +409,30 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 	}
 	return flush()
 }
+
+ // scoringInputSignature streams canonical scoring inputs rather than loading all events into memory.
+ func scoringInputSignature(db *gorm.DB,tenant string,bundle GlobalIntelligenceBundle,now time.Time)(string,error){
+ h:=sha256.New()
+ enc:=json.NewEncoder(h)
+ if err:=enc.Encode(bundle);err!=nil{return "",err}
+ rows,err:=db.Raw("SELECT id,COALESCE(user_id,''),COALESCE(ip,''),COALESCE(user_agent,''),last_seen FROM sessions WHERE tenant_id=? ORDER BY id",tenant).Rows()
+ if err!=nil{return "",err}
+ for rows.Next(){
+ var id,user,ip,ua string
+ var last sql.NullTime
+ if err:=rows.Scan(&id,&user,&ip,&ua,&last);err!=nil{rows.Close();return "",err}
+ if err:=enc.Encode([]any{id,user,ip,ua,!last.Valid || last.Time.IsZero(),now.Sub(last.Time)>=sessionObservation});err!=nil{rows.Close();return "",err}
+ }
+ err=rows.Err();rows.Close();if err!=nil{return "",err}
+ rows,err=db.Raw("SELECT event_id,COALESCE(session_id,''),COALESCE(user_id,''),COALESCE(event_name,''),client_ts FROM events WHERE tenant_id=? AND is_aggregated=false ORDER BY session_id,client_ts,event_id,user_id,event_name",tenant).Rows()
+ if err!=nil{return "",err}
+ defer rows.Close()
+ for rows.Next(){
+ var id,session,user,name string
+ var ts int64
+ if err:=rows.Scan(&id,&session,&user,&name,&ts);err!=nil{return "",err}
+ if err:=enc.Encode([]any{id,session,user,name,ts});err!=nil{return "",err}
+ }
+ if err:=rows.Err();err!=nil{return "",err}
+ return hex.EncodeToString(h.Sum(nil)),nil
+ }
