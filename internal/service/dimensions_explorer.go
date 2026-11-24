@@ -4,6 +4,8 @@ import (
  "context"
  "encoding/json"
  "fmt"
+ "math"
+ "strings"
  "sort"
  "time"
  "github.com/arashrasoulzadeh/eye/internal/model"
@@ -30,6 +32,7 @@ type DimensionRow struct {
  Split string `json:"split"`
  Value float64 `json:"value"`
  Count int `json:"count"`
+ Valid int `json:"valid"`
 }
 type DimensionResult struct {
  Types []string `json:"types"`
@@ -47,9 +50,10 @@ func dimensionValues(v any, explode bool) []string {
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  out:=DimensionResult{Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
  if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100{return out,fmt.Errorf("invalid dimension scope")}
- switch in.Operation {case "count","sum","avg","min","max","distinct","missing":default:return out,fmt.Errorf("invalid operation")}
+ switch in.Operation {case "count","sum","avg","min","max","distinct","missing","median","p90","p95","p99","stddev":default:return out,fmt.Errorf("invalid operation")}
  ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
- type bucket struct{row DimensionRow; n int; distinct map[string]bool}
+ type bucket struct{row DimensionRow; n int; distinct map[string]bool; samples []float64; mean,m2 float64}
+ sampleCount:=0
  buckets:=map[[2]string]*bucket{}
  keys,types:=map[string]bool{},map[string]bool{}
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
@@ -62,6 +66,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if out.Scanned==20000{out.Truncated=true;break};out.Scanned++
  var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};types[typ]=true
  var dims map[string]any;if json.Unmarshal([]byte(raw),&dims)!=nil{continue}
+ dims=flattenDimensions(dims,"",0)
  for k:=range dims{if len(keys)<2000{keys[k]=true}}
  if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
  if in.Group==""&&in.TimeBucket==""{continue}
@@ -71,13 +76,27 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  k:=[2]string{g,s};b:=buckets[k];if b==nil{if len(buckets)>=5000{out.Truncated=true;continue};b=&bucket{row:DimensionRow{Group:g,Split:s},distinct:map[string]bool{}};buckets[k]=b};b.row.Count++
  if in.Operation=="count"{b.row.Value++;continue};if in.Operation=="missing"{if dims[in.Metric]==nil{b.row.Value++};continue}
  if in.Operation=="distinct"{for _,v:=range dimensionValues(dims[in.Metric],in.Explode){if dims[in.Metric]!=nil{b.distinct[v]=true}};continue}
- v,ok:=dims[in.Metric].(float64);if !ok{continue};b.n++
+ v,ok:=dims[in.Metric].(float64);if !ok{continue};b.n++;b.row.Valid++
+ if in.Operation=="stddev"{delta:=v-b.mean;b.mean+=delta/float64(b.n);b.m2+=delta*(v-b.mean)}
+ if in.Operation=="median"||in.Operation=="p90"||in.Operation=="p95"||in.Operation=="p99"{if sampleCount<200000{b.samples=append(b.samples,v);sampleCount++}else{out.Truncated=true}}
  switch in.Operation{case "sum","avg":b.row.Value+=v;case "min":if b.n==1||v<b.row.Value{b.row.Value=v};case "max":if b.n==1||v>b.row.Value{b.row.Value=v}}
  }}
  };return rows.Err()
  })
  for k:=range keys{out.Keys=append(out.Keys,k)};sort.Strings(out.Keys);sort.Strings(out.Types)
- for _,b:=range buckets{if in.Operation=="avg"&&b.n>0{b.row.Value/=float64(b.n)};if in.Operation=="distinct"{b.row.Value=float64(len(b.distinct))};out.Rows=append(out.Rows,b.row)}
+ for _,b:=range buckets{if in.Operation=="stddev"&&b.n>0{b.row.Value=math.Sqrt(b.m2/float64(b.n))};if len(b.samples)>0{sort.Float64s(b.samples);p:=map[string]float64{"median":.5,"p90":.9,"p95":.95,"p99":.99}[in.Operation];pos:=p*float64(len(b.samples)-1);lo:=int(pos);hi:=int(math.Ceil(pos));b.row.Value=b.samples[lo]+(b.samples[hi]-b.samples[lo])*(pos-float64(lo))};if in.Operation=="avg"&&b.n>0{b.row.Value/=float64(b.n)};if in.Operation=="distinct"{b.row.Value=float64(len(b.distinct))};out.Rows=append(out.Rows,b.row)}
  sort.Slice(out.Rows,func(i,j int)bool{a,b:=out.Rows[i],out.Rows[j];if a.Value!=b.Value{return a.Value>b.Value};if a.Group!=b.Group{return a.Group<b.Group};return a.Split<b.Split})
  if len(out.Rows)>1000{out.Rows=out.Rows[:1000];out.Truncated=true};return out,err
 }
+
+ // Nested paths use JSON Pointer escaping to avoid collisions with literal dots.
+ func flattenDimensions(dims map[string]any,prefix string,depth int)map[string]any{
+ out:=map[string]any{}
+ for k,v:=range dims{
+  key:=prefix+"/"+strings.ReplaceAll(strings.ReplaceAll(k,"~","~0"),"/","~1")
+  out[key]=v
+  if depth<5{if child,ok:=v.(map[string]any);ok{for p,x:=range flattenDimensions(child,key,depth+1){out[p]=x}}}
+ }
+ if depth==0{for k,v:=range dims{if !strings.HasPrefix(k,"/"){out[k]=v}}}
+ return out
+ }
