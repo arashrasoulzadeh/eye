@@ -8,15 +8,24 @@ import (
 
  "gorm.io/gorm"
  "github.com/arashrasoulzadeh/eye/internal/model"
+ "github.com/arashrasoulzadeh/eye/internal/service"
 )
 
 type CompressionExecuteHandler struct { DB *gorm.DB }
 
 func (h *CompressionExecuteHandler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
  if r.Method!=http.MethodPost {w.WriteHeader(405);return}
- var p struct { Tenant string `json:"tenant_id"`; Event string `json:"event_name"`; Cutoff int64 `json:"to_ts"`; Confirm string `json:"confirm"` }
- if json.NewDecoder(http.MaxBytesReader(w,r.Body,4096)).Decode(&p)!=nil || p.Tenant=="" || p.Event=="" || p.Cutoff<=0 || p.Cutoff>time.Now().Add(-24*time.Hour).UnixMilli() || p.Confirm!="PRUNE "+p.Tenant+" "+p.Event {http.Error(w,"explicit tenant, event, historical cutoff and confirmation required",400);return}
+ var p struct { Tenant string `json:"tenant_id"`; Event string `json:"event_name"`; Cutoff int64 `json:"to_ts"`; Confirm string `json:"confirm"`; Action string `json:"action"` }
+ if json.NewDecoder(http.MaxBytesReader(w,r.Body,4096)).Decode(&p)!=nil || p.Tenant=="" || p.Event=="" || p.Cutoff<=0 || p.Cutoff>time.Now().Add(-24*time.Hour).UnixMilli() || (p.Action!="compact" && p.Confirm!="PRUNE "+p.Tenant+" "+p.Event) || (p.Action=="compact" && p.Confirm!="COMPACT "+p.Tenant+" "+p.Event) {http.Error(w,"explicit tenant, event, historical cutoff and confirmation required",400);return}
  ctx,cancel:=context.WithTimeout(r.Context(),15*time.Second);defer cancel()
+ if p.Action=="compact" {
+  cutoff:=p.Cutoff-p.Cutoff%3600000
+  n,err:=service.CompactEventBatch(ctx,h.DB,p.Tenant,p.Event,cutoff,500)
+  if err!=nil {http.Error(w,"compaction failed",500);return}
+  w.Header().Set("Content-Type","application/json")
+  json.NewEncoder(w).Encode(map[string]any{"updated":n,"cutoff":cutoff})
+  return
+ }
  var before,after int64
  var removed int64
  started:=time.Now()
