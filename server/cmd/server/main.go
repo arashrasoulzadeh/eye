@@ -183,6 +183,7 @@ func main() {
 		qs.SetTenantContext = storage.SetTenantContext
 	}
 	mux.Handle("/query", adminAuth(&handler.QueryHandler{Svc: qs, Intelligence: intelligenceSvc}))
+	mux.Handle("/query-explorer", adminUserAuth(&handler.QueryExplorerHandler{Svc: &service.QueryService{DB: db, SetTenantContext: setTenantContext}}))
 	analyticsSvc := &service.AnalyticsService{DB: db}
 	bucketSvc := &service.BucketService{DB: db}
 	if err := bucketSvc.Backfill(); err != nil {
