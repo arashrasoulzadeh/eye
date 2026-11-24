@@ -7,6 +7,21 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Run selected tenant query (Ctrl/⌘ + Enter)": "اجرای پرس‌وجوی تنانت انتخاب‌شده (Ctrl/⌘ + Enter)",
+  "Restrict events to the dashboard time range": "محدود کردن رویدادها به بازه زمانی داشبورد",
+  "Referenced tables": "جدول‌های ارجاع‌شده",
+  "Inspect table schema": "مشاهده طرحواره جدول",
+  "Only events is available": "فقط جدول رویدادها در دسترس است",
+  "Insert field into query": "درج فیلد در پرس‌وجو",
+  "Show less": "نمایش کمتر",
+  "Show all fields": "نمایش همه فیلدها",
+  "Smart query examples": "نمونه‌های هوشمند پرس‌وجو",
+  "Active users": "کاربران فعال",
+  "Busiest sessions": "پرترافیک‌ترین نشست‌ها",
+  "Latest events": "آخرین رویدادها",
+  "Sort by column": "مرتب‌سازی بر اساس ستون",
+  "Download all returned rows as CSV": "دریافت همه ردیف‌های نتیجه به صورت CSV",
+  "Download all returned rows as JSON": "دریافت همه ردیف‌های نتیجه به صورت JSON",
   "Query Explorer": "کاوشگر پرس‌وجو",
   "Select a tenant before running a query.": "پیش از اجرای پرس‌وجو یک تنانت انتخاب کنید.",
   "Read-only event SQL": "SQL فقط‌خواندنی رویدادها",
