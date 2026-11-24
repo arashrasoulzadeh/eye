@@ -24,7 +24,14 @@ func (r *Repo) Migrate() error {
 	if r.DB.Dialector.Name() != "postgres" || !r.DB.Migrator().HasTable("events") {
 		models = append([]any{&model.Event{}}, models...)
 	}
-	return r.DB.AutoMigrate(models...)
+	if err := r.DB.AutoMigrate(models...); err != nil { return err }
+	for _, statement := range []string{
+		"CREATE INDEX IF NOT EXISTS idx_events_tenant_name_client_id ON events (tenant_id, event_name, client_ts, event_id)",
+		"CREATE INDEX IF NOT EXISTS idx_events_tenant_client_id ON events (tenant_id, client_ts, event_id)",
+	} {
+		if err := r.DB.Exec(statement).Error; err != nil { return err }
+	}
+	return nil
 }
 
 // GetSettings returns the singleton runtime-settings row, or
