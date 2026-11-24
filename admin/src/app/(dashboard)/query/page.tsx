@@ -39,14 +39,38 @@ export default function QueryPage() {
   const highlight = useRef<HTMLPreElement>(null);
   const [cursor, setCursor] = useState(0);
   const [properties, setProperties] = useState<string[]>([]);
-  const prefix = sql.slice(0,cursor).match(/[a-zA-Z_][a-zA-Z_0-9.]*$/)?.[0] || "";
-  const suggestions = prefix ? [...fields,...properties,"SELECT","FROM","events","WHERE","AND","OR","GROUP BY","ORDER BY","HAVING","LIMIT","COUNT","SUM","AVG","MIN","MAX","DISTINCT"].filter(w=>w.toLowerCase().startsWith(prefix.toLowerCase()) && w.toLowerCase()!==prefix.toLowerCase()).slice(0,8) : [];
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+  const [completionHidden, setCompletionHidden] = useState(false);
+  const before = sql.slice(0,cursor);
+  const prefix = before.match(/[a-zA-Z_][a-zA-Z_0-9.]*$/)?.[0] || "";
+  const context = before.slice(0,before.length-prefix.length).replace(/'(?:[^']|'')*'/g," ").trim();
+  const inString = (before.match(/'/g)?.length || 0)%2===1;
+  const tableContext = /\b(?:FROM|JOIN)$/i.test(context);
+  const fieldContext = /\b(?:WHERE|AND|OR|ON|BY|SELECT|HAVING)$/i.test(context) || /[(,]$/.test(context);
+  const functions = ["COUNT","SUM","AVG","MIN","MAX","ROUND","LOWER","UPPER","COALESCE","LENGTH","ABS"];
+  const candidates = tableContext ? ["events"] : fieldContext ? [...fields,...properties,...functions,"DISTINCT"] : ["SELECT","FROM","WHERE","AND","OR","JOIN","ON","GROUP BY","ORDER BY","HAVING","LIMIT","OFFSET","IN","IS NULL","IS NOT NULL",...fields,...properties,...functions];
+  const suggestions = completionHidden || inString || (!prefix && !tableContext && !fieldContext) ? [] : [...new Set(candidates)].filter(w=>w.toLowerCase().startsWith(prefix.toLowerCase()) && w.toLowerCase()!==prefix.toLowerCase()).slice(0,8);
+  const activeSuggestion = Math.min(selectedSuggestion,Math.max(0,suggestions.length-1));
   function insert(word:string) {
     const start = cursor-prefix.length;
-    setSql(sql.slice(0,start)+word+sql.slice(cursor));
+    const end = cursor + (sql.slice(cursor).match(/^[a-zA-Z_0-9.]*/)?.[0].length || 0);
+    setSql(sql.slice(0,start)+word+sql.slice(end));
     setCursor(start+word.length);
+    setSelectedSuggestion(0);
+    setCompletionHidden(true);
     requestAnimationFrame(()=>{editor.current?.focus();editor.current?.setSelectionRange(start+word.length,start+word.length);});
   }
+  const cleanSQL = sql.replace(/'(?:[^']|'')*'/g," ");
+  const tip = !sql.trim() ? "Start with SELECT to explore events." :
+    !/^\s*SELECT\b/i.test(cleanSQL) ? "Only read-only SELECT queries are supported." :
+    !/\bFROM\b/i.test(cleanSQL) ? "Add FROM events to choose your data source." :
+    /\b(?:FROM|JOIN)\s+(?!events\b)[a-z_][a-z_0-9]*\b/i.test(cleanSQL) ? "The available table is events." :
+    /\bJOIN\b/i.test(cleanSQL) && !/\bON\b/i.test(cleanSQL) ? "Use ON to specify how joined events match." :
+    /\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\(/i.test(cleanSQL) && /,/.test(cleanSQL.split(/\bFROM\b/i)[0]) && !/\bGROUP\s+BY\b/i.test(cleanSQL) ? "Use GROUP BY when selecting dimensions with aggregates." :
+    /\bWHERE\b/i.test(cleanSQL) && /\b(?:type|event_name)\s*=\s*[a-z_][a-z_0-9]*\s*(?:;|$)/i.test(cleanSQL) ? "Put text values in single quotes, for example 'answer'." :
+    /\bSELECT\s+\*/i.test(cleanSQL) ? "Select specific columns to keep results compact." :
+    !/\bLIMIT\b/i.test(cleanSQL) ? "Add LIMIT 100 to preview a smaller result." :
+    "Use Ctrl/⌘ + Enter to run your query.";
   const [chart, setChart] = useState("Table");
   const [xColumn, setXColumn] = useState(0);
   const [yColumn, setYColumn] = useState(1);
@@ -107,8 +131,9 @@ export default function QueryPage() {
     {!tenantId && <p role="status" className="rounded-lg border border-border p-3">{t("Select a tenant before running a query.")}</p>}
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
       <section className="min-w-0 space-y-2 rounded-lg border border-border bg-surface p-3">
-        <div className="relative rounded-lg border border-border bg-surface-2" dir="ltr"><pre ref={highlight} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6">{sql.split(/('(?:[^']|'')*'|\b(?:SELECT|FROM|WHERE|AND|OR|JOIN|LEFT|INNER|ON|AS|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|IN|EXISTS|NOT|NULL|DISTINCT|COUNT|SUM|AVG|MIN|MAX)\b|\b\d+(?:\.\d+)?\b)/gi).map((token,i)=><span key={i} className={token.startsWith("'")?"text-emerald-600 dark:text-emerald-400":i%2===1?"text-violet-600 dark:text-violet-400":"text-fg"}>{token}</span>)}{"\n"}</pre><textarea ref={editor} onScroll={e=>{if(highlight.current){highlight.current.scrollTop=e.currentTarget.scrollTop;highlight.current.scrollLeft=e.currentTarget.scrollLeft;}}} onSelect={e=>setCursor(e.currentTarget.selectionStart)} aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={5} value={sql} onChange={e=>{setSql(e.target.value);setCursor(e.target.selectionStart);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();}}} className="relative block w-full resize-y bg-transparent p-4 font-mono text-sm leading-6 text-transparent caret-current outline-none focus:ring-2 focus:ring-accent/30" style={{caretColor:"var(--color-fg, currentColor)"}} /></div>
-        <div className="flex flex-wrap gap-1">{suggestions.map(word=><button key={word} className={button+" font-mono"} onClick={()=>insert(word)}>{word}</button>)}</div>
+        <div className="relative rounded-lg border border-border bg-surface-2" dir="ltr"><pre ref={highlight} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6">{sql.split(/('(?:[^']|'')*'|\b(?:SELECT|FROM|WHERE|AND|OR|JOIN|LEFT|INNER|ON|AS|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|IN|EXISTS|NOT|NULL|DISTINCT|COUNT|SUM|AVG|MIN|MAX)\b|\b\d+(?:\.\d+)?\b)/gi).map((token,i)=><span key={i} className={token.startsWith("'")?"text-emerald-600 dark:text-emerald-400":i%2===1?"text-violet-600 dark:text-violet-400":"text-fg"}>{token}</span>)}{"\n"}</pre><textarea ref={editor} onScroll={e=>{if(highlight.current){highlight.current.scrollTop=e.currentTarget.scrollTop;highlight.current.scrollLeft=e.currentTarget.scrollLeft;}}} onSelect={e=>setCursor(e.currentTarget.selectionStart)} aria-label={t("Query Explorer")} dir="ltr" spellCheck={false} rows={5} value={sql} onChange={e=>{setSql(e.target.value);setCursor(e.target.selectionStart);setCompletionHidden(false);setSelectedSuggestion(0);}} onKeyDown={e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();void run();return;}if(e.key==="Escape"){setCompletionHidden(true);return;}if(suggestions.length && (e.key==="ArrowDown"||e.key==="ArrowUp")){e.preventDefault();setSelectedSuggestion((activeSuggestion+(e.key==="ArrowDown"?1:suggestions.length-1))%suggestions.length);}else if(suggestions.length&&e.key==="Tab"){e.preventDefault();insert(suggestions[activeSuggestion]);}}} className="relative block w-full resize-y bg-transparent p-4 font-mono text-sm leading-6 text-transparent caret-current outline-none focus:ring-2 focus:ring-accent/30" style={{caretColor:"var(--color-fg, currentColor)"}} /></div>
+        {suggestions.length>0 && <div className="flex flex-wrap items-center gap-1"><span className="text-xs text-fg-muted">{t("Suggestions")} · Tab ↑↓</span>{suggestions.map((word,i)=><button key={word} title={t("Insert suggestion")} className={button+" font-mono "+(i===activeSuggestion?"bg-surface-2 ring-1 ring-accent":"")} onMouseDown={e=>e.preventDefault()} onClick={()=>insert(word)}>{word}</button>)}</div>}
+        <p className="rounded bg-surface-2 px-2 py-1 text-xs text-fg-muted" aria-live="polite"><span className="font-medium">{t("Query tip")}: </span>{t(tip)}</p>
         <div className="flex flex-wrap items-center gap-2">
           <button title={t("Run selected tenant query (Ctrl/⌘ + Enter)")} className={button+" bg-accent text-accent-fg"} disabled={busy||loading||!tenantId||!sql.trim()||(scopedTime&&!to)} onClick={()=>void run()}>{t(busy?"Running query…":"Run query")}</button>
           <label title={t("Restrict events to the dashboard time range")} className="text-xs"><input type="checkbox" checked={scopedTime} onChange={e=>setScopedTime(e.target.checked)} /> {t("Use the global time range")}</label>
