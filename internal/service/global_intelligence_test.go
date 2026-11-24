@@ -62,6 +62,13 @@ func TestGlobalTrainingCSVAndInference(t *testing.T) {
 		}
 	}
 
+    // Repeated scoring must preserve live predictions and remove stale entities.
+    if err := db.Create(&model.IntelligenceInference{TenantID:"tenant-secret", Kind:"event", EntityID:"removed-event", Version:bundle.Version, ScoredAt:now.Add(-time.Hour)}).Error; err != nil { t.Fatal(err) }
+    if err := s.ScoreGlobalModel(t.Context(), bundle, now.Add(time.Second)); err != nil { t.Fatal(err) }
+    var count int64
+    if err := db.Model(&model.IntelligenceInference{}).Where("tenant_id = ? AND entity_id = ?", "tenant-secret","removed-event").Count(&count).Error; err != nil || count != 0 { t.Fatalf("stale entity count=%d err=%v",count,err) }
+    if err := db.Model(&model.IntelligenceInference{}).Where("tenant_id = ? AND entity_id = ?", "tenant-secret","event-secret").Count(&count).Error; err != nil || count != 1 { t.Fatalf("live entity count=%d err=%v",count,err) }
+
 	bundle.Version = "model-next"
 	if err := s.ScoreGlobalModel(t.Context(), bundle, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
