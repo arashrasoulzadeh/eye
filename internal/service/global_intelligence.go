@@ -3,6 +3,7 @@ package service
 import (
 	"context"
  "crypto/sha256"
+ "database/sql"
  "encoding/hex"
 	"encoding/csv"
 	"encoding/json"
@@ -418,16 +419,16 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
  h:=sha256.New()
  enc:=json.NewEncoder(h)
  if err:=enc.Encode(bundle);err!=nil{return "",err}
- rows,err:=db.Raw("SELECT id,user_id,ip,user_agent,last_seen FROM sessions WHERE tenant_id=? ORDER BY id",tenant).Rows()
+ rows,err:=db.Raw("SELECT id,COALESCE(user_id,''),COALESCE(ip,''),COALESCE(user_agent,''),last_seen FROM sessions WHERE tenant_id=? ORDER BY id",tenant).Rows()
  if err!=nil{return "",err}
  for rows.Next(){
  var id,user,ip,ua string
- var last time.Time
+ var last sql.NullTime
  if err:=rows.Scan(&id,&user,&ip,&ua,&last);err!=nil{rows.Close();return "",err}
- if err:=enc.Encode([]any{id,user,ip,ua,last.IsZero(),now.Sub(last)>=sessionObservation});err!=nil{rows.Close();return "",err}
+ if err:=enc.Encode([]any{id,user,ip,ua,!last.Valid || last.Time.IsZero(),now.Sub(last.Time)>=sessionObservation});err!=nil{rows.Close();return "",err}
  }
  err=rows.Err();rows.Close();if err!=nil{return "",err}
- rows,err=db.Raw("SELECT event_id,session_id,user_id,event_name,client_ts FROM events WHERE tenant_id=? AND is_aggregated=false ORDER BY session_id,client_ts,event_id,user_id,event_name",tenant).Rows()
+ rows,err=db.Raw("SELECT event_id,COALESCE(session_id,''),COALESCE(user_id,''),COALESCE(event_name,''),client_ts FROM events WHERE tenant_id=? AND is_aggregated=false ORDER BY session_id,client_ts,event_id,user_id,event_name",tenant).Rows()
  if err!=nil{return "",err}
  defer rows.Close()
  for rows.Next(){
