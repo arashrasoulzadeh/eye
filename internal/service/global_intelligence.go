@@ -214,7 +214,9 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 var checkpoint struct {Signature string; ReconciledAt time.Time}
                 if err:=tx.Table("eye_scoring_checkpoints").Where("tenant_id = ?",tenant).Scan(&checkpoint).Error;err!=nil{return err}
                 if checkpoint.Signature==signature && now.Sub(checkpoint.ReconciledAt)>=0 && now.Sub(checkpoint.ReconciledAt)<time.Hour {skipped=true;return nil}
-                if err:=tx.Exec("INSERT INTO eye_scoring_checkpoints (tenant_id,signature,reconciled_at) VALUES (?,?,?) ON CONFLICT (tenant_id) DO UPDATE SET signature=excluded.signature,reconciled_at=excluded.reconciled_at",tenant,signature,now).Error;err!=nil{return err}
+                reconciledAt := checkpoint.ReconciledAt
+                if reconciledAt.IsZero() || now.Sub(reconciledAt) < 0 || now.Sub(reconciledAt) >= time.Hour { reconciledAt = now }
+                if err:=tx.Exec("INSERT INTO eye_scoring_checkpoints (tenant_id,signature,reconciled_at) VALUES (?,?,?) ON CONFLICT (tenant_id) DO UPDATE SET signature=excluded.signature,reconciled_at=excluded.reconciled_at",tenant,signature,reconciledAt).Error;err!=nil{return err}
                 if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
             }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
@@ -264,9 +266,13 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
             // Compare the batch against persisted snapshots before attempting writes.
             // Keep membership for every entity, including unchanged snapshots.
             var existing []model.IntelligenceInference
-            ids:=make([]string,0,len(results))
-            for _,row:=range results {ids=append(ids,row.EntityID)}
-            if err:=db.Select("kind","entity_id","version","tags","predictions","evidence").Where("tenant_id = ? AND entity_id IN ?",run.TenantID,ids).Find(&existing).Error;err!=nil{return err}
+            idsByKind := make(map[string][]string)
+            for _, row := range results { idsByKind[row.Kind] = append(idsByKind[row.Kind],row.EntityID) }
+            for kind, ids := range idsByKind {
+                var rows []model.IntelligenceInference
+                if err := db.Select("kind","entity_id","version","tags","predictions","evidence").Where("tenant_id = ? AND kind = ? AND entity_id IN ?",run.TenantID,kind,ids).Find(&rows).Error; err != nil { return err }
+                existing = append(existing,rows...)
+            }
             type identity struct {kind,id string}
             previous:=make(map[identity]model.IntelligenceInference,len(existing))
             for _,row:=range existing {previous[identity{row.Kind,row.EntityID}]=row}
