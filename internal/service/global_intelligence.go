@@ -205,7 +205,9 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIntelligenceBundle, run *model.IntelligenceInferenceRun, now time.Time) error {
 	type profile struct{ visits, purchases, games, adSessions int }
 	users := map[string]profile{}
-	results := make([]model.IntelligenceInference, 0, 500)
+	batchSize:=500
+	if db.Dialector.Name()=="sqlite" {batchSize=100}
+	results := make([]model.IntelligenceInference, 0, batchSize)
 	flush := func() error {
 		if len(results) == 0 {
 			return nil
