@@ -187,6 +187,11 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 		}
 		run := model.IntelligenceInferenceRun{TenantID: tenant, Version: bundle.Version, CreatedAt: now}
 		err := db.Transaction(func(tx *gorm.DB) error {
+			if tx.Dialector.Name()=="postgres" {
+                var acquired bool
+                if err:=tx.Raw("SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))", "eye:global-scoring:"+tenant).Scan(&acquired).Error;err!=nil{return err}
+                if !acquired{return errors.New("tenant scoring already running on another instance")}
+            }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
 				return err
 			}
