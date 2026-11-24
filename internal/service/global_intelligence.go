@@ -205,12 +205,17 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIntelligenceBundle, run *model.IntelligenceInferenceRun, now time.Time) error {
 	type profile struct{ visits, purchases, games, adSessions int }
 	users := map[string]profile{}
-	results := make([]model.IntelligenceInference, 0, 100)
+	results := make([]model.IntelligenceInference, 0, 500)
 	flush := func() error {
 		if len(results) == 0 {
 			return nil
 		}
-		err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&results).Error
+		// Batch inference writes and explicitly preserve the composite identity.
+		// The timestamp is required by the stale-entity cleanup at the end of the run.
+		err := db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name:"tenant_id"},{Name:"kind"},{Name:"entity_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"version","tags","predictions","evidence","scored_at"}),
+		}).Create(&results).Error
 		results = results[:0]
 		return err
 	}
