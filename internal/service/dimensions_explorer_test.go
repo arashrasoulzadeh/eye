@@ -19,3 +19,12 @@ func TestDimensionFilters(t *testing.T){
  {DimensionFilter{Key:"unknown",Mode:"missing"},true},
  }{if got:=matchDimensionFilter(dims,c.f);got!=c.want{t.Errorf("%+v: %v",c.f,got)}}
 }
+
+func TestDimensionPairStats(t *testing.T) {
+ var positive,negative,constant,small dimensionPairStats
+ for i:=0;i<100;i++{x:=float64(i)+1e9;positive.add(x,2*x);negative.add(x,-x);constant.add(x,1);if i<10{small.add(x,x)}}
+ if r,ok:=positive.coefficient();!ok||r<0.999999{t.Fatalf("positive: %v %v",r,ok)}
+ if r,ok:=negative.coefficient();!ok||r> -0.999999{t.Fatalf("negative: %v %v",r,ok)}
+ if _,ok:=constant.coefficient();ok{t.Fatal("constant series must not correlate")}
+ if _,ok:=small.coefficient();ok{t.Fatal("small sample must not correlate")}
+}
