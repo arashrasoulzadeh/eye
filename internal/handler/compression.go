@@ -126,6 +126,11 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
   intelligence=append(intelligence,struct { Name string `json:"name"`; Records int64 `json:"records"` }{table,count})
  }
  out["derived_records"]=intelligence
+ var buckets []struct { Resolution string `json:"resolution"`; Records int64 `json:"records"`; Events int64 `json:"events"` }
+ if err:=db.Table("event_buckets").Where("tenant_id = ?",tenant).Select("bucket AS resolution, COUNT(*) AS records, COALESCE(SUM(count),0) AS events").Group("bucket").Scan(&buckets).Error;err==nil{out["bucket_resolutions"]=buckets}else{warnings=append(warnings,"bucket resolution inventory unavailable")}
+ var dims struct { Records int64 `json:"records"`; DistinctValues int64 `json:"distinct_values"`; LogicalBytes int64 `json:"logical_bytes"`; DictionaryBytes int64 `json:"dictionary_bytes"` }
+ distinct:=q().Select("COALESCE(dims,'') AS dims, COUNT(*) AS copies").Group("COALESCE(dims,'')")
+ if err:=db.Table("(?) AS dimension_groups",distinct).Select("COALESCE(SUM(copies),0) AS records, COUNT(*) AS distinct_values, COALESCE(SUM(copies * "+dimExpr+"),0) AS logical_bytes, COALESCE(SUM("+dimExpr+"),0) AS dictionary_bytes").Scan(&dims).Error;err==nil{out["dimension_repetition"]=dims}else{warnings=append(warnings,"dimension repetition unavailable")}
  var stale int64
  if err:=db.Table("intelligence_inferences").Where("tenant_id = ? AND scored_at < ?",tenant,time.Now().Add(-30*24*time.Hour)).Count(&stale).Error;err==nil{out["stale_inferences"]=stale}
  var runs int64
