@@ -3,13 +3,15 @@ import { useState } from "react";
 import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
-type Storage = { database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
+type Group = {name:string; records:number; payload_bytes:number; savings:number};
+type Inventory = {bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
+type Storage = { inventory?: Inventory; database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
 type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
 export default function CompressionPage() {
   const { tenantId } = useTenant();
   const [event, setEvent] = useState("");
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(1);
   const [resolution, setResolution] = useState(3600000);
   const [confirmation, setConfirmation] = useState("");
   const [operation, setOperation] = useState("");
@@ -22,7 +24,7 @@ export default function CompressionPage() {
     setBusy(true); setError(""); setResult(null);
     try {
       const filters = { tenant_id: tenantId, event_name: event || undefined, to_ts: fixedCutoff ?? Date.now() - days * 86400000, limit: 100 };
-      const response = await fetch('/api/proxy/compression/assessment?' + new URLSearchParams({tenant_id: tenantId, event_name: event, to_ts: String(filters.to_ts)}), {cache: 'no-store'});
+      const response = await fetch('/api/proxy/compression/assessment?' + new URLSearchParams({tenant_id: tenantId, event_name: event, to_ts: String(filters.to_ts), inventory:"1"}), {cache: 'no-store'});
       if (!response.ok) throw new Error(await response.text());
       const storage: Storage = await response.json();
       const times: number[] = [];
@@ -82,6 +84,7 @@ export default function CompressionPage() {
     {error && <p role="alert">{error}</p>}
     {result && result.tenant === tenantId && <div className="space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Assessment results</h2>
+      {result.storage.inventory && <StorageInventory data={result.storage.inventory} onSelect={name=>{setEvent(name);setResult(null);}}/>}
       <p>Fixed cutoff: {new Date(result.cutoff).toISOString()}</p>
       <div className="grid gap-3 md:grid-cols-2">
       <p>Database allocation: {bytes(result.storage.database_bytes)} ({result.storage.size_scope})</p>
@@ -112,4 +115,26 @@ export default function CompressionPage() {
       <p className="text-fg-muted">Serialized JSON is not physical database size. Sample is newest-first, not representative by design. Cached API timings include network overhead. Post-operation latency and disk savings require server-side execution and measurement.</p>
     </div>}
   </div>;
+}
+
+function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)=>void}) {
+ const groups=(rows:Group[]|undefined,select:boolean)=><table className="w-full text-sm"><thead><tr><th>Name</th><th>Records</th><th>Payload</th><th>Pruning potential</th></tr></thead><tbody>{(rows??[]).map(row=><tr key={row.name}><td>{select?<button className="underline" onClick={()=>onSelect(row.name)}>{row.name}</button>:row.name}</td><td>{row.records.toLocaleString()}</td><td>{bytes(row.payload_bytes)}</td><td>{bytes(row.savings)}</td></tr>)}</tbody></table>;
+ const largest=data.events?.[0];
+ return <section className="space-y-4">
+ <h2 className="text-lg font-semibold">Storage inventory — all ages</h2>
+ {data.bounds && <p>{data.bounds.records.toLocaleString()} raw events. Oldest: {data.bounds.records?new Date(data.bounds.oldest).toISOString():"—"}. Newest: {data.bounds.records?new Date(data.bounds.newest).toISOString():"—"}.</p>}
+ <h3 className="font-semibold">Event types (top 100 by payload)</h3>{groups(data.events,true)}
+ <h3 className="font-semibold">Storage by event age</h3>{groups(data.ages,false)}
+ <h3 className="font-semibold">Physical database relations (global, top 100)</h3>
+ <div className="overflow-auto"><table className="w-full text-sm"><thead><tr><th>Relation</th><th>Table / object</th><th>Indexes</th><th>Total</th></tr></thead><tbody>{(data.relations??[]).map(row=><tr key={row.name}><td>{row.name}</td><td>{bytes(row.table_bytes)}</td><td>{bytes(row.index_bytes)}</td><td>{bytes(row.table_bytes+row.index_bytes)}</td></tr>)}</tbody></table></div>
+ <h3 className="font-semibold">Compression opportunities</h3>
+ <p>{data.timescale_version?"TimescaleDB "+data.timescale_version:"TimescaleDB not detected or unavailable"}</p>
+ {data.chunks && <p>{data.chunks.compressed} of {data.chunks.total} chunks compressed; {data.chunks.older_uncompressed} uncompressed chunks older than seven days. Physical savings require a compression trial.</p>}
+ <h3 className="font-semibold">Recommended actions</h3>
+ {largest && largest.savings>0 && <p>Review {largest.name} first: up to {bytes(largest.savings)} logical payload pruning potential. This is destructive, not lossless compression.</p>}
+ {!!data.chunks?.older_uncompressed && <p>Review native Timescale compression for historical chunks before deleting raw events.</p>}
+ {data.bounds?.records===0 && <p>No raw events found for this tenant. Review global relation sizes or select another tenant.</p>}
+ {(data.warnings??[]).map(w=><p key={w} role="status">{w}</p>)}
+ <p className="text-fg-muted">Payload estimates are tenant scoped; relation sizes and chunks are database wide. SQLite dbstat reports individual objects including indexes. No physical savings are guaranteed.</p>
+ </section>;
 }
