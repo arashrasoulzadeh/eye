@@ -7,6 +7,15 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Pivot": "جدول محوری",
+  "Heatmap": "نقشه حرارتی",
+  "Stacked bar": "نمودار میله‌ای انباشته",
+  "Valid values": "مقادیر معتبر",
+  "median": "میانه",
+  "p90": "صدک ۹۰",
+  "p95": "صدک ۹۵",
+  "p99": "صدک ۹۹",
+  "stddev": "انحراف معیار",
   "Advanced analysis": "تحلیل پیشرفته",
   "Time bucket": "بازه زمانی",
   "Filter dimension": "فیلتر بعد",
