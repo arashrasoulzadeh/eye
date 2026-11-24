@@ -220,7 +220,7 @@ func UpsertEventBuckets(db *gorm.DB, events ...*model.Event) error {
 }
 
 // Backfill creates missing durable buckets for events ingested before the
-// bucket table existed. Existing rows are rebuilt idempotently at startup.
+// bucket table existed. Rebuild live counts and restore separately stored compacted counts.
 func (s *BucketService) Backfill() error {
 	return s.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.EventBucket{}).Error; err != nil {
@@ -232,6 +232,9 @@ func (s *BucketService) Backfill() error {
 			if err := tx.Exec("INSERT INTO event_buckets (tenant_id, event_name, bucket, bucket_start, count, updated_at) SELECT tenant_id, event_name, ?, client_ts - (client_ts % ?), COUNT(*), ? FROM events WHERE is_aggregated = ? GROUP BY tenant_id, event_name, 4", spec.name, spec.width, time.Now(), false).Error; err != nil {
 				return err
 			}
+		}
+		if tx.Migrator().HasTable("compacted_event_buckets") {
+			if err := tx.Exec("INSERT INTO event_buckets (tenant_id,event_name,bucket,bucket_start,count,updated_at) SELECT tenant_id,event_name,bucket,bucket_start,count,updated_at FROM compacted_event_buckets WHERE 1=1 ON CONFLICT (tenant_id,event_name,bucket,bucket_start) DO UPDATE SET count=event_buckets.count+excluded.count, updated_at=excluded.updated_at").Error; err != nil { return err }
 		}
 		return nil
 	})
