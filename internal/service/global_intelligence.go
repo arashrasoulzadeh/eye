@@ -58,8 +58,17 @@ type trainingJourney struct {
 }
 
 func (s *UserIntelligenceService) trainingJourneys(db *gorm.DB, tenant string, visit func(trainingJourney) error) error {
-	var sessions []model.Session
-	return db.Where("tenant_id = ?", tenant).FindInBatches(&sessions, 200, func(_ *gorm.DB, _ int) error {
+	return s.trainingJourneysScoped(db,tenant,nil,visit)
+}
+
+func (s *UserIntelligenceService) trainingJourneysScoped(db *gorm.DB, tenant string, sessionIDs []string, visit func(trainingJourney) error) error {
+ var sessions []model.Session
+ query:=db.Where("tenant_id = ?",tenant)
+ if sessionIDs!=nil {
+  if len(sessionIDs)==0{return nil}
+  query=query.Where("id IN ?",sessionIDs)
+ }
+ return query.FindInBatches(&sessions, 200, func(_ *gorm.DB, _ int) error {
 		ids := make([]string, 0, len(sessions))
 		for _, session := range sessions {
 			ids = append(ids, session.ID)
