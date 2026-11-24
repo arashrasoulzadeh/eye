@@ -1,7 +1,9 @@
 package service
 
 import (
-	"fmt"
+	"context"
+	"encoding/json"
+	"golang.org/x/sync/singleflight"
 	"sort"
 	"sync"
 	"time"
@@ -29,6 +31,10 @@ type BucketService struct {
 	DB    *gorm.DB
 	mu    sync.Mutex
 	cache map[string]bucketCacheEntry
+	flights singleflight.Group
+	once sync.Once
+	gate chan struct{}
+	queue chan struct{}
 }
 
 func bucketWidth(name string) (int64, bool) {
@@ -45,11 +51,34 @@ func bucketWidth(name string) (int64, bool) {
 }
 
 func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
+	return s.EventsContext(context.Background(), tenantID, eventName, bucket, fromTS, toTS)
+}
+
+func (s *BucketService) EventsContext(ctx context.Context, tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
+	keyBytes, _ := json.Marshal(struct { Tenant, Event, Bucket string; From, To int64 }{tenantID, eventName, bucket, fromTS, toTS})
+	key := string(keyBytes)
+	s.once.Do(func(){ s.gate = make(chan struct{}, 4); s.queue = make(chan struct{}, 64) })
+	select { case s.queue <- struct{}{}: defer func(){ <-s.queue }(); default: return nil, gorm.ErrInvalidData }
+	ch := s.flights.DoChan(key, func() (any, error) {
+		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer cancel()
+		select { case s.gate <- struct{}{}: defer func(){ <-s.gate }(); case <-work.Done(): return nil, work.Err() }
+		return s.events(work, key, tenantID, eventName, bucket, fromTS, toTS)
+	})
+	select {
+	case <-ctx.Done(): return nil, ctx.Err()
+	case result := <-ch:
+		if result.Err != nil { return nil, result.Err }
+		points := result.Val.([]BucketPoint)
+		return append(make([]BucketPoint, 0, len(points)), points...), nil
+	}
+}
+
+func (s *BucketService) events(ctx context.Context, key, tenantID, eventName, bucket string, fromTS, toTS int64) ([]BucketPoint, error) {
 	width, ok := bucketWidth(bucket)
 	if !ok {
 		return nil, gorm.ErrInvalidData
 	}
-	key := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%d", tenantID, eventName, bucket, fromTS, toTS)
 	s.mu.Lock()
 	if entry, found := s.cache[key]; found && time.Now().Before(entry.expires) {
 		points := append([]BucketPoint(nil), entry.points...)
@@ -63,7 +92,7 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 		firstFull += width
 	}
 	lastFullEnd := toTS - toTS%width
-	query := s.DB.Where("bucket = ? AND bucket_start >= ? AND bucket_start < ?", bucket, firstFull, lastFullEnd)
+	query := s.DB.WithContext(ctx).Where("bucket = ? AND bucket_start >= ? AND bucket_start < ?", bucket, firstFull, lastFullEnd)
 	if tenantID != "" {
 		query = query.Where("tenant_id = ?", tenantID)
 	}
@@ -80,7 +109,7 @@ func (s *BucketService) Events(tenantID, eventName, bucket string, fromTS, toTS 
 	}
 	// Durable buckets contain the entire interval. Count partial edges from
 	// raw events so they respect the exact requested bounds.
-	edge := s.DB.Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, fromTS, toTS).
+	edge := s.DB.WithContext(ctx).Model(&model.Event{}).Where("is_aggregated = ? AND client_ts >= ? AND client_ts <= ?", false, fromTS, toTS).
 		Where("(client_ts < ? OR client_ts >= ?)", firstFull, lastFullEnd)
 	if tenantID != "" {
 		edge = edge.Where("tenant_id = ?", tenantID)
