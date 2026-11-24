@@ -18,6 +18,7 @@ type DimensionInput struct {
  FilterLogic string `json:"filter_logic"`
  DrillGroup *string `json:"drill_group"`
  DrillSplit *string `json:"drill_split"`
+ FullRange bool `json:"full_range"`
  Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
  From int64 `json:"from_ts"`
@@ -73,6 +74,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
  if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
+ if in.FullRange && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;return nil}
  rows,err:=base.Select("event_name,dims,client_ts").Order("client_ts DESC").Limit(20001).Rows();if err!=nil{return err};defer rows.Close()
  for rows.Next(){
  if out.Scanned==20000{out.Truncated=true;break};out.Scanned++
@@ -85,7 +87,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  out.Matched++
  if in.Correlate!=""{x,xok:=dims[in.Metric].(float64);y,yok:=dims[in.Correlate].(float64);if xok&&yok{out.CorrelationN++;sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y}}
  if in.Group==""&&in.TimeBucket==""{continue}
- groups:=dimensionValues(dims[in.Group],in.Explode);if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
+ groups:=dimensionValues(dims[in.Group],in.Explode);if in.Group=="@event"{groups=[]string{typ}};if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
  if len(groups)*len(splits)>1000{out.Truncated=true;continue}
  if in.DrillGroup!=nil&&len(out.Events)<100{found:=false;for _,g:=range groups{for _,s:=range splits{if g==*in.DrillGroup&&(in.DrillSplit==nil||s==*in.DrillSplit){found=true}}};if found{out.Events=append(out.Events,DimensionEvent{Type:typ,Timestamp:ts,Dims:dims})}}
  for _,g:=range groups{for _,s:=range splits{
