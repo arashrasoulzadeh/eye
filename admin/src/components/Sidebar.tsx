@@ -10,6 +10,7 @@ import { LanguageSwitcher, translate, useLanguage } from "@/components/LanguageC
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "⌂" },
   { href: "/query", label: "Query Explorer", icon: "⌘" },
+  { href: "/dimensions", label: "Dimensions Explorer", icon: "▦" },
   { href: "/stream", label: "Live Stream", icon: "◉" },
   { href: "/analytics", label: "Analytics", icon: "▥" },
   { href: "/analytics/funnel", label: "Funnels", icon: "↘" },
@@ -47,8 +48,8 @@ export function Sidebar() {
   const [moreOpen, setMoreOpen] = useState(false);
   const { tenants, tenantId, setTenantId, loading } = useTenant();
   const { language } = useLanguage();
-  const primary = NAV.slice(0, 11);
-  const secondary = NAV.slice(11);
+  const primary = NAV.slice(0, 12);
+  const secondary = NAV.slice(12);
   // Analytics has dedicated child routes. Keep the parent exact-match only so
   // Funnel and Retention never appear selected at the same time as Analytics.
   const isActive = (href: string) => pathname === href || (href !== "/analytics" && pathname?.startsWith(href + "/"));
