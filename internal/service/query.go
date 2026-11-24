@@ -120,8 +120,9 @@ func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, 
 	if err := ctx.Err(); err != nil { return nil, err }
 	// Bound waiting callers as well as actual database work.
 	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
-	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return nil, fmt.Errorf("query queue full") }
+	if err := ctx.Err(); err != nil { return nil, err }
 	ch := q.flights.DoChan(key, func() (any, error) {
+		select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return nil, fmt.Errorf("query queue full") }
 		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
 		q.tenantMu.Lock()
@@ -213,6 +214,11 @@ func (q *QueryService) CountContext(ctx context.Context, f EventFilter) (int64, 
 	defer cancel()
 	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
 	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return 0, fmt.Errorf("query queue full") }
+	q.tenantMu.Lock()
+	if q.tenants[f.TenantID] >= 4 { q.tenantMu.Unlock(); return 0, fmt.Errorf("tenant query limit reached") }
+	q.tenants[f.TenantID]++
+	q.tenantMu.Unlock()
+	defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
 	select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-ctx.Done(): return 0, ctx.Err() }
 	db := q.DB.WithContext(ctx)
 	if q.SetTenantContext != nil && f.TenantID != "" {
