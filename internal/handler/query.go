@@ -69,7 +69,7 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	list = attachEventTags(r.Context(), h.Intelligence, list)
 	if q.Get("page") == "true" {
-		total, countErr := h.Svc.Count(f)
+		total, countErr := h.Svc.CountContext(r.Context(), f)
 		if countErr != nil {
 			http.Error(w, countErr.Error(), http.StatusInternalServerError)
 			return
