@@ -53,7 +53,7 @@ export default function QueryPage() {
     catch { setError("Storage unavailable"); }
   }
   async function run() {
-    if (!tenantId || busy || !sql.trim()) return;
+    if (!tenantId || loading || busy || !sql.trim() || (scopedTime && !to)) return;
     setBusy(true); setError(""); setResult(null); setPage(0);
     try {
       const response = await fetch("/api/proxy/query-explorer", {
