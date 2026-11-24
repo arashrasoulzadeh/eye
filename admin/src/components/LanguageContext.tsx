@@ -7,6 +7,15 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Discover correlations": "کشف همبستگی‌ها",
+  "Discovered correlations": "همبستگی‌های کشف‌شده",
+  "Exploratory associations, not causation": "ارتباط‌های اکتشافی، نه رابطه علّی",
+  "No eligible numeric pairs": "جفت عددی واجد شرایط وجود ندارد",
+  "Net change": "تغییر خالص",
+  "Total absolute movement": "مجموع تغییرات مطلق",
+  "New group": "گروه جدید",
+  "Disappeared group": "گروه حذف‌شده",
+  "of absolute movement": "از تغییرات مطلق",
   "Describe an analysis": "شرح تحلیل",
   "Example: average duration by country": "مثال: average duration by country",
   "Apply analysis": "اعمال تحلیل",
