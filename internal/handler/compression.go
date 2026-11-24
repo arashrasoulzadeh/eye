@@ -117,6 +117,15 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
  } else {
   if err:=db.Raw("SELECT name, SUM(pgsize) AS table_bytes, 0 AS index_bytes FROM dbstat GROUP BY name ORDER BY table_bytes DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"SQLite dbstat unavailable")}else{out["relations"]=relations}
  }
+ var intelligence []struct { Name string `json:"name"`; Records int64 `json:"records"` }
+ for _,table:=range []string{"intelligence_inferences","user_intelligences","event_buckets"} {
+  if !db.Migrator().HasTable(table){continue}
+  if !db.Migrator().HasColumn(table,"tenant_id"){continue}
+  var count int64
+  if err:=db.Table(table).Where("tenant_id = ?",tenant).Count(&count).Error;err!=nil{warnings=append(warnings,table+" count unavailable");continue}
+  intelligence=append(intelligence,struct { Name string `json:"name"`; Records int64 `json:"records"` }{table,count})
+ }
+ out["derived_records"]=intelligence
  out["warnings"]=warnings
  return out
 }
