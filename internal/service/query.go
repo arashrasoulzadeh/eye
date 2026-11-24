@@ -24,6 +24,53 @@ type QueryService struct {
 	queue chan struct{}
 	tenantMu sync.Mutex
 	tenants map[string]int
+	cacheMu sync.Mutex
+	cache map[string]queryCacheEntry
+}
+
+type queryCacheEntry struct {
+	expires, accessed time.Time
+	rows []model.Event
+}
+
+func cloneQueryRows(rows []model.Event) []model.Event {
+	if rows == nil { return nil }
+	out := append(make([]model.Event, 0, len(rows)), rows...)
+	for i := range out {
+		out[i].IntelligenceTags = append([]string(nil), rows[i].IntelligenceTags...)
+	}
+	return out
+}
+
+func (q *QueryService) cached(key string) ([]model.Event, bool) {
+	q.cacheMu.Lock()
+	defer q.cacheMu.Unlock()
+	entry, ok := q.cache[key]
+	if !ok || !time.Now().Before(entry.expires) { delete(q.cache, key); return nil, false }
+	entry.accessed = time.Now()
+	q.cache[key] = entry
+	return cloneQueryRows(entry.rows), true
+}
+
+func (q *QueryService) store(key string, rows []model.Event) {
+	if len(rows) > 500 { return }
+	size := 0
+	for _, row := range rows {
+		size += len(row.Payload) + len(row.Dims) + len(row.EventName) + len(row.EventID) + len(row.SessionID) + len(row.TenantID) + len(row.UserID) + len(row.ContentHash) + len(row.Source) + len(row.AggregationID) + len(row.ExperimentID) + len(row.Variant) + 256
+		if size > 128*1024 { return }
+	}
+	q.cacheMu.Lock()
+	defer q.cacheMu.Unlock()
+	if q.cache == nil { q.cache = make(map[string]queryCacheEntry) }
+	now := time.Now()
+	for k, e := range q.cache { if !now.Before(e.expires) { delete(q.cache, k) } }
+	if len(q.cache) >= 128 {
+		var oldest string
+		var at time.Time
+		for k, e := range q.cache { if at.IsZero() || e.accessed.Before(at) { oldest, at = k, e.accessed } }
+		delete(q.cache, oldest)
+	}
+	q.cache[key] = queryCacheEntry{now.Add(5*time.Second), now, cloneQueryRows(rows)}
 }
 
 func (q *QueryService) EventsByName(name string, limit int) ([]model.Event, error) {
@@ -83,14 +130,17 @@ func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, 
 		q.tenantMu.Unlock()
 		defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
 		select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-work.Done(): return nil, work.Err() }
-		return q.filterDB(work, f, limit, offset)
+		if rows, ok := q.cached(key); ok { return rows, nil }
+		rows, err := q.filterDB(work, f, limit, offset)
+		if err == nil { q.store(key, rows) }
+		return rows, err
 	})
 	select {
 	case <-ctx.Done(): return nil, ctx.Err()
 	case result := <-ch:
 		if result.Err != nil { return nil, result.Err }
 		rows := result.Val.([]model.Event)
-		return append(make([]model.Event, 0, len(rows)), rows...), nil
+		return cloneQueryRows(rows), nil
 	}
 }
 
