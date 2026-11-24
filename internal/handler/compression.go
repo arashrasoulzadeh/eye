@@ -9,6 +9,7 @@ import (
  "sync"
  "sort"
  "log"
+ "strings"
 
  "gorm.io/gorm"
 )
@@ -73,6 +74,7 @@ type storageGroup struct {
  Records int64 `json:"records"`
  PayloadBytes int64 `json:"payload_bytes"`
  Savings int64 `json:"savings"`
+ DimensionBytes int64 `json:"dimension_bytes"`
 }
 type storageRelation struct {
  Name string `json:"name"`
@@ -88,12 +90,13 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
  q:=func()*gorm.DB{return db.Table("events").Where("tenant_id = ?",tenant)}
  if err:=q().Select("COUNT(*) AS records, COALESCE(MIN(client_ts),0) AS oldest, COALESCE(MAX(client_ts),0) AS newest").Scan(&bounds).Error;err!=nil{warnings=append(warnings,"event bounds unavailable")}else{out["bounds"]=bounds}
  savings:="COALESCE(SUM(CASE WHEN "+byteExpr+" > 2 THEN "+byteExpr+" - 2 ELSE 0 END),0)"
- fields:="COUNT(*) AS records, COALESCE(SUM("+byteExpr+"),0) AS payload_bytes, "+savings+" AS savings"
+ dimExpr:=strings.ReplaceAll(byteExpr,"payload","dims")
+ fields:="COALESCE(SUM("+dimExpr+"),0) AS dimension_bytes, COUNT(*) AS records, COALESCE(SUM("+byteExpr+"),0) AS payload_bytes, "+savings+" AS savings"
  if err:=q().Select("event_name AS name, "+fields).Group("event_name").Order("payload_bytes DESC").Limit(100).Scan(&groups).Error;err!=nil{warnings=append(warnings,"event breakdown unavailable")}else{out["events"]=groups}
  now:=time.Now().UnixMilli()
  day:=int64(86400000)
  age:="CASE WHEN client_ts >= ? THEN '0-1 days' WHEN client_ts >= ? THEN '1-7 days' WHEN client_ts >= ? THEN '7-30 days' WHEN client_ts >= ? THEN '30-90 days' ELSE '90+ days' END"
- aged:=q().Select(age+" AS name, payload",now-day,now-7*day,now-30*day,now-90*day)
+ aged:=q().Select(age+" AS name, payload, dims",now-day,now-7*day,now-30*day,now-90*day)
  if err:=db.Table("(?) AS aged",aged).Select("name, "+fields).Group("name").Scan(&ages).Error;err!=nil{warnings=append(warnings,"age breakdown unavailable")}else{out["ages"]=ages}
  if db.Dialector.Name()=="postgres" {
   if err:=db.Raw("SELECT schemaname || '.' || relname AS name, pg_table_size(relid) AS table_bytes, pg_indexes_size(relid) AS index_bytes FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"relation sizes unavailable")}else{out["relations"]=relations}
@@ -101,6 +104,8 @@ func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
  Name string `json:"name"`; Relation string `json:"relation"`; Bytes int64 `json:"bytes"`; Scans int64 `json:"scans"`; Unique bool `json:"unique"`; Definition string `json:"definition"`
  }
  if err:=db.Raw("SELECT s.schemaname || '.' || s.indexrelname AS name, s.schemaname || '.' || s.relname AS relation, pg_relation_size(s.indexrelid) AS bytes, COALESCE(s.idx_scan,0) AS scans, i.indisunique AS \"unique\", pg_get_indexdef(s.indexrelid) AS definition FROM pg_stat_user_indexes s JOIN pg_index i ON i.indexrelid=s.indexrelid ORDER BY pg_relation_size(s.indexrelid) DESC LIMIT 100").Scan(&indexes).Error;err==nil{out["indexes"]=indexes}else{warnings=append(warnings,"index diagnostics unavailable")}
+ var duplicates []struct { First string `json:"first"`; Second string `json:"second"`; Relation string `json:"relation"` }
+ if err:=db.Raw("SELECT a.indexrelid::regclass::text AS first, b.indexrelid::regclass::text AS second, a.indrelid::regclass::text AS relation FROM pg_index a JOIN pg_index b ON a.indrelid=b.indrelid AND a.indexrelid<b.indexrelid JOIN pg_class ca ON ca.oid=a.indexrelid JOIN pg_class cb ON cb.oid=b.indexrelid WHERE NOT a.indisunique AND NOT b.indisunique AND a.indisvalid AND b.indisvalid AND ca.relam=cb.relam AND a.indkey=b.indkey AND a.indclass=b.indclass AND a.indcollation=b.indcollation AND a.indoption=b.indoption AND a.indnkeyatts=b.indnkeyatts AND a.indexprs IS NULL AND b.indexprs IS NULL AND a.indpred IS NULL AND b.indpred IS NULL LIMIT 100").Scan(&duplicates).Error;err==nil{out["duplicate_indexes"]=duplicates}else{warnings=append(warnings,"duplicate index diagnostics unavailable")}
  var extension string
   if err:=db.Raw("SELECT COALESCE(MAX(extversion),'') FROM pg_extension WHERE extname='timescaledb'").Scan(&extension).Error;err==nil {
    out["timescale_version"]=extension
