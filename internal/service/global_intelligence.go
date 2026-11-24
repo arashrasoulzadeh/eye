@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+ "sync"
 	"time"
 
 	"github.com/arashrasoulzadeh/eye/internal/model"
@@ -170,7 +171,10 @@ func inferenceJSON(value any) string {
 	return string(data)
 }
 
+var globalScoringMu sync.Mutex
+
 func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle GlobalIntelligenceBundle, now time.Time) error {
+ if !globalScoringMu.TryLock() { return errors.New("global intelligence scoring already running") }; defer globalScoringMu.Unlock()
 	db := s.DB.WithContext(ctx)
 	ids, err := scopedTenants(db, "")
 	if err != nil {
