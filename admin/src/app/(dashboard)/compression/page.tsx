@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
-type Storage = { database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number };
-type Result = { storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
+type Storage = { database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
+type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
 export default function CompressionPage() {
   const { tenantId } = useTenant();
@@ -35,7 +35,7 @@ export default function CompressionPage() {
       const size = rows.reduce((n,r) => n + encoder.encode(JSON.stringify(r)).length, 0);
       const pruned = rows.reduce((n,r) => n + encoder.encode(JSON.stringify({...r, Payload: "{}"})).length, 0);
       const groups = new Set(rows.map(r => JSON.stringify([r.EventName, Math.floor(r.ClientTS / resolution)]))).size;
-      setResult({storage, count: page.total, sample: rows.length, bytes: size, pruned, groups, median: times[2], p95: times[4]});
+      setResult({tenant: tenantId, cutoff: filters.to_ts, storage, count: page.total, sample: rows.length, bytes: size, pruned, groups, median: times[2], p95: times[4]});
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -49,8 +49,9 @@ export default function CompressionPage() {
       <button className="rounded bg-accent p-2 text-accent-fg disabled:opacity-50" disabled={!tenantId || busy || !Number.isFinite(days) || days < 1 || days > 36500} onClick={assess}>{busy ? "Measuring…" : "Run assessment"}</button>
     </div>
     {error && <p role="alert">{error}</p>}
-    {result && <div className="space-y-4 rounded-lg border border-border p-4">
+    {result && result.tenant === tenantId && <div className="space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Assessment results</h2>
+      <p>Fixed cutoff: {new Date(result.cutoff).toISOString()}</p>
       <div className="grid gap-3 md:grid-cols-2">
       <p>Database allocation: {bytes(result.storage.database_bytes)} ({result.storage.size_scope})</p>
       <p>Reported reusable space: {bytes(result.storage.reusable_bytes)} (SQLite only)</p>
@@ -59,6 +60,8 @@ export default function CompressionPage() {
       <p>Projected payload size after pruning: {bytes(result.storage.pruned_payload_bytes)}</p>
       <p>Projected logical savings: {bytes(result.storage.payload_bytes-result.storage.pruned_payload_bytes)}</p>
       <p>Server assessment scan: {result.storage.scan_ms.toFixed(2)} ms</p>
+      <p>Database count median: {result.storage.count_median_ms.toFixed(2)} ms</p>
+      <p>Database count p95: {result.storage.count_p95_ms.toFixed(2)} ms ({result.storage.benchmark_samples} samples)</p>
       </div>
       <p>{result.count.toLocaleString()} matching records; {result.sample} sampled.</p>
       <p>Sample serialized size: {bytes(result.bytes)}. Estimated matching serialized size: {bytes(result.sample ? result.bytes / result.sample * result.count : 0)}.</p>
