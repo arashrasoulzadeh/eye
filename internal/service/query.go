@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 	"sync"
 	"time"
@@ -9,19 +12,18 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
-type queryCacheEntry struct {
-	expires time.Time
-	events  []model.Event
-}
-
 type QueryService struct {
 	DB *gorm.DB
 	// SetTenantContext is configured for PostgreSQL/Timescale deployments so
 	// every tenant-filtered read also carries transaction-local RLS context.
 	// It remains nil for SQLite/dev deployments.
 	SetTenantContext func(*gorm.DB, string) error
-	cacheMu          sync.Mutex
-	cache            map[string]queryCacheEntry
+	flights singleflight.Group
+	gateOnce sync.Once
+	gate chan struct{}
+	queue chan struct{}
+	tenantMu sync.Mutex
+	tenants map[string]int
 }
 
 func (q *QueryService) EventsByName(name string, limit int) ([]model.Event, error) {
@@ -60,18 +62,43 @@ type EventFilter struct {
 // Filter returns events matching all set fields of f, ordered by ClientTS
 // ascending, with limit/offset pagination.
 func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, error) {
-	key := fmt.Sprintf("%+v:%d:%d", f, limit, offset)
-	q.cacheMu.Lock()
-	if entry, ok := q.cache[key]; ok && time.Now().Before(entry.expires) {
-		result := append([]model.Event(nil), entry.events...)
-		q.cacheMu.Unlock()
-		return result, nil
+	return q.FilterContext(context.Background(), f, limit, offset)
+}
+
+// FilterContext preserves the existing Filter contract while allowing callers to cancel.
+func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, offset int) ([]model.Event, error) {
+	keyBytes, err := json.Marshal(struct { Filter EventFilter; Limit, Offset int }{f, limit, offset})
+	if err != nil { return nil, err }
+	key := string(keyBytes)
+	if err := ctx.Err(); err != nil { return nil, err }
+	// Bound waiting callers as well as actual database work.
+	q.gateOnce.Do(func() { q.gate = make(chan struct{}, 8); q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return nil, fmt.Errorf("query queue full") }
+	ch := q.flights.DoChan(key, func() (any, error) {
+		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer cancel()
+		q.tenantMu.Lock()
+		if q.tenants[f.TenantID] >= 4 { q.tenantMu.Unlock(); return nil, fmt.Errorf("tenant query limit reached") }
+		q.tenants[f.TenantID]++
+		q.tenantMu.Unlock()
+		defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
+		select { case q.gate <- struct{}{}: defer func(){ <-q.gate }(); case <-work.Done(): return nil, work.Err() }
+		return q.filterDB(work, f, limit, offset)
+	})
+	select {
+	case <-ctx.Done(): return nil, ctx.Err()
+	case result := <-ch:
+		if result.Err != nil { return nil, result.Err }
+		rows := result.Val.([]model.Event)
+		return append(make([]model.Event, 0, len(rows)), rows...), nil
 	}
-	q.cacheMu.Unlock()
-	queryDB := q.DB
+}
+
+func (q *QueryService) filterDB(ctx context.Context, f EventFilter, limit, offset int) ([]model.Event, error) {
+	queryDB := q.DB.WithContext(ctx)
 	var tx *gorm.DB
 	if q.SetTenantContext != nil && f.TenantID != "" {
-		tx = q.DB.Begin()
+		tx = queryDB.Begin()
 		if tx.Error != nil {
 			return nil, tx.Error
 		}
@@ -124,18 +151,6 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 			return nil, err
 		}
 	}
-	q.cacheMu.Lock()
-	if q.cache == nil {
-		q.cache = make(map[string]queryCacheEntry)
-	}
-	if len(q.cache) >= 256 {
-		for oldKey := range q.cache {
-			delete(q.cache, oldKey)
-			break
-		}
-	}
-	q.cache[key] = queryCacheEntry{expires: time.Now().Add(5 * time.Second), events: append([]model.Event(nil), list...)}
-	q.cacheMu.Unlock()
 	return list, nil
 }
 
