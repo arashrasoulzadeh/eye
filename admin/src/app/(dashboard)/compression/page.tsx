@@ -4,7 +4,7 @@ import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
 type Group = {dimension_bytes:number;name:string; records:number; payload_bytes:number; savings:number};
-type Inventory = {duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
+type Inventory = {derived_records?:{name:string;records:number}[];duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
 type Storage = { inventory?: Inventory; database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
 type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
@@ -137,6 +137,9 @@ function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)
  <p>{data.timescale_version?"TimescaleDB "+data.timescale_version:"TimescaleDB not detected or unavailable"}</p>
  {!!data.chunks?.older_uncompressed && <ColumnstoreAction/>}
  {data.chunks && <p>{data.chunks.compressed} of {data.chunks.total} chunks compressed; {data.chunks.older_uncompressed} uncompressed chunks older than seven days. Physical savings require a compression trial.</p>}
+ <h3 className="font-semibold">Derived intelligence and bucket records</h3>
+ {(data.derived_records??[]).map(d=><p key={d.name}>{d.name}: {d.records.toLocaleString()} tenant records</p>)}
+ <p>Review intelligence history retention separately from current predictions and model training data.</p>
  <h3 className="font-semibold">Recommended actions</h3>
  {largest && largest.savings>0 && <p>Review {largest.name} first: up to {bytes(largest.savings)} logical payload pruning potential. This is destructive, not lossless compression.</p>}
  {!!data.chunks?.older_uncompressed && <p>Review native Timescale compression for historical chunks before deleting raw events.</p>}
