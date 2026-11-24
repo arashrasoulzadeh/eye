@@ -41,14 +41,15 @@ export default function CompressionPage() {
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  async function prune() {
-    if (!result || result.tenant !== tenantId || !event || busy || confirmation !== "PRUNE "+tenantId+" "+event) return;
+  async function prune(action: "prune" | "compact" = "prune") {
+    const expected = action.toUpperCase()+" "+tenantId+" "+event;
+    if (!result || result.tenant !== tenantId || !event || busy || confirmation !== expected) return;
     setBusy(true); setError(""); setOperation("");
     try {
-      const res = await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,event_name:event,to_ts:result.cutoff,confirm:confirmation})});
+      const res = await fetch("/api/proxy/compression/prune",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,event_name:event,to_ts:result.cutoff,confirm:confirmation,action})});
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setOperation("Updated "+data.updated+" records; actual logical payload bytes "+data.before_payload_bytes+" → "+data.after_payload_bytes+"; operation "+data.duration_ms.toFixed(1)+" ms. Run assessment again to measure database allocation.");
+      setOperation(action === "compact" ? "Compacted "+data.updated+" records into historical counts. Individual event details are permanently removed." : "Updated "+data.updated+" records; actual logical payload bytes "+data.before_payload_bytes+" → "+data.after_payload_bytes+"; operation "+data.duration_ms.toFixed(1)+" ms. Run assessment again to measure database allocation.");
       setResult(null); setConfirmation("");
     } catch(e) {setError(e instanceof Error?e.message:String(e));}
     finally {setBusy(false);}
@@ -88,7 +89,10 @@ export default function CompressionPage() {
       <h3 className="font-semibold">Prune payloads (owner only)</h3>
       <p>Permanently replace payloads with empty JSON for up to 500 matching records. Payload-based analytics will change. Back up first.</p>
       <label>Type PRUNE {tenantId} {event}<input className="block w-full border rounded p-2" value={confirmation} disabled={busy} onChange={e=>setConfirmation(e.target.value)}/></label>
-      <button disabled={busy || confirmation !== "PRUNE "+tenantId+" "+event} onClick={prune} className="border rounded p-2 disabled:opacity-50">Prune up to 500 payloads</button>
+      <button disabled={busy || confirmation !== "PRUNE "+tenantId+" "+event} onClick={()=>prune()} className="border rounded p-2 disabled:opacity-50">Prune up to 500 payloads</button>
+      <p>Historical compaction permanently removes raw records, preserving full bucket counts only. Partial windows, funnels and session analytics may change.</p>
+      <label>For compaction type COMPACT {tenantId} {event}</label>
+      <button disabled={busy || confirmation !== "COMPACT "+tenantId+" "+event} onClick={()=>prune("compact")} className="border rounded p-2 disabled:opacity-50">Compact up to 500 events</button>
       </div>}
       <p className="text-fg-muted">Serialized JSON is not physical database size. Sample is newest-first, not representative by design. Cached API timings include network overhead. Post-operation latency and disk savings require server-side execution and measurement.</p>
     </div>}
