@@ -61,18 +61,25 @@ func (h *CompressionExecuteHandler) columnstore(w http.ResponseWriter,r *http.Re
  var beforeCount,afterCount int64
  var beforeMS,afterMS float64
  err:=h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+  var acquired bool
+  if err:=tx.Raw("SELECT pg_try_advisory_xact_lock(hashtextextended('eye:events:columnstore',0))").Scan(&acquired).Error;err!=nil{return err}
+  if !acquired{return gorm.ErrInvalidTransaction}
   if err:=tx.Exec("SET LOCAL lock_timeout = '3s'").Error;err!=nil{return err}
   if err:=tx.Exec("SET LOCAL statement_timeout = '110s'").Error;err!=nil{return err}
   if err:=tx.Raw("SELECT format('%I.%I',chunk_schema,chunk_name) FROM timescaledb_information.chunks WHERE hypertable_schema=current_schema() AND hypertable_name='events' AND NOT is_compressed AND range_end < now()-interval '7 days' ORDER BY range_end LIMIT 1").Scan(&chunk).Error;err!=nil{return err}
   if chunk=="" {return nil}
   if err:=tx.Raw("SELECT hypertable_size('events')").Scan(&before).Error;err!=nil{return err}
   t:=time.Now()
-  if err:=tx.Table(chunk).Count(&beforeCount).Error;err!=nil{return err}
+  if err:=tx.Raw("SELECT COUNT(*) FROM "+chunk).Scan(&beforeCount).Error;err!=nil{return err}
   beforeMS=float64(time.Since(t).Microseconds())/1000
-  if err:=tx.Exec("ALTER TABLE events SET (timescaledb.enable_columnstore=true, timescaledb.segmentby='tenant_id,event_name', timescaledb.orderby='ingest_ts DESC')").Error;err!=nil{return err}
+  var enabled bool
+  if err:=tx.Raw("SELECT compression_enabled FROM timescaledb_information.hypertables WHERE hypertable_schema=current_schema() AND hypertable_name='events'").Scan(&enabled).Error;err!=nil{return err}
+  if !enabled {
+   if err:=tx.Exec("ALTER TABLE events SET (timescaledb.enable_columnstore=true, timescaledb.segmentby='tenant_id,event_name', timescaledb.orderby='ingest_ts DESC')").Error;err!=nil{return err}
+  }
   if err:=tx.Exec("CALL convert_to_columnstore(CAST(? AS regclass))",chunk).Error;err!=nil{return err}
   t=time.Now()
-  if err:=tx.Table(chunk).Count(&afterCount).Error;err!=nil{return err}
+  if err:=tx.Raw("SELECT COUNT(*) FROM "+chunk).Scan(&afterCount).Error;err!=nil{return err}
   afterMS=float64(time.Since(t).Microseconds())/1000
   if beforeCount!=afterCount{return gorm.ErrInvalidData}
   return tx.Raw("SELECT hypertable_size('events')").Scan(&after).Error
@@ -109,17 +116,20 @@ func (h *CompressionExecuteHandler) rowstore(w http.ResponseWriter,r *http.Reque
  var beforeMS,afterMS float64
  started:=time.Now()
  err:=h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+  var acquired bool
+  if err:=tx.Raw("SELECT pg_try_advisory_xact_lock(hashtextextended('eye:events:columnstore',0))").Scan(&acquired).Error;err!=nil{return err}
+  if !acquired{return gorm.ErrInvalidTransaction}
   if err:=tx.Exec("SET LOCAL lock_timeout = '3s'").Error;err!=nil{return err}
   if err:=tx.Exec("SET LOCAL statement_timeout = '110s'").Error;err!=nil{return err}
   if err:=tx.Raw("SELECT format('%I.%I',chunk_schema,chunk_name) FROM timescaledb_information.chunks WHERE hypertable_schema=current_schema() AND hypertable_name='events' AND is_compressed ORDER BY range_end DESC LIMIT 1").Scan(&chunk).Error;err!=nil{return err}
   if chunk==""{return nil}
   if err:=tx.Raw("SELECT hypertable_size('events')").Scan(&before).Error;err!=nil{return err}
   t:=time.Now()
-  if err:=tx.Table(chunk).Count(&beforeCount).Error;err!=nil{return err}
+  if err:=tx.Raw("SELECT COUNT(*) FROM "+chunk).Scan(&beforeCount).Error;err!=nil{return err}
   beforeMS=float64(time.Since(t).Microseconds())/1000
   if err:=tx.Exec("CALL convert_to_rowstore(CAST(? AS regclass))",chunk).Error;err!=nil{return err}
   t=time.Now()
-  if err:=tx.Table(chunk).Count(&afterCount).Error;err!=nil{return err}
+  if err:=tx.Raw("SELECT COUNT(*) FROM "+chunk).Scan(&afterCount).Error;err!=nil{return err}
   afterMS=float64(time.Since(t).Microseconds())/1000
   if beforeCount!=afterCount{return gorm.ErrInvalidData}
   return tx.Raw("SELECT hypertable_size('events')").Scan(&after).Error
