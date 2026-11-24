@@ -94,3 +94,30 @@ func TestGlobalTagCatalogContains200Keys(t *testing.T) {
 		t.Fatalf("got %d tag keys, want 200", len(seen))
 	}
 }
+
+func TestScoringInputSignature(t *testing.T) {
+ db,err:=gorm.Open(sqlite.Open(":memory:"),&gorm.Config{})
+ if err!=nil{t.Fatal(err)}
+ if err:=db.AutoMigrate(&model.Session{},&model.Event{});err!=nil{t.Fatal(err)}
+ now:=time.Now().UTC()
+ session:=model.Session{ID:"s",TenantID:"t",UserID:"u",LastSeen:now}
+ if err:=db.Create(&session).Error;err!=nil{t.Fatal(err)}
+ bundle:=GlobalIntelligenceBundle{Version:"v1"}
+ signature:=func(at time.Time)string{
+  t.Helper()
+  value,err:=scoringInputSignature(db,"t",bundle,at)
+  if err!=nil{t.Fatal(err)}
+  return value
+ }
+ original:=signature(now)
+ if signature(now.Add(time.Minute))!=original{t.Fatal("unchanged inputs changed signature")}
+ if signature(now.Add(31*time.Minute))==original{t.Fatal("inactivity not detected")}
+ event:=model.Event{EventID:"e",TenantID:"t",SessionID:"s",EventName:"purchase",ClientTS:now.Add(-time.Hour).UnixMilli()}
+ if err:=db.Create(&event).Error;err!=nil{t.Fatal(err)}
+ changed:=signature(now)
+ if changed==original{t.Fatal("late event not detected")}
+ if err:=db.Delete(&event).Error;err!=nil{t.Fatal(err)}
+ if signature(now)!=original{t.Fatal("deletion not detected")}
+ bundle.Version="v2"
+ if signature(now)==original{t.Fatal("model change not detected")}
+}
