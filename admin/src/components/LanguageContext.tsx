@@ -7,6 +7,19 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Suggestions": "پیشنهادها",
+  "Insert suggestion": "درج پیشنهاد",
+  "Query tip": "نکته پرس‌وجو",
+  "Start with SELECT to explore events.": "برای بررسی رویدادها با SELECT شروع کنید.",
+  "Only read-only SELECT queries are supported.": "فقط پرس‌وجوهای خواندنی SELECT پشتیبانی می‌شوند.",
+  "Add FROM events to choose your data source.": "برای انتخاب منبع داده FROM events را اضافه کنید.",
+  "The available table is events.": "جدول موجود events است.",
+  "Use ON to specify how joined events match.": "برای تعیین ارتباط رویدادها از ON استفاده کنید.",
+  "Use GROUP BY when selecting dimensions with aggregates.": "هنگام انتخاب ابعاد همراه با توابع تجمیعی از GROUP BY استفاده کنید.",
+  "Put text values in single quotes, for example 'answer'.": "مقادیر متنی را در نقل‌قول تکی قرار دهید، مانند 'answer'.",
+  "Select specific columns to keep results compact.": "برای نتایج فشرده ستون‌های مشخص را انتخاب کنید.",
+  "Add LIMIT 100 to preview a smaller result.": "برای پیش‌نمایش کوچک‌تر LIMIT 100 را اضافه کنید.",
+  "Use Ctrl/⌘ + Enter to run your query.": "برای اجرا از Ctrl/⌘ + Enter استفاده کنید.",
   "Run selected tenant query (Ctrl/⌘ + Enter)": "اجرای پرس‌وجوی تنانت انتخاب‌شده (Ctrl/⌘ + Enter)",
   "Restrict events to the dashboard time range": "محدود کردن رویدادها به بازه زمانی داشبورد",
   "Referenced tables": "جدول‌های ارجاع‌شده",
