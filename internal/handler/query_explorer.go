@@ -9,6 +9,14 @@ import (
 type QueryExplorerHandler struct { Svc *service.QueryService }
 
 func (h *QueryExplorerHandler) ServeHTTP(w http.ResponseWriter,r *http.Request) {
+ if r.Method==http.MethodPost && r.URL.Query().Get("mode")=="dimensions" {
+  var input service.DimensionInput
+  decoder:=json.NewDecoder(http.MaxBytesReader(w,r.Body,32768));decoder.DisallowUnknownFields()
+  if decoder.Decode(&input)!=nil{http.Error(w,"invalid request",400);return}
+  result,err:=h.Svc.AnalyzeDimensions(r.Context(),input)
+  if err!=nil{http.Error(w,"dimension analysis failed",400);return}
+  w.Header().Set("Content-Type","application/json");w.Header().Set("Cache-Control","no-store");json.NewEncoder(w).Encode(result);return
+ }
  if r.Method==http.MethodGet {
   properties,err:=h.Svc.ExplorerProperties(r.Context(),r.URL.Query().Get("tenant_id"))
   if err!=nil {http.Error(w,"schema discovery failed",400);return}
