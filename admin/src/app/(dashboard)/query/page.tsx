@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, Tooltip } from "recharts";
 import { useTenant } from "@/components/TenantContext";
 import { useTimeRange } from "@/components/TimeRangeContext";
 import { translate, useLanguage } from "@/components/LanguageContext";
@@ -35,6 +36,20 @@ export default function QueryPage() {
   const [error, setError] = useState("");
   const [scopedTime, setScopedTime] = useState(true);
   const [page, setPage] = useState(0);
+  const [chart, setChart] = useState("Table");
+  const [xColumn, setXColumn] = useState(0);
+  const [yColumn, setYColumn] = useState(1);
+  const [sort, setSort] = useState<{column:number; desc:boolean} | null>(null);
+  const sortedRows = result ? [...result.rows].sort((a,b)=>{
+    if (!sort) return 0;
+    const x=a[sort.column],y=b[sort.column];
+    const cmp=typeof x==="number"&&typeof y==="number"?x-y:cell(x).localeCompare(cell(y),undefined,{numeric:true});
+    return sort.desc?-cmp:cmp;
+  }) : [];
+  const chartData = sortedRows.slice(0,200).flatMap(row=>{
+    const value=row[yColumn];
+    return typeof value==="number" || (typeof value==="string" && value.trim()!=="" && Number.isFinite(Number(value))) ? [{label:cell(row[xColumn]),value:Number(value)}] : [];
+  });
   const [name, setName] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [saved, setSaved] = useState<Saved[]>([]);
@@ -54,7 +69,7 @@ export default function QueryPage() {
   }
   async function run() {
     if (!tenantId || loading || busy || !sql.trim() || (scopedTime && !to)) return;
-    setBusy(true); setError(""); setResult(null); setPage(0);
+    setBusy(true); setError(""); setResult(null); setPage(0); setSort(null); setXColumn(0); setYColumn(1);
     try {
       const response = await fetch("/api/proxy/query-explorer", {
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -100,7 +115,12 @@ export default function QueryPage() {
       </div>
       {result.truncated && <p>{t("Results limited to 1000 rows.")}</p>}
       {!result.rows.length && <p>{t("No results")}</p>}
-      <div className="overflow-auto"><table className="w-full text-sm"><thead><tr>{result.columns.map((col,i)=><th key={i} className="border-b border-border p-2 text-start">{col}</th>)}</tr></thead><tbody>{result.rows.slice(page*50,page*50+50).map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j} className="max-w-md whitespace-pre-wrap break-all border-b border-border p-2 font-mono text-xs">{cell(value)}</td>)}</tr>)}</tbody></table></div>
+      <div className="flex flex-wrap gap-2">
+        <select aria-label={t("View")} className={button} value={chart} onChange={e=>setChart(e.target.value)}>{["Table","Bar chart","Line chart","Pie chart"].map(v=><option key={v} value={v}>{t(v)}</option>)}</select>
+        {chart!=="Table" && <><select aria-label="X" className={button} value={xColumn} onChange={e=>setXColumn(Number(e.target.value))}>{result.columns.map((c,i)=><option key={i} value={i}>{c}</option>)}</select><select aria-label="Y" className={button} value={yColumn} onChange={e=>setYColumn(Number(e.target.value))}>{result.columns.map((c,i)=><option key={i} value={i}>{c}</option>)}</select></>}
+      </div>
+      {chart!=="Table" && <div className="h-80" dir="ltr"><ResponsiveContainer width="100%" height="100%">{chart==="Bar chart"?<BarChart data={chartData}><XAxis dataKey="label"/><YAxis/><Tooltip/><Bar dataKey="value" fill="#6366f1"/></BarChart>:chart==="Line chart"?<LineChart data={chartData}><XAxis dataKey="label"/><YAxis/><Tooltip/><Line dataKey="value" stroke="#6366f1"/></LineChart>:<PieChart><Tooltip/><Pie data={chartData.filter(d=>d.value>0)} dataKey="value" nameKey="label" fill="#6366f1" label/></PieChart>}</ResponsiveContainer></div>}
+      <div className="overflow-auto"><table className="w-full text-sm"><thead><tr>{result.columns.map((col,i)=><th key={i} className="border-b border-border p-2 text-start"><button onClick={()=>{setSort(s=>({column:i,desc:s?.column===i?!s.desc:false}));setPage(0);}}>{col}{sort?.column===i?(sort.desc?" ↓":" ↑"):""}</button></th>)}</tr></thead><tbody>{sortedRows.slice(page*50,page*50+50).map((row,i)=><tr key={i}>{row.map((value,j)=><td key={j} className="max-w-md whitespace-pre-wrap break-all border-b border-border p-2 font-mono text-xs">{cell(value)}</td>)}</tr>)}</tbody></table></div>
       <div className="flex items-center gap-3"><button className={button} disabled={page===0} onClick={()=>setPage(p=>p-1)}>{t("Previous")}</button><span>{page+1} / {Math.max(1,Math.ceil(result.rows.length/50))}</span><button className={button} disabled={(page+1)*50>=result.rows.length} onClick={()=>setPage(p=>p+1)}>{t("Next")}</button></div>
     </section>}
   </main>;
