@@ -62,7 +62,7 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	list, err := h.Svc.Filter(f, limit, offset)
+	list, err := h.Svc.FilterContext(r.Context(), f, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
