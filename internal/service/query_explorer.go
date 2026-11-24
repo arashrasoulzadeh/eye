@@ -80,7 +80,7 @@ func compileExplorer(input, dialect string) (string, []any, error) {
   // All identifiers are validated; only fixed SQL fragments are emitted.
   extract:=func(col string) string {
    if dialect=="postgres" { return "(NULLIF("+qualified+col+", '')::jsonb -> '"+key+"')" }
-   return "json_extract(CASE WHEN json_valid(events."+col+") THEN events."+col+" ELSE '{}' END, '$."+key+"')"
+   return "json_extract(CASE WHEN json_valid("+qualified+col+") THEN "+qualified+col+" ELSE '{}' END, '$."+key+"')"
   }
   expr:=extract("payload")
   if source!="" { expr=extract(source) } else { expr="COALESCE("+expr+", "+extract("dims")+")" }
