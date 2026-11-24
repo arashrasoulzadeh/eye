@@ -52,6 +52,7 @@ type DimensionResult struct {
  Rows []DimensionRow `json:"rows"`
  Scanned int `json:"scanned"`
  Truncated bool `json:"truncated"`
+ Execution string `json:"execution"`
 }
 func dimensionValues(v any, explode bool) []string {
  if v==nil{return []string{"(missing)"}}
@@ -60,13 +61,16 @@ func dimensionValues(v any, explode bool) []string {
  b,_:=json.Marshal(v);return []string{string(b)}
 }
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
- out:=DimensionResult{Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
+ out:=DimensionResult{Execution:"bounded_scan",Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
  if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100||len(in.Filters)>20{return out,fmt.Errorf("invalid dimension scope")}
  switch in.Operation {case "count","sum","avg","min","max","distinct","missing","median","p90","p95","p99","stddev":default:return out,fmt.Errorf("invalid operation")}
+ if in.FilterLogic!=""&&in.FilterLogic!="and"&&in.FilterLogic!="or"{return out,fmt.Errorf("invalid filter logic")}
+ for _,f:=range in.Filters{if f.Key==""{return out,fmt.Errorf("empty filter key")};switch f.Mode{case "equal","not_equal","contains","exists","missing":default:return out,fmt.Errorf("invalid filter operator")}}
+ switch in.TimeBucket{case "","hour","day","month":default:return out,fmt.Errorf("invalid time bucket")}
  ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
  type bucket struct{row DimensionRow; n int; distinct map[string]bool; samples []float64; mean,m2 float64}
  sampleCount:=0
- var sx,sy,sxx,syy,sxy float64
+ var meanX,meanY,m2X,m2Y,cov float64
  buckets:=map[[2]string]*bucket{}
  keys:=map[string]bool{}
  distinctCount:=0;drillBytes:=0
@@ -75,15 +79,16 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
  if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
- if in.FullRange && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;return nil}
+ if in.FullRange && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";return nil}
  if in.FullRange && in.Group!="" && in.Group!="@event" && in.Split=="" && !in.Explode && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil && in.Operation=="count" && explorerIdentifier.MatchString(in.Group) {
   var expr string
   if tx.Dialector.Name()=="postgres"{expr="COALESCE(NULLIF(dims, '')::jsonb ->> '"+in.Group+"', '(missing)')"}else if tx.Dialector.Name()=="sqlite"{expr="COALESCE(CAST(json_extract(CASE WHEN json_valid(dims) THEN dims ELSE '{}' END, '$."+in.Group+"') AS TEXT), '(missing)')"}
-  if expr!=""{var grouped []struct{GroupValue string; Count int};if err:=base.Select(expr+" AS group_value, count(*) AS count").Group(expr).Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.GroupValue,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Keys=append(out.Keys,in.Group);return nil}
+  if expr!=""{var grouped []struct{GroupValue string; Count int};if err:=base.Select(expr+" AS group_value, count(*) AS count").Group(expr).Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.GroupValue,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";out.Keys=append(out.Keys,in.Group);return nil}
  }
- rows,err:=base.Select("event_name,dims,client_ts").Order("client_ts DESC").Limit(20001).Rows();if err!=nil{return err};defer rows.Close()
+ scan:=base.Select("event_name,dims,client_ts").Order("client_ts DESC");if !in.FullRange{scan=scan.Limit(20001)}else{out.Execution="full_range_stream"}
+ rows,err:=scan.Rows();if err!=nil{return err};defer rows.Close()
  for rows.Next(){
- if out.Scanned==20000{out.Truncated=true;break};out.Scanned++
+ if !in.FullRange&&out.Scanned==20000{out.Truncated=true;break};out.Scanned++;if err:=ctx.Err();err!=nil{return err}
  var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};
  var dims map[string]any;if len(raw)>262144{out.Truncated=true;continue};if json.Unmarshal([]byte(raw),&dims)!=nil{dims=nil}
  dims=flattenDimensions(dims,"",0)
@@ -91,7 +96,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
  if len(in.Filters)>0{matches:=0;for _,f:=range in.Filters{if matchDimensionFilter(dims,f){matches++}};if (in.FilterLogic=="or"&&matches==0)||(in.FilterLogic!="or"&&matches!=len(in.Filters)){continue}}
  out.Matched++
- if in.Correlate!=""{x,xok:=dims[in.Metric].(float64);y,yok:=dims[in.Correlate].(float64);if xok&&yok{out.CorrelationN++;sx+=x;sy+=y;sxx+=x*x;syy+=y*y;sxy+=x*y}}
+ if in.Correlate!=""{x,xok:=dims[in.Metric].(float64);y,yok:=dims[in.Correlate].(float64);if xok&&yok{out.CorrelationN++;n:=float64(out.CorrelationN);dx,dy:=x-meanX,y-meanY;meanX+=dx/n;meanY+=dy/n;m2X+=dx*(x-meanX);m2Y+=dy*(y-meanY);cov+=dx*(y-meanY)}}
  if in.Group==""&&in.TimeBucket==""{continue}
  groups:=dimensionValues(dims[in.Group],in.Explode);if in.Group=="@event"{groups=[]string{typ}};if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
  if len(groups)*len(splits)>1000{out.Truncated=true;continue}
@@ -107,7 +112,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  }}
  };return rows.Err()
  })
- n:=float64(out.CorrelationN);den:=math.Sqrt((n*sxx-sx*sx)*(n*syy-sy*sy));if n>1&&den>0{v:=(n*sxy-sx*sy)/den;if !math.IsNaN(v)&&!math.IsInf(v,0){out.Correlation=&v}}
+ n:=float64(out.CorrelationN);den:=math.Sqrt(m2X*m2Y);if n>1&&den>0{v:=math.Max(-1,math.Min(1,cov/den));if !math.IsNaN(v)&&!math.IsInf(v,0){out.Correlation=&v}}
  for k:=range keys{out.Keys=append(out.Keys,k)};sort.Strings(out.Keys);sort.Strings(out.Types)
  for _,b:=range buckets{if in.Operation=="stddev"&&b.n>0{b.row.Value=math.Sqrt(b.m2/float64(b.n))};if len(b.samples)>0{sort.Float64s(b.samples);p:=map[string]float64{"median":.5,"p90":.9,"p95":.95,"p99":.99}[in.Operation];pos:=p*float64(len(b.samples)-1);lo:=int(pos);hi:=int(math.Ceil(pos));b.row.Value=b.samples[lo]+(b.samples[hi]-b.samples[lo])*(pos-float64(lo))};if in.Operation=="avg"&&b.n>0{b.row.Value/=float64(b.n)};if in.Operation=="distinct"{b.row.Value=float64(len(b.distinct))};out.Rows=append(out.Rows,b.row)}
  sort.Slice(out.Rows,func(i,j int)bool{a,b:=out.Rows[i],out.Rows[j];if a.Value!=b.Value{return a.Value>b.Value};if a.Group!=b.Group{return a.Group<b.Group};return a.Split<b.Split})
