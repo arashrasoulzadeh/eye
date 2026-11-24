@@ -248,7 +248,8 @@ func main() {
 	mux.Handle("/ingest/stream", handler.TenantIngestAuth(cfg.AdminKey, adminSvc.VerifyAPIKey, lookupSessionTenant, &handler.IngestHandler{Svc: streamPipeline, Sampler: sampler, Limiter: liveLimiter}))
 	mux.Handle("/aggregate-counts", adminAuth(&handler.AggregateCountsHandler{DB: db}))
 
-	mux.Handle("/compression/assessment", adminAuth(&handler.CompressionHandler{DB: db}))
+	mux.Handle("/compression/assessment", adminUserAuth(&handler.CompressionHandler{DB: db}))
+	mux.Handle("/compression/prune", handler.AdminSessionRoleAuth(db, cfg.AdminKey, adminUserRole, []string{"owner"}, handler.Audit(db, &handler.CompressionExecuteHandler{DB: db})))
 	mux.Handle("/metrics", adminAuth(&handler.MetricsHandler{DB: db}))
 	mux.Handle("/slo", adminAuth(handler.SLOHandler{}))
 	// Dashboard cache: serves pre-computed metrics updated by a background job.
