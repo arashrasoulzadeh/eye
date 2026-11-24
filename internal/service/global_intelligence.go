@@ -183,11 +183,53 @@ func inferenceJSON(value any) string {
 	return string(data)
 }
 
+// installDirtySessionQueue installs transactional change capture before the first
+// reconciliation. A queue entry is retained until a successful scoring transaction.
+func installDirtySessionQueue(db *gorm.DB) error {
+	if err := db.Exec("SELECT pg_advisory_xact_lock(hashtextextended('eye:dirty-session-schema',0))").Error; err != nil { return err }
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS eye_dirty_sessions (
+ tenant_id text NOT NULL, session_id text NOT NULL,
+ changed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY (tenant_id,session_id)
+)`).Error; err != nil { return err }
+	if err := db.Exec(`CREATE OR REPLACE FUNCTION eye_capture_dirty_session() RETURNS trigger LANGUAGE plpgsql AS $
+DECLARE old_session text; new_session text;
+BEGIN
+ IF TG_OP <> 'INSERT' THEN
+  IF TG_TABLE_NAME = 'sessions' THEN old_session := OLD.id; ELSE old_session := OLD.session_id; END IF;
+  IF old_session IS NOT NULL AND old_session <> '' THEN
+   INSERT INTO eye_dirty_sessions(tenant_id,session_id) VALUES(OLD.tenant_id,old_session)
+   ON CONFLICT(tenant_id,session_id) DO UPDATE SET changed_at=clock_timestamp();
+  END IF;
+ END IF;
+ IF TG_OP <> 'DELETE' THEN
+  IF TG_TABLE_NAME = 'sessions' THEN new_session := NEW.id; ELSE new_session := NEW.session_id; END IF;
+  IF new_session IS NOT NULL AND new_session <> '' THEN
+   INSERT INTO eye_dirty_sessions(tenant_id,session_id) VALUES(NEW.tenant_id,new_session)
+   ON CONFLICT(tenant_id,session_id) DO UPDATE SET changed_at=clock_timestamp();
+  END IF;
+ END IF;
+ RETURN NULL;
+END $`).Error; err != nil { return err }
+	for _, statement := range []string{
+		`DO $ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='sessions'::regclass AND tgname='eye_dirty_session_capture') THEN
+ CREATE TRIGGER eye_dirty_session_capture AFTER INSERT OR DELETE OR UPDATE OF id,tenant_id,user_id,ip,user_agent,last_seen ON sessions FOR EACH ROW EXECUTE FUNCTION eye_capture_dirty_session();
+ END IF; END $`,
+		`DO $ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='events'::regclass AND tgname='eye_dirty_event_capture') THEN
+ CREATE TRIGGER eye_dirty_event_capture AFTER INSERT OR DELETE OR UPDATE OF event_id,tenant_id,session_id,user_id,event_name,client_ts,is_aggregated ON events FOR EACH ROW EXECUTE FUNCTION eye_capture_dirty_session();
+ END IF; END $`,
+	} { if err := db.Exec(statement).Error; err != nil { return err } }
+	return nil
+}
+
 var globalScoringMu sync.Mutex
 
 func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle GlobalIntelligenceBundle, now time.Time) error {
  if !globalScoringMu.TryLock() { return errors.New("global intelligence scoring already running") }; defer globalScoringMu.Unlock()
 	db := s.DB.WithContext(ctx)
+	if db.Dialector.Name()=="postgres" {
+		if err := db.Transaction(installDirtySessionQueue); err != nil { return fmt.Errorf("install dirty session queue: %w",err) }
+	}
 	ids, err := scopedTenants(db, "")
 	if err != nil {
 		return err
@@ -206,6 +248,7 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if !acquired{return errors.New("tenant scoring already running on another instance")}
             }
 			if tx.Dialector.Name()=="postgres" {
+                if err := tx.Exec("CREATE TEMP TABLE eye_claimed_sessions ON COMMIT DROP AS SELECT session_id,changed_at FROM eye_dirty_sessions WHERE tenant_id=?",tenant).Error; err != nil { return err }
                 // Check actual model and input changes before deciding to skip.
                 // Exact input fingerprint includes event ordering, identity and inactivity state.
                 if err:=tx.Exec("CREATE TABLE IF NOT EXISTS eye_scoring_checkpoints (tenant_id text PRIMARY KEY, signature text NOT NULL, reconciled_at timestamptz NOT NULL)").Error;err!=nil{return err}
@@ -213,7 +256,11 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if err!=nil{return err}
                 var checkpoint struct {Signature string; ReconciledAt time.Time}
                 if err:=tx.Table("eye_scoring_checkpoints").Where("tenant_id = ?",tenant).Scan(&checkpoint).Error;err!=nil{return err}
-                if checkpoint.Signature==signature && now.Sub(checkpoint.ReconciledAt)>=0 && now.Sub(checkpoint.ReconciledAt)<time.Hour {skipped=true;return nil}
+                if checkpoint.Signature==signature && now.Sub(checkpoint.ReconciledAt)>=0 && now.Sub(checkpoint.ReconciledAt)<time.Hour {
+                    var pending int64
+                    if err:=tx.Table("pg_temp.eye_claimed_sessions").Count(&pending).Error;err!=nil{return err}
+                    if pending==0 {skipped=true;return nil}
+                }
                 reconciledAt := checkpoint.ReconciledAt
                 if reconciledAt.IsZero() || now.Sub(reconciledAt) < 0 || now.Sub(reconciledAt) >= time.Hour { reconciledAt = now }
                 if err:=tx.Exec("INSERT INTO eye_scoring_checkpoints (tenant_id,signature,reconciled_at) VALUES (?,?,?) ON CONFLICT (tenant_id) DO UPDATE SET signature=excluded.signature,reconciled_at=excluded.reconciled_at",tenant,signature,reconciledAt).Error;err!=nil{return err}
@@ -223,7 +270,8 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 				return err
 			}
 			if tx.Dialector.Name()=="postgres" {
-                return tx.Exec("DELETE FROM intelligence_inferences i WHERE i.tenant_id = ? AND NOT EXISTS (SELECT 1 FROM pg_temp.eye_scored_entities k WHERE k.kind=i.kind AND k.entity_id=i.entity_id)",tenant).Error
+                if err := tx.Exec("DELETE FROM intelligence_inferences i WHERE i.tenant_id = ? AND NOT EXISTS (SELECT 1 FROM pg_temp.eye_scored_entities k WHERE k.kind=i.kind AND k.entity_id=i.entity_id)",tenant).Error; err != nil { return err }
+                return tx.Exec("DELETE FROM eye_dirty_sessions q USING pg_temp.eye_claimed_sessions c WHERE q.tenant_id=? AND q.session_id=c.session_id AND q.changed_at=c.changed_at",tenant).Error
             }
             return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
 		})
