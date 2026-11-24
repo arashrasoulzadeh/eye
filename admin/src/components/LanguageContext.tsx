@@ -7,6 +7,12 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Hide overview": "پنهان کردن نمای کلی",
+  "Smart overview": "نمای کلی هوشمند",
+  "Leading groups": "گروه‌های پیشرو",
+  "Top three share of displayed results": "سهم سه گروه برتر از نتایج نمایشی",
+  "Dimension presence in scanned events": "وجود ابعاد در رویدادهای پویش‌شده",
+  "Present": "موجود",
   "Discover correlations": "کشف همبستگی‌ها",
   "Discovered correlations": "همبستگی‌های کشف‌شده",
   "Exploratory associations, not causation": "ارتباط‌های اکتشافی، نه رابطه علّی",
