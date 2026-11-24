@@ -19,6 +19,10 @@ type DimensionInput struct {
  Split string `json:"split"`
  Metric string `json:"metric"`
  Operation string `json:"operation"`
+ FilterKey string `json:"filter_key"`
+ FilterValue string `json:"filter_value"`
+ FilterMode string `json:"filter_mode"`
+ TimeBucket string `json:"time_bucket"`
  Explode bool `json:"explode"`
 }
 type DimensionRow struct {
@@ -43,7 +47,7 @@ func dimensionValues(v any, explode bool) []string {
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  out:=DimensionResult{Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
  if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100{return out,fmt.Errorf("invalid dimension scope")}
- switch in.Operation {case "count","sum","avg","min","max","distinct":default:return out,fmt.Errorf("invalid operation")}
+ switch in.Operation {case "count","sum","avg","min","max","distinct","missing":default:return out,fmt.Errorf("invalid operation")}
  ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
  type bucket struct{row DimensionRow; n int; distinct map[string]bool}
  buckets:=map[[2]string]*bucket{}
@@ -53,18 +57,19 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
  if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
- rows,err:=base.Select("event_name,dims").Order("client_ts DESC").Limit(20001).Rows();if err!=nil{return err};defer rows.Close()
+ rows,err:=base.Select("event_name,dims,client_ts").Order("client_ts DESC").Limit(20001).Rows();if err!=nil{return err};defer rows.Close()
  for rows.Next(){
  if out.Scanned==20000{out.Truncated=true;break};out.Scanned++
- var typ,raw string;if err:=rows.Scan(&typ,&raw);err!=nil{return err};types[typ]=true
+ var typ,raw string;var ts int64;if err:=rows.Scan(&typ,&raw,&ts);err!=nil{return err};types[typ]=true
  var dims map[string]any;if json.Unmarshal([]byte(raw),&dims)!=nil{continue}
  for k:=range dims{if len(keys)<2000{keys[k]=true}}
- if in.Group==""{continue}
- groups:=dimensionValues(dims[in.Group],in.Explode);splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
+ if in.FilterKey!="" {matched:=false;for _,v:=range dimensionValues(dims[in.FilterKey],true){if v==in.FilterValue{matched=true}};switch in.FilterMode{case "exists":if dims[in.FilterKey]==nil{continue};case "missing":if dims[in.FilterKey]!=nil{continue};case "not_equal":if matched{continue};default:if !matched{continue}}}
+ if in.Group==""&&in.TimeBucket==""{continue}
+ groups:=dimensionValues(dims[in.Group],in.Explode);if in.TimeBucket!=""{stamp:=time.UnixMilli(ts).UTC();switch in.TimeBucket{case "hour":groups=[]string{stamp.Format("2006-01-02 15:00")};case "day":groups=[]string{stamp.Format("2006-01-02")};case "month":groups=[]string{stamp.Format("2006-01")};default:return fmt.Errorf("invalid time bucket")}};splits:=[]string{""};if in.Split!=""{if in.Split=="@event"{splits=[]string{typ}}else{splits=dimensionValues(dims[in.Split],in.Explode)}}
  if len(groups)*len(splits)>1000{out.Truncated=true;continue}
  for _,g:=range groups{for _,s:=range splits{
  k:=[2]string{g,s};b:=buckets[k];if b==nil{if len(buckets)>=5000{out.Truncated=true;continue};b=&bucket{row:DimensionRow{Group:g,Split:s},distinct:map[string]bool{}};buckets[k]=b};b.row.Count++
- if in.Operation=="count"{b.row.Value++;continue}
+ if in.Operation=="count"{b.row.Value++;continue};if in.Operation=="missing"{if dims[in.Metric]==nil{b.row.Value++};continue}
  if in.Operation=="distinct"{for _,v:=range dimensionValues(dims[in.Metric],in.Explode){if dims[in.Metric]!=nil{b.distinct[v]=true}};continue}
  v,ok:=dims[in.Metric].(float64);if !ok{continue};b.n++
  switch in.Operation{case "sum","avg":b.row.Value+=v;case "min":if b.n==1||v<b.row.Value{b.row.Value=v};case "max":if b.n==1||v>b.row.Value{b.row.Value=v}}
