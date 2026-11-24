@@ -62,6 +62,51 @@ func (h *CompressionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   timings=append(timings,float64(time.Since(started).Microseconds())/1000)
  }
  sort.Float64s(timings)
+ inventory := map[string]any{}
+ if r.URL.Query().Get("inventory") == "1" { inventory = storageInventory(db,tenant,byteExpr) }
  w.Header().Set("Content-Type","application/json")
- json.NewEncoder(w).Encode(map[string]any{"database_bytes":allocated,"reusable_bytes":reusable,"size_scope":sizeScope,"records":stats.Records,"payload_bytes":stats.PayloadBytes,"pruned_payload_bytes":stats.PrunedBytes,"scan_ms":scanMS,"count_median_ms":timings[2],"count_p95_ms":timings[4],"benchmark_samples":5})
+ json.NewEncoder(w).Encode(map[string]any{"database_bytes":allocated,"reusable_bytes":reusable,"size_scope":sizeScope,"records":stats.Records,"payload_bytes":stats.PayloadBytes,"pruned_payload_bytes":stats.PrunedBytes,"scan_ms":scanMS,"count_median_ms":timings[2],"count_p95_ms":timings[4],"benchmark_samples":5,"inventory":inventory})
+}
+
+type storageGroup struct {
+ Name string `json:"name"`
+ Records int64 `json:"records"`
+ PayloadBytes int64 `json:"payload_bytes"`
+ Savings int64 `json:"savings"`
+}
+type storageRelation struct {
+ Name string `json:"name"`
+ TableBytes int64 `json:"table_bytes"`
+ IndexBytes int64 `json:"index_bytes"`
+}
+func storageInventory(db *gorm.DB, tenant, byteExpr string) map[string]any {
+ out:=map[string]any{}
+ var bounds struct { Records int64 `json:"records"`; Oldest int64 `json:"oldest"`; Newest int64 `json:"newest"` }
+ var groups, ages []storageGroup
+ var relations []storageRelation
+ warnings:=[]string{}
+ q:=func()*gorm.DB{return db.Table("events").Where("tenant_id = ?",tenant)}
+ if err:=q().Select("COUNT(*) AS records, COALESCE(MIN(client_ts),0) AS oldest, COALESCE(MAX(client_ts),0) AS newest").Scan(&bounds).Error;err!=nil{warnings=append(warnings,"event bounds unavailable")}else{out["bounds"]=bounds}
+ savings:="COALESCE(SUM(CASE WHEN "+byteExpr+" > 2 THEN "+byteExpr+" - 2 ELSE 0 END),0)"
+ fields:="COUNT(*) AS records, COALESCE(SUM("+byteExpr+"),0) AS payload_bytes, "+savings+" AS savings"
+ if err:=q().Select("event_name AS name, "+fields).Group("event_name").Order("payload_bytes DESC").Limit(100).Scan(&groups).Error;err!=nil{warnings=append(warnings,"event breakdown unavailable")}else{out["events"]=groups}
+ now:=time.Now().UnixMilli()
+ day:=int64(86400000)
+ age:="CASE WHEN client_ts >= ? THEN '0-1 days' WHEN client_ts >= ? THEN '1-7 days' WHEN client_ts >= ? THEN '7-30 days' WHEN client_ts >= ? THEN '30-90 days' ELSE '90+ days' END"
+ if err:=q().Select(age+" AS name, "+fields,now-day,now-7*day,now-30*day,now-90*day).Group("1").Scan(&ages).Error;err!=nil{warnings=append(warnings,"age breakdown unavailable")}else{out["ages"]=ages}
+ if db.Dialector.Name()=="postgres" {
+  if err:=db.Raw("SELECT schemaname || '.' || relname AS name, pg_table_size(relid) AS table_bytes, pg_indexes_size(relid) AS index_bytes FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"relation sizes unavailable")}else{out["relations"]=relations}
+  var extension string
+  if err:=db.Raw("SELECT COALESCE(MAX(extversion),'') FROM pg_extension WHERE extname='timescaledb'").Scan(&extension).Error;err==nil {
+   out["timescale_version"]=extension
+   if extension!="" {
+    var chunks struct { Total int64 `json:"total"`; Compressed int64 `json:"compressed"`; OlderUncompressed int64 `json:"older_uncompressed"` }
+    if err:=db.Raw("SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE is_compressed) AS compressed, COUNT(*) FILTER (WHERE NOT is_compressed AND range_end < now() - interval '7 days') AS older_uncompressed FROM timescaledb_information.chunks WHERE hypertable_name='events' AND hypertable_schema=current_schema()").Scan(&chunks).Error;err==nil{out["chunks"]=chunks}else{warnings=append(warnings,"Timescale chunk inventory unavailable")}
+   }
+  }
+ } else {
+  if err:=db.Raw("SELECT name, SUM(pgsize) AS table_bytes, 0 AS index_bytes FROM dbstat GROUP BY name ORDER BY table_bytes DESC LIMIT 100").Scan(&relations).Error;err!=nil{warnings=append(warnings,"SQLite dbstat unavailable")}else{out["relations"]=relations}
+ }
+ out["warnings"]=warnings
+ return out
 }
