@@ -192,10 +192,16 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if err:=tx.Raw("SELECT pg_try_advisory_xact_lock(hashtextextended(?, 0))", "eye:global-scoring:"+tenant).Scan(&acquired).Error;err!=nil{return err}
                 if !acquired{return errors.New("tenant scoring already running on another instance")}
             }
+			if tx.Dialector.Name()=="postgres" {
+                if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
+            }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
 				return err
 			}
-			return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
+			if tx.Dialector.Name()=="postgres" {
+                return tx.Exec("DELETE FROM intelligence_inferences i WHERE i.tenant_id = ? AND NOT EXISTS (SELECT 1 FROM pg_temp.eye_scored_entities k WHERE k.kind=i.kind AND k.entity_id=i.entity_id)",tenant).Error
+            }
+            return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
 		})
 		if err != nil {
 			run.Error = err.Error()
@@ -222,12 +228,20 @@ func (s *UserIntelligenceService) scoreGlobalTenant(db *gorm.DB, bundle GlobalIn
 			return nil
 		}
 		// Batch inference writes and explicitly preserve the composite identity.
-		// The timestamp is required by the stale-entity cleanup at the end of the run.
-		err := db.Clauses(clause.OnConflict{
+		// PostgreSQL tracks membership separately so unchanged snapshots need no update.
+		conflict := clause.OnConflict{
 			Columns: []clause.Column{{Name:"tenant_id"},{Name:"kind"},{Name:"entity_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{"version","tags","predictions","evidence","scored_at"}),
-		}).Create(&results).Error
-		results = results[:0]
+		 }
+        if db.Dialector.Name()=="postgres" {
+            type scoredKey struct { Kind string; EntityID string }
+            keys:=make([]scoredKey,0,len(results))
+            for _,row:=range results {keys=append(keys,scoredKey{row.Kind,row.EntityID})}
+            if err:=db.Table("pg_temp.eye_scored_entities").Clauses(clause.OnConflict{DoNothing:true}).Create(&keys).Error;err!=nil{return err}
+            conflict.Where=clause.Where{Exprs:[]clause.Expression{clause.Expr{SQL:"(intelligence_inferences.version, intelligence_inferences.tags, intelligence_inferences.predictions, intelligence_inferences.evidence) IS DISTINCT FROM (excluded.version, excluded.tags, excluded.predictions, excluded.evidence)"}}}
+        }
+        err:=db.Clauses(conflict).Create(&results).Error
+        results = results[:0]
 		return err
 	}
 	add := func(kind, id string, tags []string, predictions, evidence map[string]any) error {
