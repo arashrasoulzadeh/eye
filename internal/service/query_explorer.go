@@ -2,6 +2,9 @@ package service
 
 import (
  "context"
+ "encoding/json"
+ "sort"
+ "github.com/arashrasoulzadeh/eye/internal/model"
  "fmt"
  "regexp"
  "strings"
@@ -118,3 +121,26 @@ func (q *QueryService) Explore(ctx context.Context, tenant, input string, from, 
  result.DurationMS=time.Since(start).Milliseconds()
  return result,err
 }
+
+ // ExplorerProperties discovers identifier-safe properties from a bounded recent sample.
+ func (q *QueryService) ExplorerProperties(ctx context.Context, tenant string) ([]string,error) {
+  if tenant=="" {return nil,fmt.Errorf("select a tenant")}
+  ctx,cancel:=context.WithTimeout(ctx,5*time.Second);defer cancel()
+  keys:=map[string]bool{}
+  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+   if q.SetTenantContext!=nil {if err:=q.SetTenantContext(tx,tenant);err!=nil{return err}}
+   var events []model.Event
+   if err:=tx.Select("payload","dims").Where("tenant_id = ?",tenant).Order("client_ts DESC").Limit(200).Find(&events).Error;err!=nil{return err}
+   for _,e:=range events {for prefix,raw:=range map[string]string{"payload.":e.Payload,"dims.":e.Dims} {
+    var obj map[string]json.RawMessage
+    if json.Unmarshal([]byte(raw),&obj)!=nil {continue}
+    for key:=range obj {if explorerIdentifier.MatchString(key) && len(key)<=128 {keys[prefix+key]=true}}
+   }}
+   return nil
+  })
+  result:=[]string{}
+  for key:=range keys {result=append(result,key)}
+  sort.Strings(result)
+  if len(result)>500 {result=result[:500]}
+  return result,err
+ }
