@@ -65,6 +65,7 @@ func (s *BucketService) EventsContext(ctx context.Context, tenantID, eventName, 
 		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
 		select { case s.gate <- struct{}{}: defer func(){ <-s.gate }(); case <-work.Done(): return nil, work.Err() }
+		select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-work.Done(): return nil, work.Err() }
 		return s.events(work, key, tenantID, eventName, bucket, fromTS, toTS)
 	})
 	select {
