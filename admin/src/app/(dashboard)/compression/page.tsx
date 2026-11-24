@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useTenant } from "@/components/TenantContext";
 import { api } from "@/lib/api";
 
-type Group = {name:string; records:number; payload_bytes:number; savings:number};
-type Inventory = {indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
+type Group = {dimension_bytes:number;name:string; records:number; payload_bytes:number; savings:number};
+type Inventory = {duplicate_indexes?:{first:string;second:string;relation:string}[];indexes?:{name:string;relation:string;bytes:number;scans:number;unique:boolean;definition:string}[];bounds?:{records:number;oldest:number;newest:number};events?:Group[];ages?:Group[];relations?:{name:string;table_bytes:number;index_bytes:number}[];timescale_version?:string;chunks?:{total:number;compressed:number;older_uncompressed:number};warnings?:string[]};
 type Storage = { inventory?: Inventory; database_bytes: number; reusable_bytes: number; size_scope: string; records: number; payload_bytes: number; pruned_payload_bytes: number; scan_ms: number; count_median_ms: number; count_p95_ms: number; benchmark_samples: number };
 type Result = { tenant: string; cutoff: number; storage: Storage; count: number; sample: number; bytes: number; pruned: number; groups: number; median: number; p95: number };
 const bytes = (n: number) => new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(n / 1024 / 1024) + " MiB";
@@ -118,7 +118,7 @@ export default function CompressionPage() {
 }
 
 function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)=>void}) {
- const groups=(rows:Group[]|undefined,select:boolean)=><table className="w-full text-sm"><thead><tr><th>Name</th><th>Records</th><th>Payload</th><th>Pruning potential</th></tr></thead><tbody>{(rows??[]).map(row=><tr key={row.name}><td>{select?<button className="underline" onClick={()=>onSelect(row.name)}>{row.name}</button>:row.name}</td><td>{row.records.toLocaleString()}</td><td>{bytes(row.payload_bytes)}</td><td>{bytes(row.savings)}</td></tr>)}</tbody></table>;
+ const groups=(rows:Group[]|undefined,select:boolean)=><table className="w-full text-sm"><thead><tr><th>Name</th><th>Records</th><th>Payload</th><th>Dimensions</th><th>Pruning potential</th></tr></thead><tbody>{(rows??[]).map(row=><tr key={row.name}><td>{select?<button className="underline" onClick={()=>onSelect(row.name)}>{row.name}</button>:row.name}</td><td>{row.records.toLocaleString()}</td><td>{bytes(row.payload_bytes)}</td><td>{bytes(row.dimension_bytes??0)}</td><td>{bytes(row.savings)}</td></tr>)}</tbody></table>;
  const largest=data.events?.[0];
  return <section className="space-y-4">
  <h2 className="text-lg font-semibold">Storage inventory — all ages</h2>
@@ -130,6 +130,9 @@ function StorageInventory({data,onSelect}:{data:Inventory;onSelect:(name:string)
  <h3 className="font-semibold">Index diagnostics (global)</h3>
  <p>Zero scans are review candidates only; counters may have reset. Unique indexes must be preserved.</p>
  <div className="overflow-auto"><table className="w-full text-sm"><thead><tr><th>Index</th><th>Size</th><th>Scans</th><th>Definition</th></tr></thead><tbody>{(data.indexes??[]).map(i=><tr key={i.name}><td>{i.name}{i.unique?" (unique)":""}</td><td>{bytes(i.bytes)}</td><td>{i.scans}</td><td>{i.definition}</td></tr>)}</tbody></table></div>
+ <h3 className="font-semibold">Equivalent index candidates</h3>
+ {(data.duplicate_indexes??[]).map(i=><p key={i.first+i.second}>{i.relation}: {i.first} / {i.second}</p>)}
+ <p>Review dependencies and workload before removing any index.</p>
  <h3 className="font-semibold">Compression opportunities</h3>
  <p>{data.timescale_version?"TimescaleDB "+data.timescale_version:"TimescaleDB not detected or unavailable"}</p>
  {!!data.chunks?.older_uncompressed && <ColumnstoreAction/>}
