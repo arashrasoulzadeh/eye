@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 	"sync"
 	"time"
@@ -9,10 +12,8 @@ import (
 	"github.com/arashrasoulzadeh/eye/internal/model"
 )
 
-type queryCacheEntry struct {
-	expires time.Time
-	events  []model.Event
-}
+// Shared read budget leaves capacity in the production connection pool for writes.
+var analyticsReadGate = make(chan struct{}, 8)
 
 type QueryService struct {
 	DB *gorm.DB
@@ -20,8 +21,58 @@ type QueryService struct {
 	// every tenant-filtered read also carries transaction-local RLS context.
 	// It remains nil for SQLite/dev deployments.
 	SetTenantContext func(*gorm.DB, string) error
-	cacheMu          sync.Mutex
-	cache            map[string]queryCacheEntry
+	flights singleflight.Group
+	gateOnce sync.Once
+	queue chan struct{}
+	tenantMu sync.Mutex
+	tenants map[string]int
+	cacheMu sync.Mutex
+	cache map[string]queryCacheEntry
+}
+
+type queryCacheEntry struct {
+	expires, accessed time.Time
+	rows []model.Event
+}
+
+func cloneQueryRows(rows []model.Event) []model.Event {
+	if rows == nil { return nil }
+	out := append(make([]model.Event, 0, len(rows)), rows...)
+	for i := range out {
+		out[i].IntelligenceTags = append([]string(nil), rows[i].IntelligenceTags...)
+	}
+	return out
+}
+
+func (q *QueryService) cached(key string) ([]model.Event, bool) {
+	q.cacheMu.Lock()
+	defer q.cacheMu.Unlock()
+	entry, ok := q.cache[key]
+	if !ok || !time.Now().Before(entry.expires) { delete(q.cache, key); return nil, false }
+	entry.accessed = time.Now()
+	q.cache[key] = entry
+	return cloneQueryRows(entry.rows), true
+}
+
+func (q *QueryService) store(key string, rows []model.Event) {
+	if len(rows) > 500 { return }
+	size := 0
+	for _, row := range rows {
+		size += len(row.Payload) + len(row.Dims) + len(row.EventName) + len(row.EventID) + len(row.SessionID) + len(row.TenantID) + len(row.UserID) + len(row.ContentHash) + len(row.Source) + len(row.AggregationID) + len(row.ExperimentID) + len(row.Variant) + 256
+		if size > 128*1024 { return }
+	}
+	q.cacheMu.Lock()
+	defer q.cacheMu.Unlock()
+	if q.cache == nil { q.cache = make(map[string]queryCacheEntry) }
+	now := time.Now()
+	for k, e := range q.cache { if !now.Before(e.expires) { delete(q.cache, k) } }
+	if len(q.cache) >= 128 {
+		var oldest string
+		var at time.Time
+		for k, e := range q.cache { if at.IsZero() || e.accessed.Before(at) { oldest, at = k, e.accessed } }
+		delete(q.cache, oldest)
+	}
+	q.cache[key] = queryCacheEntry{now.Add(5*time.Second), now, cloneQueryRows(rows)}
 }
 
 func (q *QueryService) EventsByName(name string, limit int) ([]model.Event, error) {
@@ -60,18 +111,47 @@ type EventFilter struct {
 // Filter returns events matching all set fields of f, ordered by ClientTS
 // ascending, with limit/offset pagination.
 func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, error) {
-	key := fmt.Sprintf("%+v:%d:%d", f, limit, offset)
-	q.cacheMu.Lock()
-	if entry, ok := q.cache[key]; ok && time.Now().Before(entry.expires) {
-		result := append([]model.Event(nil), entry.events...)
-		q.cacheMu.Unlock()
-		return result, nil
+	return q.FilterContext(context.Background(), f, limit, offset)
+}
+
+// FilterContext preserves the existing Filter contract while allowing callers to cancel.
+func (q *QueryService) FilterContext(ctx context.Context, f EventFilter, limit, offset int) ([]model.Event, error) {
+	keyBytes, err := json.Marshal(struct { Filter EventFilter; Limit, Offset int }{f, limit, offset})
+	if err != nil { return nil, err }
+	key := string(keyBytes)
+	if err := ctx.Err(); err != nil { return nil, err }
+	// Bound waiting callers as well as actual database work.
+	q.gateOnce.Do(func() { q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	if err := ctx.Err(); err != nil { return nil, err }
+	ch := q.flights.DoChan(key, func() (any, error) {
+		select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return nil, fmt.Errorf("query queue full") }
+		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer cancel()
+		q.tenantMu.Lock()
+		if q.tenants[f.TenantID] >= 4 { q.tenantMu.Unlock(); return nil, fmt.Errorf("tenant query limit reached") }
+		q.tenants[f.TenantID]++
+		q.tenantMu.Unlock()
+		defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
+		select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-work.Done(): return nil, work.Err() }
+		if rows, ok := q.cached(key); ok { return rows, nil }
+		rows, err := q.filterDB(work, f, limit, offset)
+		if err == nil { q.store(key, rows) }
+		return rows, err
+	})
+	select {
+	case <-ctx.Done(): return nil, ctx.Err()
+	case result := <-ch:
+		if result.Err != nil { return nil, result.Err }
+		rows := result.Val.([]model.Event)
+		return cloneQueryRows(rows), nil
 	}
-	q.cacheMu.Unlock()
-	queryDB := q.DB
+}
+
+func (q *QueryService) filterDB(ctx context.Context, f EventFilter, limit, offset int) ([]model.Event, error) {
+	queryDB := q.DB.WithContext(ctx)
 	var tx *gorm.DB
 	if q.SetTenantContext != nil && f.TenantID != "" {
-		tx = q.DB.Begin()
+		tx = queryDB.Begin()
 		if tx.Error != nil {
 			return nil, tx.Error
 		}
@@ -124,23 +204,40 @@ func (q *QueryService) Filter(f EventFilter, limit, offset int) ([]model.Event, 
 			return nil, err
 		}
 	}
-	q.cacheMu.Lock()
-	if q.cache == nil {
-		q.cache = make(map[string]queryCacheEntry)
-	}
-	if len(q.cache) >= 256 {
-		for oldKey := range q.cache {
-			delete(q.cache, oldKey)
-			break
-		}
-	}
-	q.cache[key] = queryCacheEntry{expires: time.Now().Add(5 * time.Second), events: append([]model.Event(nil), list...)}
-	q.cacheMu.Unlock()
 	return list, nil
 }
 
 func (q *QueryService) Count(f EventFilter) (int64, error) {
-	db := q.DB.Model(&model.Event{})
+	return q.CountContext(context.Background(), f)
+}
+
+func (q *QueryService) CountContext(ctx context.Context, f EventFilter) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	q.gateOnce.Do(func() { q.queue = make(chan struct{}, 128); q.tenants = make(map[string]int) })
+	select { case q.queue <- struct{}{}: defer func(){ <-q.queue }(); default: return 0, fmt.Errorf("query queue full") }
+	q.tenantMu.Lock()
+	if q.tenants[f.TenantID] >= 4 { q.tenantMu.Unlock(); return 0, fmt.Errorf("tenant query limit reached") }
+	q.tenants[f.TenantID]++
+	q.tenantMu.Unlock()
+	defer func(){ q.tenantMu.Lock(); q.tenants[f.TenantID]--; if q.tenants[f.TenantID] == 0 { delete(q.tenants, f.TenantID) }; q.tenantMu.Unlock() }()
+	select { case analyticsReadGate <- struct{}{}: defer func(){ <-analyticsReadGate }(); case <-ctx.Done(): return 0, ctx.Err() }
+	db := q.DB.WithContext(ctx)
+	if q.SetTenantContext != nil && f.TenantID != "" {
+		var total int64
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := q.SetTenantContext(tx, f.TenantID); err != nil { return err }
+			var err error
+			total, err = countEvents(tx, f)
+			return err
+		})
+		return total, err
+	}
+	return countEvents(db, f)
+}
+
+func countEvents(db *gorm.DB, f EventFilter) (int64, error) {
+	db = db.Model(&model.Event{})
 	if f.TenantID != "" {
 		db = db.Where("tenant_id = ?", f.TenantID)
 	}
@@ -160,5 +257,6 @@ func (q *QueryService) Count(f EventFilter) (int64, error) {
 		db = db.Where("client_ts <= ?", *f.ToTS)
 	}
 	var total int64
-	return total, db.Count(&total).Error
+	err := db.Count(&total).Error
+	return total, err
 }

@@ -27,7 +27,7 @@ func (h *BucketsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "from_ts and to_ts must be valid increasing milliseconds", http.StatusBadRequest)
 		return
 	}
-	points, err := h.Svc.Events(tenantID, q.Get("event_name"), bucket, from, to)
+	points, err := h.Svc.EventsContext(r.Context(), tenantID, q.Get("event_name"), bucket, from, to)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

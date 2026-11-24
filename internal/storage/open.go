@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -35,7 +36,15 @@ func OpenDatabase(cfg *config.Config) (*gorm.DB, error) {
 		if strings.TrimSpace(cfg.DatabaseURL) == "" {
 			return nil, fmt.Errorf("database_url is required when db_driver=%s", cfg.DBDriver)
 		}
-		return gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{})
+		db, err := gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{})
+		if err != nil { return nil, err }
+		sqlDB, err := db.DB()
+		if err != nil { return nil, err }
+		sqlDB.SetMaxOpenConns(24)
+		sqlDB.SetMaxIdleConns(8)
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+		sqlDB.SetConnMaxLifetime(30 * time.Minute)
+		return db, nil
 	default:
 		return nil, fmt.Errorf("unsupported db_driver %q", cfg.DBDriver)
 	}

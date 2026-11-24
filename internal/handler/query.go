@@ -62,14 +62,14 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	list, err := h.Svc.Filter(f, limit, offset)
+	list, err := h.Svc.FilterContext(r.Context(), f, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	list = attachEventTags(r.Context(), h.Intelligence, list)
 	if q.Get("page") == "true" {
-		total, countErr := h.Svc.Count(f)
+		total, countErr := h.Svc.CountContext(r.Context(), f)
 		if countErr != nil {
 			http.Error(w, countErr.Error(), http.StatusInternalServerError)
 			return
