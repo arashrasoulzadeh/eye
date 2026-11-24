@@ -7,6 +7,13 @@ type LanguageContextValue = { language: Language; setLanguage: (language: Langua
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "eye.admin.language";
 const TRANSLATIONS: Record<string, string> = {
+  "Describe an analysis": "شرح تحلیل",
+  "Example: average duration by country": "مثال: average duration by country",
+  "Apply analysis": "اعمال تحلیل",
+  "Use count by dimension or average metric by dimension with discovered names": "از دستور count by dimension یا average metric by dimension با نام‌های موجود استفاده کنید",
+  "Automatic chart selection": "انتخاب خودکار نمودار",
+  "Largest observed changes": "بزرگ‌ترین تغییرات مشاهده‌شده",
+  "Observed differences, not statistical significance or causation": "تفاوت‌های مشاهده‌شده، نه معناداری آماری یا رابطه علّی",
   "Smart recommendations": "پیشنهادهای هوشمند",
   "Find dimension": "جستجوی بعد",
   "Numeric": "عددی",
