@@ -186,6 +186,7 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
 			return err
 		}
 		run := model.IntelligenceInferenceRun{TenantID: tenant, Version: bundle.Version, CreatedAt: now}
+        skipped := false
 		err := db.Transaction(func(tx *gorm.DB) error {
 			if tx.Dialector.Name()=="postgres" {
                 var acquired bool
@@ -193,6 +194,11 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
                 if !acquired{return errors.New("tenant scoring already running on another instance")}
             }
 			if tx.Dialector.Name()=="postgres" {
+                // Bound redundant full scans; always reconcile after the interval.
+                // This is throttling, not an event-level incremental checkpoint.
+                var recent int64
+                if err:=tx.Model(&model.IntelligenceInferenceRun{}).Where("tenant_id = ? AND version = ? AND error = ? AND created_at > ? AND created_at <= ?",tenant,bundle.Version,"",now.Add(-time.Minute),now).Count(&recent).Error;err!=nil{return err}
+                if recent>0 {skipped=true;return nil}
                 if err:=tx.Exec("CREATE TEMP TABLE eye_scored_entities (kind text NOT NULL, entity_id text NOT NULL, PRIMARY KEY(kind,entity_id)) ON COMMIT DROP").Error;err!=nil{return err}
             }
 			if err := s.scoreGlobalTenant(tx, bundle, &run, now); err != nil {
@@ -203,6 +209,7 @@ func (s *UserIntelligenceService) ScoreGlobalModel(ctx context.Context, bundle G
             }
             return tx.Where("tenant_id = ? AND scored_at < ?", tenant, now).Delete(&model.IntelligenceInference{}).Error
 		})
+        if skipped {continue}
 		if err != nil {
 			run.Error = err.Error()
 			run.Events, run.Sessions, run.Users = 0, 0, 0
