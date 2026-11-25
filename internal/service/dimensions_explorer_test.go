@@ -1,5 +1,5 @@
 package service
-import ("testing";"reflect";"context";"github.com/arashrasoulzadeh/eye/internal/model")
+import ("testing";"reflect";"context";"sync";"github.com/arashrasoulzadeh/eye/internal/model")
 func TestDimensionValues(t *testing.T){
  if got:=dimensionValues([]any{"a","b","a"},true);!reflect.DeepEqual(got,[]string{"a","b"}){t.Fatal(got)}
  if got:=dimensionValues(nil,true);!reflect.DeepEqual(got,[]string{"(missing)"}){t.Fatal(got)}
@@ -113,4 +113,15 @@ func TestDimensionSummaryCacheCancelled(t *testing.T) {
  if _,err:=q.AnalyzeDimensions(context.Background(),in);err!=nil{t.Fatal(err)}
  ctx,cancel:=context.WithCancel(context.Background());cancel()
  if _,err:=q.AnalyzeDimensions(ctx,in);err!=context.Canceled{t.Fatalf("expected cancellation, got %v",err)}
+}
+
+func TestDimensionSummaryConcurrentCacheHits(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ if err:=db.Create(&model.Event{EventID:"concurrent",TenantID:"t1",EventName:"click",ClientTS:100}).Error;err!=nil{t.Fatal(err)}
+ q:=&QueryService{DB:db}
+ in:=DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true,CacheSummary:true,IncludeTrend:true,TimeBucket:"hour"}
+ if _,err:=q.AnalyzeDimensions(context.Background(),in);err!=nil{t.Fatal(err)}
+ var wg sync.WaitGroup
+ for i:=0;i<64;i++{wg.Add(1);go func(){defer wg.Done();got,err:=q.AnalyzeDimensions(context.Background(),in);if err!=nil{t.Error(err);return};if got.Matched!=1||len(got.Rows)!=1||got.Rows[0].Count!=1{t.Errorf("unexpected concurrent result: %+v",got);return};got.Rows[0].Count=999}()}
+ wg.Wait()
 }
