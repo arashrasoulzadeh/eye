@@ -177,7 +177,7 @@ function GuidedAnalytics() {
       compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}).catch(()=>null) : Promise.resolve([]),
     ]).then(([current,previous]) => {
       if(active){if(previous===null){setState({key,current,previous:[],warning:"Previous period unavailable. Current activity is still shown."});return;}catalogCache.current.delete(key);catalogCache.current.set(key,{at:Date.now(),current,previous});while(catalogCache.current.size>12){const oldest=catalogCache.current.keys().next().value;if(oldest===undefined)break;catalogCache.current.delete(oldest);}setState({key,current,previous});}
-    }).catch(e=>{if(active)setState({key,current:[],previous:[],error:String(e.message??e)});});
+    }).catch(e=>{if(active)setState(old=>old?.key===key&&!old.error?{...old,warning:"Refresh failed. Showing last available event data."}:{key,current:[],previous:[],error:String(e.message??e)});});
     return ()=>{active=false;};
   },[key,tenantId,from,to,compare,revision,scopeLoading]);
   const ready = !scopeLoading && state?.key===key ? state : undefined;
