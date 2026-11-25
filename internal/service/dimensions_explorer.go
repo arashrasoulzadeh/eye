@@ -82,7 +82,8 @@ type analyticsSummaryFlight struct { done chan struct{}; result DimensionResult;
 var analyticsSummaryCache = struct{sync.Mutex; entries map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry; flights map[analyticsSummaryCacheKey]*analyticsSummaryFlight}{entries:make(map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry),flights:make(map[analyticsSummaryCacheKey]*analyticsSummaryFlight)}
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  // Cache only explicitly requested, simple historical summary queries.
- if !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.analyzeDimensions(ctx,in)}
+ // A tenant-context callback may enforce request-specific authorization; never bypass it on a cache hit.
+ if q.SetTenantContext!=nil || !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.analyzeDimensions(ctx,in)}
  if err:=ctx.Err();err!=nil{return DimensionResult{},err}
  canonical:=in;canonical.Types=append([]string(nil),in.Types...);sort.Strings(canonical.Types)
  if len(canonical.Types)>1 {unique:=canonical.Types[:1];for _,name:=range canonical.Types[1:]{if name!=unique[len(unique)-1]{unique=append(unique,name)}};canonical.Types=unique}
