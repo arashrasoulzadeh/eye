@@ -34,8 +34,13 @@ nav:
   - Home: index.md
   - Discover Eye: discovery.md
   - Getting Started: getting-started/README.md
-  - Admin Guide: admin/README.md
-  - API Reference: api/README.md
+  - Admin Guide:
+    - Admin overview: admin/README.md
+    - Application routes: admin/routes.md
+    - Analytics and SQL: admin/exploration.md
+  - API Reference:
+    - API overview: api/README.md
+    - Endpoint inventory: api/routes.md
   - SDKs:
     - Web SDK: sdk/web-sdk.md
     - Go SDK: sdk/go-sdk.md
@@ -61,6 +66,11 @@ plugins:
             Discover Eye: کشف امکانات
             Getting Started: شروع کار
             Admin Guide: راهنمای مدیریت
+            Admin overview: نمای کلی مدیریت
+            Application routes: مسیرهای برنامه
+            Analytics and SQL: تحلیل و SQL
+            API overview: نمای کلی API
+            Endpoint inventory: فهرست مسیرهای API
             API Reference: مرجع API
             SDKs: ابزارهای توسعه
             Web SDK: SDK وب
