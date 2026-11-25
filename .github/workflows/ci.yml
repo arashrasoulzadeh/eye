@@ -52,6 +52,252 @@ jobs:
       - name: Test
         run: go test ./... -v
 
+      - name: Analytics concurrency race tests
+        run: go test -race ./internal/service -run '^TestDimensionSummary' -count=1
+
+      - name: Analytics performance measurements
+        run: |
+          set -o pipefail
+          go test ./internal/service -run '^        run: |
+          go test ./tests/server -coverpkg=./internal/... -coverprofile=coverage.out
+          go tool cover -func=coverage.out
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        if: false
+        with:
+          version: v1.64
+
+  web-sdk-test:
+    name: Web SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+  web-sdk-build:
+    name: Web SDK Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web-sdk/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build CDN
+        run: npm run build:cdn
+
+  admin-test:
+    name: Admin Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  go-sdk-test:
+    name: Go SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Test
+        run: go test -v
+
+  docs-build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mkdocs
+        run: pip install mkdocs mkdocs-material
+
+      - name: Build
+        run: mkdocs build --strict
+ -bench '^BenchmarkDimensionSummary        run: |
+          go test ./tests/server -coverpkg=./internal/... -coverprofile=coverage.out
+          go tool cover -func=coverage.out
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        if: false
+        with:
+          version: v1.64
+
+  web-sdk-test:
+    name: Web SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+  web-sdk-build:
+    name: Web SDK Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web-sdk/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build CDN
+        run: npm run build:cdn
+
+  admin-test:
+    name: Admin Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  go-sdk-test:
+    name: Go SDK Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Test
+        run: go test -v
+
+  docs-build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mkdocs
+        run: pip install mkdocs mkdocs-material
+
+      - name: Build
+        run: mkdocs build --strict
+ -benchmem -count=3 -benchtime=1s | tee analytics-benchmarks.txt
+          cat analytics-benchmarks.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: analytics-benchmarks
+          path: analytics-benchmarks.txt
+          if-no-files-found: ignore
+
       - name: Test with coverage
         run: |
           go test ./tests/server -coverpkg=./internal/... -coverprofile=coverage.out
