@@ -115,29 +115,21 @@ function GuidedAnalytics() {
   const [revision, setRevision] = useState(0);
   const [compare, setCompare] = useState(true);
   const [dimension,setDimension]=useState("");
+  useEffect(()=>{setDimension("");setEvent("");},[tenantId]);
   const [details,setDetails]=useState<{key:string;keys:string[];rows:{group:string;value:number}[];truncated:boolean;error?:string}>();
   const [trend,setTrend]=useState<{key:string;points:{label:string;value:number}[];truncated:boolean;error?:string}>();
-  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; points:{label:string;value:number}[]; error?:string}>();
+  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; error?:string}>();
   const key = JSON.stringify([tenantId,from,to,event,compare,revision]);
   useEffect(() => {
     if (scopeLoading || !to) return;
     let active = true;
     const range = {from_ts:from,to_ts:to};
-    const bucket = Number(hours) <= 6 ? "minute" : "hour";
     Promise.all([
       api.eventOptions(tenantId,"",true,range),
-      compare ? api.eventOptions(tenantId,"",true,{from_ts:from-(to-from),to_ts:from}) : Promise.resolve([]),
-      api.analytics.buckets(tenantId,{...range,event_name:event,bucket}),
-    ]).then(([current,previous,buckets]) => {
-      const grouped = new Map<string,number>();
-      for (const point of buckets) {
-        const date = new Date(point.bucket);
-        if (!Number.isFinite(date.getTime())) continue;
-        const label = date.toISOString().slice(0,Number(hours)>168?10:16);
-        grouped.set(label,(grouped.get(label)??0)+point.count);
-      }
-      if(active) setState({key,current,previous,points:[...grouped].sort(([a],[b])=>a.localeCompare(b)).map(([label,value])=>({label,value}))});
-    }).catch(e=>{if(active)setState({key,current:[],previous:[],points:[],error:String(e.message??e)});});
+      compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}) : Promise.resolve([]),
+    ]).then(([current,previous]) => {
+      if(active) setState({key,current,previous});
+    }).catch(e=>{if(active)setState({key,current:[],previous:[],error:String(e.message??e)});});
     return ()=>{active=false;};
   },[key,tenantId,from,to,event,compare,hours,scopeLoading]);
   const ready = !scopeLoading && state?.key===key ? state : undefined;
