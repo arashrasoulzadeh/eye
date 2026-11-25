@@ -88,3 +88,29 @@ func TestDimensionSummaryEmptyPeriod(t *testing.T) {
  if err!=nil{t.Fatal(err)}
  if got.Matched!=0||got.Users!=0||got.Sessions!=0||len(got.Rows)!=0{t.Fatalf("unexpected empty result: %+v",got)}
 }
+
+func TestDimensionSummaryCacheResultOwnership(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ if err:=db.Create(&model.Event{EventID:"ownership",TenantID:"t1",EventName:"click",ClientTS:100}).Error;err!=nil{t.Fatal(err)}
+ q:=&QueryService{DB:db}
+ in:=DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true,CacheSummary:true,IncludeTrend:true,TimeBucket:"hour"}
+ first,err:=q.AnalyzeDimensions(context.Background(),in)
+ if err!=nil{t.Fatal(err)}
+ if len(first.Rows)!=1{t.Fatalf("unexpected rows: %+v",first.Rows)}
+ first.Rows[0].Count=999
+ second,err:=q.AnalyzeDimensions(context.Background(),in)
+ if err!=nil{t.Fatal(err)}
+ if len(second.Rows)!=1||second.Rows[0].Count!=1{t.Fatalf("cache mutated: %+v",second.Rows)}
+ second.Rows[0].Count=888
+ third,err:=q.AnalyzeDimensions(context.Background(),in)
+ if err!=nil{t.Fatal(err)}
+ if len(third.Rows)!=1||third.Rows[0].Count!=1{t.Fatalf("cache hit mutated: %+v",third.Rows)}
+}
+func TestDimensionSummaryCacheCancelled(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ q:=&QueryService{DB:db}
+ in:=DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true,CacheSummary:true}
+ if _,err:=q.AnalyzeDimensions(context.Background(),in);err!=nil{t.Fatal(err)}
+ ctx,cancel:=context.WithCancel(context.Background());cancel()
+ if _,err:=q.AnalyzeDimensions(ctx,in);err!=context.Canceled{t.Fatalf("expected cancellation, got %v",err)}
+}
