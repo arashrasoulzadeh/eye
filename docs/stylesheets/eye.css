@@ -9,3 +9,6 @@
 .md-typeset .md-button { border-radius:.5rem; }
 .md-typeset h2 { font-weight:650; letter-spacing:-.025em; }
 @media(max-width:480px){.eye-hero .md-button{display:block;margin:.5rem 0;}}
+
+[dir=rtl] .md-typeset { font-family: Tahoma, Arial, sans-serif; line-height: 1.95; }
+[dir=rtl] .md-typeset pre, [dir=rtl] .md-typeset code { direction:ltr; unicode-bidi:isolate; text-align:left; }
