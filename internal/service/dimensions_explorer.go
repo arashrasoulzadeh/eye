@@ -21,6 +21,7 @@ type DimensionInput struct {
  DrillSplit *string `json:"drill_split"`
  FullRange bool `json:"full_range"`
  Summary bool `json:"summary"`
+ IncludeTrend bool `json:"include_trend"`
  Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
  From int64 `json:"from_ts"`
@@ -97,15 +98,16 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if in.Summary {
  var summary struct { Events int; Users int64; Sessions int64; IdentifiedEvents int64 }
  if err:=base.Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
- out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";return nil
+ out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";if !in.IncludeTrend{return nil}
  }
- if in.FullRange && in.TimeBucket!="" && in.Group=="" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && !in.DiscoverCorrelations && in.Correlate=="" && in.DrillGroup==nil {
+ if (in.FullRange || in.IncludeTrend) && in.TimeBucket!="" && in.Group=="" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && !in.DiscoverCorrelations && in.Correlate=="" && in.DrillGroup==nil {
   var expr string
   formats:=map[string]string{"hour":"YYYY-MM-DD HH24:00","day":"YYYY-MM-DD","month":"YYYY-MM"}
   sqliteFormats:=map[string]string{"hour":"%Y-%m-%d %H:00","day":"%Y-%m-%d","month":"%Y-%m"}
   switch tx.Dialector.Name(){case "postgres":expr="to_char(to_timestamp(client_ts / 1000.0) AT TIME ZONE 'UTC', '"+formats[in.TimeBucket]+"')";case "sqlite":expr="strftime('"+sqliteFormats[in.TimeBucket]+"', client_ts / 1000.0, 'unixepoch')"}
-  if expr!="" {var grouped []struct{Bucket string; Count int};if err:=base.Select(expr+" AS bucket, COUNT(*) AS count").Group(expr).Order("bucket ASC").Limit(5001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==5000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.Bucket,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";return nil}
+  if expr!="" {var grouped []struct{Bucket string; Count int};if err:=base.Select(expr+" AS bucket, COUNT(*) AS count").Group(expr).Order("bucket ASC").Limit(5001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==5000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.Bucket,Value:float64(g.Count),Count:g.Count});if !in.Summary{out.Matched+=g.Count}};out.Scanned=out.Matched;out.Execution="database";return nil}
  }
+ if in.Summary{return nil}
  if in.FullRange && !in.DiscoverCorrelations && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";return nil}
  if in.FullRange && !in.DiscoverCorrelations && in.Group!="" && in.Group!="@event" && in.Split=="" && !in.Explode && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil && in.Operation=="count" && explorerIdentifier.MatchString(in.Group) {
   var expr string
