@@ -38,6 +38,7 @@ nav:
     - Admin overview: admin/README.md
     - Application routes: admin/routes.md
     - Analytics and SQL: admin/exploration.md
+    - SQL reference: admin/sql.md
   - API Reference:
     - API overview: api/README.md
     - Endpoint inventory: api/routes.md
@@ -46,6 +47,9 @@ nav:
     - Go SDK: sdk/go-sdk.md
   - Components: components/README.md
   - Architecture: architecture/README.md
+  - Operations:
+    - Deployment: operations/deployment.md
+    - Configuration: operations/configuration.md
   - Testing & Benchmarks: testing/README.md
   - Changelog: changelog.md
 
@@ -77,6 +81,10 @@ plugins:
             Go SDK: SDK گو
             Components: اجزای پنل
             Architecture: معماری
+            SQL reference: مرجع SQL
+            Operations: عملیات
+            Deployment: استقرار
+            Configuration: پیکربندی
             Testing & Benchmarks: آزمون و عملکرد
             Changelog: تاریخچه تغییرات
 
