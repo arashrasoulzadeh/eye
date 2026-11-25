@@ -45,6 +45,8 @@ nav:
     - Endpoint inventory: api/routes.md
     - Core contracts: api/core.md
     - Intelligence API: api/intelligence.md
+    - Dimensions API: api/dimensions.md
+    - Analytics API: api/analytics.md
   - SDKs:
     - Web SDK: sdk/web-sdk.md
     - Go SDK: sdk/go-sdk.md
@@ -81,6 +83,8 @@ plugins:
             Endpoint inventory: فهرست مسیرهای API
             Core contracts: قراردادهای اصلی
             Intelligence API: API هوشمندی
+            Dimensions API: API ابعاد
+            Analytics API: API تحلیل‌ها
             API Reference: مرجع API
             SDKs: ابزارهای توسعه
             Web SDK: SDK وب
