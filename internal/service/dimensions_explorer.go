@@ -80,23 +80,33 @@ type analyticsSummaryCacheKey struct { service *QueryService; scope string }
 type analyticsSummaryCacheEntry struct { at time.Time; result DimensionResult }
 type analyticsSummaryFlight struct { done chan struct{}; result DimensionResult; err error }
 var analyticsSummaryCache = struct{sync.Mutex; entries map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry; flights map[analyticsSummaryCacheKey]*analyticsSummaryFlight}{entries:make(map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry),flights:make(map[analyticsSummaryCacheKey]*analyticsSummaryFlight)}
+var analyticsSummarySlots = make(chan struct{}, 16)
+
+func (q *QueryService) executeDimensionSummary(ctx context.Context,in DimensionInput)(DimensionResult,error){
+ if !in.Summary{return q.analyzeDimensions(ctx,in)}
+ ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
+ select{case analyticsSummarySlots<-struct{}{}:defer func(){<-analyticsSummarySlots}();case <-ctx.Done():return DimensionResult{},ctx.Err()}
+ if err:=ctx.Err();err!=nil{return DimensionResult{},err}
+ return q.analyzeDimensions(ctx,in)
+}
+
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  // Cache only explicitly requested, simple historical summary queries.
  // A tenant-context callback may enforce request-specific authorization; never bypass it on a cache hit.
- if q.SetTenantContext!=nil || !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.analyzeDimensions(ctx,in)}
+ if q.SetTenantContext!=nil || !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.executeDimensionSummary(ctx,in)}
  if err:=ctx.Err();err!=nil{return DimensionResult{},err}
  // Avoid unbounded concurrent cache bookkeeping under high-cardinality requests.
  canonical:=in;canonical.Types=append([]string(nil),in.Types...);sort.Strings(canonical.Types)
  if len(canonical.Types)>1 {unique:=canonical.Types[:1];for _,name:=range canonical.Types[1:]{if name!=unique[len(unique)-1]{unique=append(unique,name)}};canonical.Types=unique}
- encoded,err:=json.Marshal(canonical);if err!=nil{return q.analyzeDimensions(ctx,in)}
+ encoded,err:=json.Marshal(canonical);if err!=nil{return q.executeDimensionSummary(ctx,in)}
  key:=analyticsSummaryCacheKey{service:q,scope:string(encoded)}
  analyticsSummaryCache.Lock()
  cached,ok:=analyticsSummaryCache.entries[key]
  if ok&&time.Since(cached.at)<15*time.Second {analyticsSummaryCache.Unlock();result:=cached.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}
- if flight:=analyticsSummaryCache.flights[key];flight!=nil {analyticsSummaryCache.Unlock();select{case <-ctx.Done():return DimensionResult{},ctx.Err();case <-flight.done:if err:=ctx.Err();err!=nil{return DimensionResult{},err};if flight.err!=nil{return q.analyzeDimensions(ctx,in)};result:=flight.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}}
- if len(analyticsSummaryCache.flights)>=128 {analyticsSummaryCache.Unlock();return q.analyzeDimensions(ctx,in)}
+ if flight:=analyticsSummaryCache.flights[key];flight!=nil {analyticsSummaryCache.Unlock();select{case <-ctx.Done():return DimensionResult{},ctx.Err();case <-flight.done:if err:=ctx.Err();err!=nil{return DimensionResult{},err};if flight.err!=nil{return q.executeDimensionSummary(ctx,in)};result:=flight.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}}
+ if len(analyticsSummaryCache.flights)>=128 {analyticsSummaryCache.Unlock();return q.executeDimensionSummary(ctx,in)}
  flight:=&analyticsSummaryFlight{done:make(chan struct{})};analyticsSummaryCache.flights[key]=flight;analyticsSummaryCache.Unlock()
- result,err:=q.analyzeDimensions(ctx,in)
+ result,err:=q.executeDimensionSummary(ctx,in)
  defer func(){analyticsSummaryCache.Lock();flight.result=result;flight.result.Rows=append([]DimensionRow{},result.Rows...);flight.err=err;delete(analyticsSummaryCache.flights,key);close(flight.done);analyticsSummaryCache.Unlock()}()
  if err==nil&&!result.Truncated {
   copyResult:=result;copyResult.Rows=append([]DimensionRow{},result.Rows...)
