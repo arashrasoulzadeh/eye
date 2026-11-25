@@ -28,6 +28,14 @@ for name, expected in [("admin/routes", routes), ("api/routes", api)]:
             errors.append(f"{path.name}: missing {route}")
         for route in sorted(actual - expected):
             errors.append(f"{path.name}: stale {route}")
+# Ensure every bilingual page is reachable from the configured navigation.
+nav = (root / "mkdocs.yml").read_text().split("\nnav:\n", 1)[1].split("\nplugins:", 1)[0]
+nav_pages = set(re.findall(r":\s+([^\s]+\.md)\s*$", nav, re.M))
+english_pages = {p.relative_to(docs).as_posix() for p in docs.rglob("*.md") if not p.name.endswith(".fa.md")}
+for page in sorted(english_pages - nav_pages):
+    errors.append(f"Page missing from navigation: {page}")
+for page in sorted(nav_pages - english_pages):
+    errors.append(f"Navigation target missing: {page}")
 if errors:
     raise SystemExit("\n".join(errors))
 print(f"Translation pairs and inventories OK: {len(routes)} app routes, {len(api)} API routes")
