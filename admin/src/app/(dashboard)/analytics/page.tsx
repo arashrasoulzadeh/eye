@@ -177,14 +177,6 @@ function GuidedAnalytics() {
     fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify(body)}).then(async r=>{if(!r.ok)throw Error("Dimension report unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:r.keys??[],profiles:r.profiles??[],rows:r.rows??[],truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:String(e.message)});});
     return ()=>controller.abort();
   },[detailKey,tenantId,detailFrom,detailTo,typesKey,dimension,discover,scopeLoading,available,rows.length]);
-  useEffect(()=>{
-    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
-    const controller=new AbortController();
-    const selectedTypes=JSON.parse(typesKey) as string[];
-    if(selectedTypes.length>100){setTrend({key:trendKey,points:[],truncated:false,error:"Select one event to view the trend."});return;}
-    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",time_bucket:Number(hours)>168?"day":"hour",full_range:true})}).then(async r=>{if(!r.ok)throw Error("Activity trend unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})).sort((a:{label:string},b:{label:string})=>a.label.localeCompare(b.label)),truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});});
-    return ()=>controller.abort();
-  },[trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length]);
   const currentDetails=details?.key===detailKey?details:undefined;
   const currentTrend=trend?.key===trendKey?trend:undefined;
   const bucketSize=Number(hours)>168?86400000:3600000;
@@ -222,10 +214,10 @@ function GuidedAnalytics() {
     if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
     const controller=new AbortController();
     const selectedTypes=JSON.parse(typesKey) as string[];
-    if(selectedTypes.length>100){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:"Select one event for identity metrics."});return;}
-    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",summary:true})}).then(async r=>{if(!r.ok)throw Error("Identity metrics unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setSummary({key:summaryKey,users:r.users,sessions:r.sessions,matched:r.matched,identified_events:r.identified_events});}).catch(e=>{if(!controller.signal.aborted)setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:String(e.message)});});
+    if(selectedTypes.length>100){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:"Select one event for identity metrics."});setTrend({key:trendKey,points:[],truncated:false,error:"Select one event to view the trend."});return;}
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",summary:true,include_trend:true,time_bucket:Number(hours)>168?"day":"hour"})}).then(async r=>{if(!r.ok)throw Error("Identity metrics unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:r.users,sessions:r.sessions,matched:r.matched,identified_events:r.identified_events});setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})),truncated:r.truncated});}}).catch(e=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:String(e.message)});setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});}});
     return ()=>controller.abort();
-  },[summaryKey,tenantId,from,to,typesKey,scopeLoading,available,rows.length]);
+  },[summaryKey,trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length]);
   const identity=summary?.key===summaryKey&&!summary.error?summary:undefined;
   const [realtime,setRealtime]=useState<{tenant:string;users:number;sessions:number;matched:number;error?:string}>();
   const [showRealtime,setShowRealtime]=useState(false);
