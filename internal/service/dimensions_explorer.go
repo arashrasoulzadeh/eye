@@ -8,6 +8,7 @@ import (
  "strings"
  "sort"
  "time"
+ "sync"
  "github.com/arashrasoulzadeh/eye/internal/model"
  "gorm.io/gorm"
 )
@@ -21,6 +22,8 @@ type DimensionInput struct {
  DrillSplit *string `json:"drill_split"`
  FullRange bool `json:"full_range"`
  Summary bool `json:"summary"`
+ CacheSummary bool `json:"cache_summary"`
+ IncludeTrend bool `json:"include_trend"`
  Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
  From int64 `json:"from_ts"`
@@ -73,7 +76,48 @@ func dimensionValues(v any, explode bool) []string {
  if s,ok:=v.(string);ok{return []string{s}}
  b,_:=json.Marshal(v);return []string{string(b)}
 }
+type analyticsSummaryCacheKey struct { service *QueryService; scope string }
+type analyticsSummaryCacheEntry struct { at time.Time; result DimensionResult }
+type analyticsSummaryFlight struct { done chan struct{}; result DimensionResult; err error }
+var analyticsSummaryCache = struct{sync.Mutex; entries map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry; flights map[analyticsSummaryCacheKey]*analyticsSummaryFlight}{entries:make(map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry),flights:make(map[analyticsSummaryCacheKey]*analyticsSummaryFlight)}
+var analyticsSummarySlots = make(chan struct{}, 16)
+
+func (q *QueryService) executeDimensionSummary(ctx context.Context,in DimensionInput)(DimensionResult,error){
+ if !in.Summary{return q.analyzeDimensions(ctx,in)}
+ ctx,cancel:=context.WithTimeout(ctx,8*time.Second);defer cancel()
+ select{case analyticsSummarySlots<-struct{}{}:defer func(){<-analyticsSummarySlots}();case <-ctx.Done():return DimensionResult{},ctx.Err()}
+ if err:=ctx.Err();err!=nil{return DimensionResult{},err}
+ return q.analyzeDimensions(ctx,in)
+}
+
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
+ // Cache only explicitly requested, simple historical summary queries.
+ // A tenant-context callback may enforce request-specific authorization; never bypass it on a cache hit.
+ if q.SetTenantContext!=nil || !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.executeDimensionSummary(ctx,in)}
+ if err:=ctx.Err();err!=nil{return DimensionResult{},err}
+ // Avoid unbounded concurrent cache bookkeeping under high-cardinality requests.
+ canonical:=in;canonical.Types=append([]string(nil),in.Types...);sort.Strings(canonical.Types)
+ if len(canonical.Types)>1 {unique:=canonical.Types[:1];for _,name:=range canonical.Types[1:]{if name!=unique[len(unique)-1]{unique=append(unique,name)}};canonical.Types=unique}
+ encoded,err:=json.Marshal(canonical);if err!=nil{return q.executeDimensionSummary(ctx,in)}
+ key:=analyticsSummaryCacheKey{service:q,scope:string(encoded)}
+ analyticsSummaryCache.Lock()
+ cached,ok:=analyticsSummaryCache.entries[key]
+ if ok&&time.Since(cached.at)<15*time.Second {analyticsSummaryCache.Unlock();result:=cached.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}
+ if flight:=analyticsSummaryCache.flights[key];flight!=nil {analyticsSummaryCache.Unlock();select{case <-ctx.Done():return DimensionResult{},ctx.Err();case <-flight.done:if err:=ctx.Err();err!=nil{return DimensionResult{},err};if flight.err!=nil{return q.executeDimensionSummary(ctx,in)};result:=flight.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}}
+ if len(analyticsSummaryCache.flights)>=128 {analyticsSummaryCache.Unlock();return q.executeDimensionSummary(ctx,in)}
+ flight:=&analyticsSummaryFlight{done:make(chan struct{})};analyticsSummaryCache.flights[key]=flight;analyticsSummaryCache.Unlock()
+ result,err:=q.executeDimensionSummary(ctx,in)
+ defer func(){analyticsSummaryCache.Lock();flight.result=result;flight.result.Rows=append([]DimensionRow{},result.Rows...);flight.err=err;delete(analyticsSummaryCache.flights,key);close(flight.done);analyticsSummaryCache.Unlock()}()
+ if err==nil&&!result.Truncated {
+  copyResult:=result;copyResult.Rows=append([]DimensionRow{},result.Rows...)
+  analyticsSummaryCache.Lock()
+  if len(analyticsSummaryCache.entries)>=128 {for k,v:=range analyticsSummaryCache.entries{if time.Since(v.at)>=15*time.Second{delete(analyticsSummaryCache.entries,k)}};if len(analyticsSummaryCache.entries)>=128{var oldest analyticsSummaryCacheKey;var oldestAt time.Time;for k,v:=range analyticsSummaryCache.entries{if oldestAt.IsZero()||v.at.Before(oldestAt){oldest=k;oldestAt=v.at}};delete(analyticsSummaryCache.entries,oldest)}}
+  analyticsSummaryCache.entries[key]=analyticsSummaryCacheEntry{at:time.Now(),result:copyResult}
+  analyticsSummaryCache.Unlock()
+ }
+ return result,err
+}
+func (q *QueryService) analyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  out:=DimensionResult{Execution:"bounded_scan",Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
  if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100||len(in.Filters)>20{return out,fmt.Errorf("invalid dimension scope")}
  switch in.Operation {case "count","sum","avg","min","max","distinct","missing","median","p90","p95","p99","stddev":default:return out,fmt.Errorf("invalid operation")}
@@ -92,13 +136,21 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
  if q.SetTenantContext!=nil{if err:=q.SetTenantContext(tx,in.Tenant);err!=nil{return err}}
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
- if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
+ if !in.Summary { if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err} }
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
  if in.Summary {
  var summary struct { Events int; Users int64; Sessions int64; IdentifiedEvents int64 }
- if err:=base.Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
- out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";return nil
+ if err:=base.Session(&gorm.Session{}).Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
+ out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";if !in.IncludeTrend{return nil}
  }
+ if (in.FullRange || in.IncludeTrend) && in.TimeBucket!="" && in.Group=="" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && !in.DiscoverCorrelations && in.Correlate=="" && in.DrillGroup==nil {
+  var expr string
+  formats:=map[string]string{"hour":"YYYY-MM-DD HH24:00","day":"YYYY-MM-DD","month":"YYYY-MM"}
+  sqliteFormats:=map[string]string{"hour":"%Y-%m-%d %H:00","day":"%Y-%m-%d","month":"%Y-%m"}
+  switch tx.Dialector.Name(){case "postgres":expr="to_char(to_timestamp(client_ts / 1000.0) AT TIME ZONE 'UTC', '"+formats[in.TimeBucket]+"')";case "sqlite":expr="strftime('"+sqliteFormats[in.TimeBucket]+"', client_ts / 1000.0, 'unixepoch')"}
+  if expr!="" {var grouped []struct{Bucket string; Count int};if err:=base.Select(expr+" AS bucket, COUNT(*) AS count").Group(expr).Order("bucket ASC").Limit(5001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==5000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.Bucket,Value:float64(g.Count),Count:g.Count});if !in.Summary{out.Matched+=g.Count}};out.Scanned=out.Matched;out.Execution="database";return nil}
+ }
+ if in.Summary{return nil}
  if in.FullRange && !in.DiscoverCorrelations && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";return nil}
  if in.FullRange && !in.DiscoverCorrelations && in.Group!="" && in.Group!="@event" && in.Split=="" && !in.Explode && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil && in.Operation=="count" && explorerIdentifier.MatchString(in.Group) {
   var expr string
