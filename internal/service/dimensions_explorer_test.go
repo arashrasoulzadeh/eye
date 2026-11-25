@@ -1,5 +1,5 @@
 package service
-import ("testing";"reflect";"context";"sync";"github.com/arashrasoulzadeh/eye/internal/model")
+import ("testing";"reflect";"context";"sync";"fmt";"gorm.io/driver/sqlite";"gorm.io/gorm";"github.com/arashrasoulzadeh/eye/internal/model")
 func TestDimensionValues(t *testing.T){
  if got:=dimensionValues([]any{"a","b","a"},true);!reflect.DeepEqual(got,[]string{"a","b"}){t.Fatal(got)}
  if got:=dimensionValues(nil,true);!reflect.DeepEqual(got,[]string{"(missing)"}){t.Fatal(got)}
@@ -124,4 +124,23 @@ func TestDimensionSummaryConcurrentCacheHits(t *testing.T) {
  var wg sync.WaitGroup
  for i:=0;i<64;i++{wg.Add(1);go func(){defer wg.Done();got,err:=q.AnalyzeDimensions(context.Background(),in);if err!=nil{t.Error(err);return};if got.Matched!=1||len(got.Rows)!=1||got.Rows[0].Count!=1{t.Errorf("unexpected concurrent result: %+v",got);return};got.Rows[0].Count=999}()}
  wg.Wait()
+}
+
+func BenchmarkDimensionSummary(b *testing.B) {
+ db,err:=gorm.Open(sqlite.Open(":memory:"),&gorm.Config{})
+ if err!=nil{b.Fatal(err)}
+ sqlDB,err:=db.DB();if err!=nil{b.Fatal(err)};defer sqlDB.Close();sqlDB.SetMaxOpenConns(1)
+ if err:=db.AutoMigrate(&model.Tenant{},&model.Session{},&model.Event{});err!=nil{b.Fatal(err)}
+ events:=make([]model.Event,10000)
+ for i:=range events{events[i]=model.Event{EventID:fmt.Sprintf("bench-%d",i),TenantID:"t1",EventName:"click",UserID:fmt.Sprintf("u%d",i%1000),SessionID:fmt.Sprintf("s%d",i%2000),ClientTS:int64(i)*60000}}
+ if err:=db.CreateInBatches(&events,100).Error;err!=nil{b.Fatal(err)}
+ q:=&QueryService{DB:db}
+ for _,tc:=range []struct{name string;cache,trend bool}{{"summary",false,false},{"summary_trend",false,true},{"cached_summary_trend",true,true}}{
+ b.Run(tc.name,func(b *testing.B){
+ in:=DimensionInput{Tenant:"t1",From:0,To:600000000,Operation:"count",Summary:true,CacheSummary:tc.cache,IncludeTrend:tc.trend,TimeBucket:"hour"}
+ if _,err:=q.AnalyzeDimensions(context.Background(),in);err!=nil{b.Fatal(err)}
+ b.ReportAllocs();b.ResetTimer()
+ for i:=0;i<b.N;i++{got,err:=q.AnalyzeDimensions(context.Background(),in);if err!=nil||got.Matched!=10000{b.Fatalf("summary count=%d error=%v",got.Matched,err)}}
+ })
+ }
 }
