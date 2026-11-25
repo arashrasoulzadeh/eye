@@ -32,6 +32,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Discover Eye: discovery.md
   - Getting Started: getting-started/README.md
   - Admin Guide: admin/README.md
   - API Reference: api/README.md
@@ -42,6 +43,32 @@ nav:
   - Architecture: architecture/README.md
   - Testing & Benchmarks: testing/README.md
   - Changelog: changelog.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: fa
+          name: فارسی
+          build: true
+          nav_translations:
+            Home: خانه
+            Discover Eye: کشف امکانات
+            Getting Started: شروع کار
+            Admin Guide: راهنمای مدیریت
+            API Reference: مرجع API
+            SDKs: ابزارهای توسعه
+            Web SDK: SDK وب
+            Go SDK: SDK گو
+            Components: اجزای پنل
+            Architecture: معماری
+            Testing & Benchmarks: آزمون و عملکرد
+            Changelog: تاریخچه تغییرات
 
 extra_css:
   - stylesheets/eye.css
