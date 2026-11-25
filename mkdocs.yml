@@ -43,6 +43,8 @@ nav:
   - API Reference:
     - API overview: api/README.md
     - Endpoint inventory: api/routes.md
+    - Core contracts: api/core.md
+    - Intelligence API: api/intelligence.md
   - SDKs:
     - Web SDK: sdk/web-sdk.md
     - Go SDK: sdk/go-sdk.md
@@ -77,6 +79,8 @@ plugins:
             Analytics and SQL: تحلیل و SQL
             API overview: نمای کلی API
             Endpoint inventory: فهرست مسیرهای API
+            Core contracts: قراردادهای اصلی
+            Intelligence API: API هوشمندی
             API Reference: مرجع API
             SDKs: ابزارهای توسعه
             Web SDK: SDK وب
