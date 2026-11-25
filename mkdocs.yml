@@ -39,6 +39,7 @@ nav:
     - Application routes: admin/routes.md
     - Analytics and SQL: admin/exploration.md
     - SQL reference: admin/sql.md
+    - Management handbook: admin/management.md
   - API Reference:
     - API overview: api/README.md
     - Endpoint inventory: api/routes.md
@@ -83,6 +84,7 @@ plugins:
             Components: اجزای پنل
             Architecture: معماری
             SQL reference: مرجع SQL
+            Management handbook: راهنمای مدیریت و عملیات
             Intelligence: هوشمندی
             Operations: عملیات
             Deployment: استقرار
