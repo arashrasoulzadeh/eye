@@ -47,6 +47,7 @@ nav:
     - Go SDK: sdk/go-sdk.md
   - Components: components/README.md
   - Architecture: architecture/README.md
+  - Intelligence: intelligence/README.md
   - Operations:
     - Deployment: operations/deployment.md
     - Configuration: operations/configuration.md
@@ -82,6 +83,7 @@ plugins:
             Components: اجزای پنل
             Architecture: معماری
             SQL reference: مرجع SQL
+            Intelligence: هوشمندی
             Operations: عملیات
             Deployment: استقرار
             Configuration: پیکربندی
