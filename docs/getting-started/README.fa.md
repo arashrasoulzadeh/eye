@@ -25,4 +25,4 @@ make server
 
 ۴. مستأجر و بازه زمانی مناسب را در پنل انتخاب کنید.
 
-[راهنمای SDK وب](../sdk/web-sdk.fa.md) · [راهنمای API](../api/README.fa.md)
+[راهنمای SDK وب](../sdk/web-sdk.md) · [راهنمای API](../api/README.md)
