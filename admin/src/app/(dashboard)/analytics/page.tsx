@@ -192,14 +192,14 @@ function GuidedAnalytics() {
   const classify=(name:string,pattern:string,category:string)=>mappings.has(category)?mappings.get(category)!.includes(name):!pattern||new RegExp(pattern,"i").test(name.replace(/([a-z0-9])([A-Z])/g,"$1 $2").replace(/[^a-zA-Z0-9]+/g," "));
   const suggestedReports=reportTemplates.filter(t=>t.pattern).map(t=>({name:t.name,count:(ready?.current??[]).reduce((n,r)=>n+(classify(r.value,t.pattern,t.name)?r.count:0),0)})).filter(t=>t.count>0).sort((a,b)=>b.count-a.count).slice(0,3);
   const pattern = reportTemplates.find(t=>t.name===template)?.pattern ?? "";
-  const matches = (row:ReportOption) => (!event || row.value===event) && classify(row.value,pattern,template);
+  const matches = (row:ReportOption) => event ? row.value===event : classify(row.value,pattern,template);
   async function saveMapping(){if(!tenantId||saving||!mappingDraft.length||mappings.has(mappingTemplate)||savedTenant!==tenantId)return;setSaving(true);setSaveError("");try{await api.analytics.saveView(tenantId,"Event mapping: "+mappingTemplate,JSON.stringify({kind:"guided-mapping-v1",template:mappingTemplate,events:mappingDraft}));setSavedRevision(x=>x+1);setMappingDraft([]);}catch{setSaveError("Could not save event mapping.");}finally{setSaving(false);}}
   const rows = (ready?.current??[]).filter(matches).sort((a,b)=>b.count-a.count);
   const catalogTotal = rows.reduce((n,r)=>n+r.count,0);
   const previous = (ready?.previous??[]).filter(matches).reduce((n,r)=>n+r.count,0);
   
   const available = ready && !ready.error;
-  const types = event ? [event] : (pattern || mappings.has(template)) ? Array.from(new Set([...rows,...(ready?.previous??[]).filter(matches)].map(r=>r.value))).sort() : [];
+  const types = event ? [event] : mappings.has(template) ? Array.from(new Set(mappings.get(template)!)).sort() : pattern ? Array.from(new Set([...rows,...(ready?.previous??[]).filter(matches)].map(r=>r.value))).sort() : [];
   const typesKey=JSON.stringify(types);
   const validScope=Boolean(event||types.length||(!pattern&&!mappings.has(template)));
   const focusStart=bucketFocus?Date.parse(bucketFocus.length===10?bucketFocus+"T00:00:00Z":bucketFocus.replace(" ","T")+":00Z"):NaN;
@@ -208,14 +208,14 @@ function GuidedAnalytics() {
   const detailKey=JSON.stringify([tenantId,detailFrom,detailTo,typesKey,dimension,revision]);
   const trendKey=JSON.stringify([tenantId,from,to,typesKey,revision,hours]);
   useEffect(()=>{
-    if(scopeLoading||!tenantId||!to||!available||!rows.length||!showDimensions||(!dimension&&!discover))return;
+    if(scopeLoading||!tenantId||!to||!available||!validScope||!rows.length||!showDimensions||(!dimension&&!discover))return;
     const controller=new AbortController();
     const selectedTypes=JSON.parse(typesKey) as string[];
     if(selectedTypes.length>100){setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:"Select one event to analyze this report."});return;}
     const body={tenant_id:tenantId,from_ts:detailFrom,to_ts:detailTo,types:selectedTypes,operation:"count",group:dimension,full_range:Boolean(dimension)};
     fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify(body)}).then(async r=>{if(!r.ok)throw Error("Dimension report unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:r.keys??[],profiles:r.profiles??[],rows:r.rows??[],truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:String(e.message)});});
     return ()=>controller.abort();
-  },[detailKey,tenantId,detailFrom,detailTo,typesKey,dimension,discover,scopeLoading,available,rows.length,showDimensions]);
+  },[detailKey,tenantId,detailFrom,detailTo,typesKey,dimension,discover,scopeLoading,available,rows.length,showDimensions,validScope]);
   const currentDetails=details?.key===detailKey?details:undefined;
   const currentTrend=trend?.key===trendKey?trend:undefined;
   const bucketSize=Number(hours)>168?86400000:3600000;
