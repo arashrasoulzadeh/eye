@@ -63,3 +63,28 @@ func TestCombinedDimensionSummaryTrend(t *testing.T) {
  if got.Matched!=3||got.Users!=1||got.Sessions!=2||got.IdentifiedEvents!=2||got.Execution!="database"{t.Fatalf("unexpected summary: %+v",got)}
  if len(got.Rows)!=2||got.Rows[0].Group!="1970-01-01 00:00"||got.Rows[0].Count!=1||got.Rows[1].Group!="1970-01-01 01:00"||got.Rows[1].Count!=2{t.Fatalf("unexpected buckets: %+v",got.Rows)}
 }
+
+func TestDimensionSummaryCacheIsolation(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ events:=[]model.Event{
+ {EventID:"cache-a",TenantID:"t1",EventName:"click",ClientTS:100},
+ {EventID:"cache-b",TenantID:"t2",EventName:"click",ClientTS:100},
+ {EventID:"cache-c",TenantID:"t2",EventName:"view",ClientTS:101},
+ }
+ if err:=db.Create(&events).Error;err!=nil{t.Fatal(err)}
+ q:=&QueryService{DB:db}
+ for _,tc:=range []struct{tenant string;types []string;want int}{
+ {"t1",nil,1},{"t2",nil,2},{"t2",[]string{"click"},1},{"t2",[]string{"missing"},0},{"t1",nil,1},
+ }{
+  got,err:=q.AnalyzeDimensions(context.Background(),DimensionInput{Tenant:tc.tenant,From:0,To:200,Types:tc.types,Operation:"count",Summary:true,CacheSummary:true})
+  if err!=nil{t.Fatal(err)}
+  if got.Matched!=tc.want{t.Fatalf("tenant %s types %v: got %d want %d",tc.tenant,tc.types,got.Matched,tc.want)}
+ }
+}
+func TestDimensionSummaryEmptyPeriod(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ q:=&QueryService{DB:db}
+ got,err:=q.AnalyzeDimensions(context.Background(),DimensionInput{Tenant:"empty",From:0,To:3600000,Operation:"count",Summary:true,IncludeTrend:true,TimeBucket:"hour"})
+ if err!=nil{t.Fatal(err)}
+ if got.Matched!=0||got.Users!=0||got.Sessions!=0||len(got.Rows)!=0{t.Fatalf("unexpected empty result: %+v",got)}
+}
