@@ -157,7 +157,7 @@ function GuidedAnalytics() {
   useEffect(()=>setBucketFocus(null),[tenantId,from,to,event,template]);
   const [priorTrend,setPriorTrend]=useState<{key:string;points:{label:string;value:number}[]}>();
   const [trend,setTrend]=useState<{key:string;points:{label:string;value:number}[];truncated:boolean;error?:string}>();
-  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; error?:string}>();
+  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; error?:string; warning?:string}>();
   const key = JSON.stringify([tenantId,from,to,compare]);
   const catalogCache=useRef(new Map<string,{at:number;current:ReportOption[];previous:ReportOption[]}>());
   const lastRevision=useRef(revision);
@@ -171,9 +171,9 @@ function GuidedAnalytics() {
     const range = {from_ts:from,to_ts:to};
     Promise.all([
       api.eventOptions(tenantId,"",true,range),
-      compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}) : Promise.resolve([]),
+      compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}).catch(()=>null) : Promise.resolve([]),
     ]).then(([current,previous]) => {
-      if(active){catalogCache.current.delete(key);catalogCache.current.set(key,{at:Date.now(),current,previous});while(catalogCache.current.size>12){const oldest=catalogCache.current.keys().next().value;if(oldest===undefined)break;catalogCache.current.delete(oldest);}setState({key,current,previous});}
+      if(active){if(previous===null){setState({key,current,previous:[],warning:"Previous period unavailable. Current activity is still shown."});return;}catalogCache.current.delete(key);catalogCache.current.set(key,{at:Date.now(),current,previous});while(catalogCache.current.size>12){const oldest=catalogCache.current.keys().next().value;if(oldest===undefined)break;catalogCache.current.delete(oldest);}setState({key,current,previous});}
     }).catch(e=>{if(active)setState({key,current:[],previous:[],error:String(e.message??e)});});
     return ()=>{active=false;};
   },[key,tenantId,from,to,compare,revision,scopeLoading]);
@@ -262,7 +262,7 @@ function GuidedAnalytics() {
     fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:start,to_ts:end,types:selectedTypes,operation:"count",time_bucket:size===86400000?"day":"hour",full_range:true})}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(r=>{if(controller.signal.aborted||r.truncated)return;const values=new Map<string,number>((r.rows??[]).map((x:{group:string;value:number})=>[x.group,x.value]));const points:{label:string;value:number}[]=[];for(let t=Math.floor(start/size)*size;t<=end&&points.length<5000;t+=size){const iso=new Date(t).toISOString(),label=size===86400000?iso.slice(0,10):iso.slice(0,13).replace("T"," ")+":00";points.push({label,value:values.get(label)??0});}setPriorTrend({key:priorKey,points});}).catch(()=>{if(!controller.signal.aborted)setPriorTrend(undefined);});
     return()=>controller.abort();
   },[priorKey,compare,scopeLoading,tenantId,available,rows.length,from,to,typesKey,hours,showTrend]);
-  const comparisonPoints=compare&&showTrend&&!currentTrend?.truncated&&!currentTrend?.error&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
+  const comparisonPoints=compare&&!ready?.warning&&showTrend&&!currentTrend?.truncated&&!currentTrend?.error&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
   const identity=summary?.key===summaryKey&&!summary.error?summary:undefined;
   const [realtime,setRealtime]=useState<{tenant:string;users:number;sessions:number;matched:number;error?:string}>();
   const [showRealtime,setShowRealtime]=useState(false);
@@ -272,7 +272,7 @@ function GuidedAnalytics() {
 
   const currentByEvent=new Map(rows.map(r=>[r.value,r.count]));
   const priorByEvent=new Map((ready?.previous??[]).filter(matches).map(r=>[r.value,r.count]));
-  const movers=compare?Array.from(new Set([...rows.map(r=>r.value),...priorByEvent.keys()])).map(name=>{const now=currentByEvent.get(name)??0;const before=priorByEvent.get(name)??0;return {name,now,before,delta:now-before};}).filter(x=>Math.max(x.now,x.before)>=20&&Math.abs(x.delta)>=10).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3):[];
+  const movers=compare&&!ready?.warning?Array.from(new Set([...rows.map(r=>r.value),...priorByEvent.keys()])).map(name=>{const now=currentByEvent.get(name)??0;const before=priorByEvent.get(name)??0;return {name,now,before,delta:now-before};}).filter(x=>Math.max(x.now,x.before)>=20&&Math.abs(x.delta)>=10).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3):[];
   const anomaly=(()=>{
     if(!needsTrend||!currentTrend||currentTrend.truncated||currentTrend.error||chartPoints.length<9)return null;
     const stamp=(label:string)=>Date.parse(label.length===10?label+"T00:00:00Z":label.replace(" ","T")+":00Z");
@@ -304,6 +304,7 @@ function GuidedAnalytics() {
     <div className="flex flex-wrap items-center gap-3"><label className="text-sm">Event <select className="ml-2 rounded border border-border bg-surface-2 p-2" value={event} onChange={e=>{setEvent(e.target.value);setDimension("");}}><option value="">All matching events</option>{event && !ready?.current.some(r=>r.value===event) && <option value={event}>{event}</option>}{(ready?.current??[]).filter(r=>classify(r.value,pattern,template)).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={compare} onChange={e=>setCompare(e.target.checked)}/> Compare previous period</label></div>
     {template==="Overview"&&!event&&suggestedReports.length>0&&<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3"><span className="text-xs font-medium text-fg-muted">Suggested reports</span>{suggestedReports.map(t=><button key={t.name} onClick={()=>{setTemplate(t.name);setEvent("");setDimension("");setDiscover(false);}} className="rounded-md bg-surface-2 px-3 py-1.5 text-xs hover:text-accent">{t.name} · {t.count.toLocaleString()} events</button>)}<span className="text-[10px] text-fg-muted">Based on event names or saved mappings; categories may overlap.</span></div>}
     {!ready && <p role="status" className="text-sm text-fg-muted">Loading report…</p>}
+    {ready?.warning&&<p role="status" className="text-xs text-fg-muted">{ready.warning}</p>}
     {ready?.error && <p role="alert" className="text-sm text-danger">{ready.error}</p>}
     <div className="grid gap-2 sm:grid-cols-3">{[{label:"Total events",value:total.toLocaleString(),help:"Recorded actions in this report",spark:currentTrend&&!currentTrend.truncated&&!currentTrend.error?chartPoints.map(p=>p.value):undefined},{label:"Event types",value:String(rows.length),help:"Different tracked actions",spark:undefined},{label:"Change",value:compare&&change!==null?(change>=0?"+":"")+change.toFixed(1)+"%":"—",help:"Compared with the preceding equal period",spark:comparisonPoints?.map((p,i)=>chartPoints[i].value-p.value)}].map(m=><Card key={m.label}><div className="p-3"><p className="text-xs font-medium text-fg-muted">{m.label}</p><div className="flex items-center justify-between gap-2"><p className="mt-1 text-2xl font-semibold tabular-nums">{available?m.value:"—"}</p>{available&&m.spark&&<MetricSparkline values={m.spark}/>}</div><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
     <div className="grid gap-3 sm:grid-cols-3">{[{label:"Identified active users",value:identity?.users,help:"Distinct non-empty user IDs"},{label:"Active sessions",value:identity?.sessions,help:"Distinct non-empty session IDs"},{label:"Identity coverage",value:identity&&identity.matched?Math.round(identity.identified_events/identity.matched*100)+"%":undefined,help:"Events with a recorded user ID"}].map(m=><Card key={m.label}><div className="p-4"><p className="text-xs text-fg-muted">{m.label}</p><p className="mt-1 text-2xl font-semibold">{m.value?.toLocaleString()??"—"}</p><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
