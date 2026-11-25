@@ -296,9 +296,19 @@ function GuidedAnalytics() {
   const focusedPoint=bucketFocus?chartPoints.find(p=>p.label===bucketFocus):undefined;
   const businessCount=ready?.current.find(r=>r.value===businessEvent)?.count??0;
   function exportReport() {
-    const csv = ["Event,Count",...rows.map(r=>'"'+r.value.replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'",'+r.count)].join("\n");
-    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-    const a=document.createElement("a");a.href=url;a.download="analytics.csv";a.click();URL.revokeObjectURL(url);
+    const cell=(v:unknown)=>'"'+String(v??"").replace(/^[\s]*[=+@-]/,"'$&").replace(/"/g,'""')+'"';
+    const records:unknown[][]=[["Section","Metric or label","Current","Previous","Notes"],
+      ["Report","Template",template,"",""],["Report","From UTC",new Date(from).toISOString(),"",""],["Report","To UTC",new Date(to).toISOString(),"",""],
+      ["KPI","Total events",total,priorIdentity?.matched??(compare&&!ready?.warning?previous:""),identity?"Database count":"Catalog count"],
+      ["KPI","Identified users",identity?.users,priorIdentity?.users,"Distinct non-empty IDs"],
+      ["KPI","Sessions",identity?.sessions,priorIdentity?.sessions,"Distinct non-empty IDs"],
+      ["KPI","Change (%)",change,"",exactComparison?"Database comparison":"Catalog estimate"],
+      ...rows.map(r=>["Events",r.value,r.count,compare&&!ready?.warning?(priorByEvent.get(r.value)??0):"","Catalog count"]),
+      ...chartPoints.map((p,i)=>["Trend",p.label,p.value,comparisonPoints?.[i]?.value??"",currentTrend?.truncated?"Partial results":"UTC"]),
+      ...(dimension&&currentDetails&&!currentDetails.error?currentDetails.rows.map(r=>["Breakdown",r.group,r.value,"",dimension+(currentDetails.truncated?" (partial)":"")]):[])];
+    const csv=records.map(row=>row.map(cell).join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob(["\uFEFF",csv],{type:"text/csv;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download="analytics-"+template.toLowerCase().replace(/[^a-z0-9]+/g,"-")+".csv";a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   return <div className="grid items-start gap-5 xl:grid-cols-[180px_minmax(0,1fr)]"><nav aria-label="Analytics reports" className="rounded-xl border border-border p-2 xl:sticky xl:top-4"><p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-fg-muted">Reports</p><div className="flex gap-1 overflow-x-auto xl:flex-col">{reportTemplates.map(t=><button key={t.name} title={t.description} aria-current={template===t.name?"page":undefined} onClick={()=>{setTemplate(t.name);setEvent("");setDimension("");setDiscover(false);}} className={"whitespace-nowrap rounded-md px-3 py-2 text-left text-sm transition-colors "+(template===t.name?"bg-accent/10 font-semibold text-accent":"text-fg-muted hover:bg-surface-2 hover:text-fg")}>{t.name}</button>)}</div></nav><main className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold text-fg">{template}</h1><p className="text-sm text-fg-muted">{reportTemplates.find(t=>t.name===template)?.description} · {formatTimeRange(hours)}</p></div><div className="flex gap-2"><button className="rounded border border-border px-3 py-2 text-sm" onClick={()=>setRevision(x=>x+1)}>Refresh</button><button disabled={!available} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50" onClick={exportReport}>Export CSV</button><button onClick={()=>window.print()} className="rounded border border-border px-3 py-2 text-sm print:hidden">Print / PDF</button></div></div>
