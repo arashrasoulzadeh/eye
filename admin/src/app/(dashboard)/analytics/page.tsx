@@ -242,25 +242,27 @@ function GuidedAnalytics() {
   const summaryRevision=useRef(revision);
   const [summary,setSummary]=useState<{key:string;users:number;sessions:number;matched:number;identified_events:number;error?:string}>();
   const summaryKey=JSON.stringify([tenantId,from,to,typesKey,revision]);
+  const needsTrend=widgets.includes("trend")||widgets.includes("insights");
   useEffect(()=>{
     if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
     const controller=new AbortController();
     const selectedTypes=JSON.parse(typesKey) as string[];
     const forceRefresh=summaryRevision.current!==revision;summaryRevision.current=revision;
     if(selectedTypes.length>100){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:"Select one event for identity metrics."});setTrend({key:trendKey,points:[],truncated:false,error:"Select one event to view the trend."});return;}
-    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",summary:true,cache_summary:!forceRefresh,include_trend:true,time_bucket:Number(hours)>168?"day":"hour"})}).then(async r=>{if(!r.ok)throw Error("Identity metrics unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:r.users,sessions:r.sessions,matched:r.matched,identified_events:r.identified_events});setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})),truncated:r.truncated});}}).catch(e=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:String(e.message)});setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});}});
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",summary:true,cache_summary:!forceRefresh,include_trend:needsTrend,time_bucket:needsTrend?(Number(hours)>168?"day":"hour"):""})}).then(async r=>{if(!r.ok)throw Error("Identity metrics unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:r.users,sessions:r.sessions,matched:r.matched,identified_events:r.identified_events});setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})),truncated:r.truncated});}}).catch(e=>{if(!controller.signal.aborted){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:String(e.message)});setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});}});
     return ()=>controller.abort();
-  },[summaryKey,trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length]);
+  },[summaryKey,trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length,needsTrend]);
   const priorKey=JSON.stringify([tenantId,from,to,typesKey,revision,hours]);
+  const showTrend=widgets.includes("trend");
   useEffect(()=>{
-    if(!compare||scopeLoading||!tenantId||!available||!rows.length||from<=0)return;
+    if(!compare||!showTrend||scopeLoading||!tenantId||!available||!rows.length||from<=0)return;
     const selectedTypes=JSON.parse(typesKey) as string[];if(selectedTypes.length>100)return;
     const controller=new AbortController(), start=Math.max(0,from-(to-from)-1), end=from-1;
     const size=Number(hours)>168?86400000:3600000;
     fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:start,to_ts:end,types:selectedTypes,operation:"count",time_bucket:size===86400000?"day":"hour",full_range:true})}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(r=>{if(controller.signal.aborted||r.truncated)return;const values=new Map<string,number>((r.rows??[]).map((x:{group:string;value:number})=>[x.group,x.value]));const points:{label:string;value:number}[]=[];for(let t=Math.floor(start/size)*size;t<=end&&points.length<5000;t+=size){const iso=new Date(t).toISOString(),label=size===86400000?iso.slice(0,10):iso.slice(0,13).replace("T"," ")+":00";points.push({label,value:values.get(label)??0});}setPriorTrend({key:priorKey,points});}).catch(()=>{if(!controller.signal.aborted)setPriorTrend(undefined);});
     return()=>controller.abort();
-  },[priorKey,compare,scopeLoading,tenantId,available,rows.length,from,to,typesKey,hours]);
-  const comparisonPoints=compare&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
+  },[priorKey,compare,scopeLoading,tenantId,available,rows.length,from,to,typesKey,hours,showTrend]);
+  const comparisonPoints=compare&&showTrend&&!currentTrend?.truncated&&!currentTrend?.error&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
   const identity=summary?.key===summaryKey&&!summary.error?summary:undefined;
   const [realtime,setRealtime]=useState<{tenant:string;users:number;sessions:number;matched:number;error?:string}>();
   const [showRealtime,setShowRealtime]=useState(false);
@@ -270,9 +272,9 @@ function GuidedAnalytics() {
 
   const currentByEvent=new Map(rows.map(r=>[r.value,r.count]));
   const priorByEvent=new Map((ready?.previous??[]).filter(matches).map(r=>[r.value,r.count]));
-  const movers=Array.from(new Set([...rows.map(r=>r.value),...priorByEvent.keys()])).map(name=>{const now=currentByEvent.get(name)??0;const before=priorByEvent.get(name)??0;return {name,now,before,delta:now-before};}).filter(x=>Math.max(x.now,x.before)>=20&&Math.abs(x.delta)>=10).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3);
+  const movers=compare?Array.from(new Set([...rows.map(r=>r.value),...priorByEvent.keys()])).map(name=>{const now=currentByEvent.get(name)??0;const before=priorByEvent.get(name)??0;return {name,now,before,delta:now-before};}).filter(x=>Math.max(x.now,x.before)>=20&&Math.abs(x.delta)>=10).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3):[];
   const anomaly=(()=>{
-    if(!currentTrend||currentTrend.truncated||currentTrend.error||chartPoints.length<9)return null;
+    if(!needsTrend||!currentTrend||currentTrend.truncated||currentTrend.error||chartPoints.length<9)return null;
     const stamp=(label:string)=>Date.parse(label.length===10?label+"T00:00:00Z":label.replace(" ","T")+":00Z");
     const complete=chartPoints.filter(x=>{const t=stamp(x.label);return Number.isFinite(t)&&t>=from&&t+bucketSize<=to+1;});
     if(complete.length<8)return null;
