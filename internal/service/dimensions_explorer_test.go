@@ -1,5 +1,5 @@
 package service
-import ("testing";"reflect")
+import ("testing";"reflect";"context";"github.com/arashrasoulzadeh/eye/internal/model")
 func TestDimensionValues(t *testing.T){
  if got:=dimensionValues([]any{"a","b","a"},true);!reflect.DeepEqual(got,[]string{"a","b"}){t.Fatal(got)}
  if got:=dimensionValues(nil,true);!reflect.DeepEqual(got,[]string{"(missing)"}){t.Fatal(got)}
@@ -27,4 +27,21 @@ func TestDimensionPairStats(t *testing.T) {
  if r,ok:=negative.coefficient();!ok||r> -0.999999{t.Fatalf("negative: %v %v",r,ok)}
  if _,ok:=constant.coefficient();ok{t.Fatal("constant series must not correlate")}
  if _,ok:=small.coefficient();ok{t.Fatal("small sample must not correlate")}
+}
+
+func TestDimensionSummaryScope(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ events:=[]model.Event{
+ {EventID:"a",TenantID:"t1",UserID:"u1",SessionID:"s1",EventName:"click",ClientTS:100},
+ {EventID:"b",TenantID:"t1",UserID:"u1",SessionID:"s2",EventName:"click",ClientTS:101},
+ {EventID:"c",TenantID:"t1",SessionID:"s2",EventName:"click",ClientTS:102},
+ {EventID:"d",TenantID:"t1",UserID:"u2",EventName:"view",ClientTS:103},
+ {EventID:"e",TenantID:"t2",UserID:"u3",SessionID:"s3",EventName:"click",ClientTS:104},
+ {EventID:"f",TenantID:"t1",UserID:"u4",SessionID:"s4",EventName:"click",ClientTS:99},
+ }
+ if err:=db.Create(&events).Error;err!=nil{t.Fatal(err)}
+ q:=&QueryService{DB:db}
+ got,err:=q.AnalyzeDimensions(context.Background(),DimensionInput{Tenant:"t1",From:100,To:104,Types:[]string{"click"},Operation:"count",Summary:true})
+ if err!=nil{t.Fatal(err)}
+ if got.Matched!=3||got.Users!=1||got.Sessions!=2||got.IdentifiedEvents!=2{t.Fatalf("unexpected summary: %+v",got)}
 }
