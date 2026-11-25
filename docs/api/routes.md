@@ -4,7 +4,7 @@ Extracted from server route registrations. Consult handlers for HTTP methods, re
 
 | Route | Authentication wrapper |
 |---|---|
-| `/healthz` | See handler |
+| `/healthz` | Public |
 | `/admin-sessions` | See handler |
 | `/tenants` | Admin |
 | `/tenants/` | Admin |
@@ -15,8 +15,8 @@ Extracted from server route registrations. Consult handlers for HTTP methods, re
 | `/sessions` | See handler |
 | `/intelligence/users` | Admin |
 | `/compliance/erase` | Admin |
-| `/events` | See handler |
-| `/events/` | See handler |
+| `/events` | Admin |
+| `/events/` | Admin |
 | `/query` | Admin |
 | `/query-explorer` | Admin session |
 | `/analytics/funnel` | Admin |

@@ -1,3 +1,11 @@
+@font-face {
+  font-family: Vazirmatn;
+  src: url("../fonts/Vazirmatn[wght].woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 .eye-hero { padding: clamp(1.5rem,5vw,4rem) 0 2rem; text-align:center; }
 .eye-hero h1 { font-size:clamp(2.6rem,7vw,4.8rem); font-weight:800; letter-spacing:-.065em; line-height:1.05; color:var(--md-default-fg-color); margin:.6rem 0 1rem; }
 .eye-kicker { font-size:.62rem; font-weight:700; letter-spacing:.16em; color:var(--md-typeset-a-color); }
@@ -10,5 +18,17 @@
 .md-typeset h2 { font-weight:650; letter-spacing:-.025em; }
 @media(max-width:480px){.eye-hero .md-button{display:block;margin:.5rem 0;}}
 
-[dir=rtl] .md-typeset { font-family: Tahoma, Arial, sans-serif; line-height: 1.95; }
+html[lang="fa"], html[lang="fa-IR"] {
+  --md-text-font: "Vazirmatn";
+}
+html[lang="fa"] body, html[lang="fa-IR"] body, [dir=rtl] .md-typeset {
+  font-family: Vazirmatn, Tahoma, Arial, sans-serif;
+}
+[dir=rtl] .md-typeset { line-height: 1.95; }
+[dir=rtl] .eye-hero h1, [dir=rtl] .eye-kicker, [dir=rtl] .md-typeset h2 {
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+[dir=rtl] .md-search__input { font-family: inherit; }
+[dir=rtl] .md-typeset code { font-family: var(--md-code-font-family); }
 [dir=rtl] .md-typeset pre, [dir=rtl] .md-typeset code { direction:ltr; unicode-bidi:isolate; text-align:left; }

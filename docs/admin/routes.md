@@ -31,9 +31,9 @@ These routes are derived from page files. Route existence does not imply access 
 | `/alerts` | Alerts |
 | `/anomalies` | Anomalies |
 | `/intelligence` | Intelligence overview |
-| `/intelligence/labels` | Intelligence labels |
-| `/intelligence/models` | Model management |
-| `/intelligence/training` | Training |
+| `/intelligence/labels` | Redirect to Intelligence |
+| `/intelligence/models` | Redirect to Intelligence |
+| `/intelligence/training` | Redirect to Intelligence |
 | `/health` | Health |
 | `/operations` | Operations |
 | `/slo` | Service objectives |

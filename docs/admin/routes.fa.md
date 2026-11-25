@@ -31,9 +31,9 @@
 | `/alerts` | هشدارها |
 | `/anomalies` | ناهنجاری‌ها |
 | `/intelligence` | نمای کلی هوشمندی |
-| `/intelligence/labels` | برچسب‌های هوشمندی |
-| `/intelligence/models` | مدیریت مدل |
-| `/intelligence/training` | آموزش مدل |
+| `/intelligence/labels` | هدایت به صفحه هوشمندی |
+| `/intelligence/models` | هدایت به صفحه هوشمندی |
+| `/intelligence/training` | هدایت به صفحه هوشمندی |
 | `/health` | سلامت سامانه |
 | `/operations` | عملیات |
 | `/slo` | اهداف سطح خدمت |
