@@ -4,7 +4,7 @@
 
 | مسیر | احراز هویت |
 |---|---|
-| `/healthz` | طبق پیاده‌سازی |
+| `/healthz` | عمومی |
 | `/admin-sessions` | طبق پیاده‌سازی |
 | `/tenants` | مدیر |
 | `/tenants/` | مدیر |
@@ -15,8 +15,8 @@
 | `/sessions` | طبق پیاده‌سازی |
 | `/intelligence/users` | مدیر |
 | `/compliance/erase` | مدیر |
-| `/events` | طبق پیاده‌سازی |
-| `/events/` | طبق پیاده‌سازی |
+| `/events` | مدیر |
+| `/events/` | مدیر |
 | `/query` | مدیر |
 | `/query-explorer` | نشست مدیر |
 | `/analytics/funnel` | مدیر |
