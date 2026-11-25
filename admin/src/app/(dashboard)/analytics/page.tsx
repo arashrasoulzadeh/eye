@@ -16,7 +16,7 @@ type Panel = { id: string; title: string; eventNames: string[]; chart: "line" | 
 const groupingOptions = [{ value: "auto", label: "Auto time buckets" }, { value: "minute", label: "By minute" }, { value: "hour", label: "By hour" }, { value: "day", label: "By day" }, { value: "dim:country", label: "Event dimension: country" }, { value: "dim:region", label: "Event dimension: region" }, { value: "dim:city", label: "Event dimension: city" }, { value: "dim:device", label: "Event dimension: device" }, { value: "dim:campaign", label: "Event dimension: campaign" }];
 function autoGrouping(hours: string): "minute" | "hour" | "day" { const value = Number(hours); return value <= 6 ? "minute" : value <= 168 ? "hour" : "day"; }
 function dimensionValue(raw: string, key: string): string { try { const value = JSON.parse(raw || "{}")[key]; return value === undefined || value === null || value === "" ? "(unknown)" : String(value); } catch { return "(unknown)"; } }
-export default function AnalyticsPage() {
+function AdvancedAnalytics() {
   const router = useRouter();
   const { tenantId: globalTenant, setTenantId: setGlobalTenant, loading: scopeLoading } = useTenant();
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
@@ -91,4 +91,76 @@ export default function AnalyticsPage() {
     <Card className="mt-6"><CardHeader title="Conversion breakdown" action={<span className="text-xs text-fg-muted">Session based</span>}/><div className="grid gap-4 p-5 sm:grid-cols-3"><div><p className="text-xs text-fg-muted">Sessions in range</p><p className="mt-1 text-2xl font-semibold text-fg">{sessions.size.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Completed sequence</p><p className="mt-1 text-2xl font-semibold text-fg">{convertedSessions.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Conversion rate</p><p className="mt-1 text-2xl font-semibold text-accent">{conversionRate}%</p></div></div><div className="flex flex-wrap gap-2 px-5 pb-5">{selected.map((eventName, index) => <Link key={eventName} href={`/events?tenant_id=${encodeURIComponent(tenant)}&event_name=${encodeURIComponent(eventName)}`} className="rounded-full border border-border px-3 py-1 text-xs text-fg-muted hover:border-accent hover:text-accent">{index + 1}. {eventName}</Link>)}</div></Card>
     <Card className="mt-6"><CardHeader title="Recent matching events"/><div className="divide-y divide-border">{panels.flatMap(p => p.events || []).slice(0, 12).map((e, index) => <div key={e.EventID || `${e.EventName}-${e.ClientTS}-${index}`} className="flex items-center justify-between px-5 py-3 text-sm"><span className="font-medium text-fg">{e.EventID ? <a href={`/events/${encodeURIComponent(e.EventID)}`} className="text-accent hover:underline">{e.EventName}</a> : <Link href={`/events?tenant_id=${encodeURIComponent(e.TenantID)}&event_name=${encodeURIComponent(e.EventName)}`} className="text-accent hover:underline">{e.EventName}</Link>}<IntelligenceTags tags={e.intelligence_tags} compact /></span><span className="text-fg-muted">{new Date(e.ClientTS).toLocaleString()}</span><JsonView value={e.Payload}/></div>)}{!panels.some(p => p.events?.length) && <p className="p-5 text-sm text-fg-muted">No matching events loaded.</p>}</div></Card>
   </div>;
+}
+
+const reportTemplates = [
+  { name: "Overview", description: "Understand overall activity", pattern: "" },
+  { name: "Website", description: "Page views and clicks", pattern: "page|view|click" },
+  { name: "Engagement", description: "Interactions and feature usage", pattern: "click|search|view|open|engage" },
+  { name: "Acquisition", description: "Signups and referrals", pattern: "signup|register|referr|campaign|install" },
+  { name: "Commerce", description: "Shopping and purchases", pattern: "cart|checkout|purchase|order|payment" },
+  { name: "Search", description: "Search activity", pattern: "search" },
+  { name: "Mobile app", description: "App and screen activity", pattern: "app|screen|install" },
+  { name: "Custom", description: "Choose any tracked event", pattern: "" },
+];
+type ReportOption = { value: string; count: number; last_ts: number };
+function GuidedAnalytics() {
+  const { tenantId, loading: scopeLoading } = useTenant();
+  const { hours, from, to } = useTimeRange();
+  const [template, setTemplate] = useState("Overview");
+  const [event, setEvent] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [compare, setCompare] = useState(true);
+  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; points:{label:string;value:number}[]; error?:string}>();
+  const key = JSON.stringify([tenantId,from,to,event,compare,revision]);
+  useEffect(() => {
+    if (scopeLoading || !to) return;
+    let active = true;
+    const range = {from_ts:from,to_ts:to};
+    const bucket = Number(hours) <= 6 ? "minute" : "hour";
+    Promise.all([
+      api.eventOptions(tenantId,"",true,range),
+      compare ? api.eventOptions(tenantId,"",true,{from_ts:from-(to-from),to_ts:from}) : Promise.resolve([]),
+      api.analytics.buckets(tenantId,{...range,event_name:event,bucket}),
+    ]).then(([current,previous,buckets]) => {
+      const grouped = new Map<string,number>();
+      for (const point of buckets) {
+        const date = new Date(point.bucket);
+        if (!Number.isFinite(date.getTime())) continue;
+        const label = date.toISOString().slice(0,Number(hours)>168?10:16);
+        grouped.set(label,(grouped.get(label)??0)+point.count);
+      }
+      if(active) setState({key,current,previous,points:[...grouped].sort(([a],[b])=>a.localeCompare(b)).map(([label,value])=>({label,value}))});
+    }).catch(e=>{if(active)setState({key,current:[],previous:[],points:[],error:String(e.message??e)});});
+    return ()=>{active=false;};
+  },[key,tenantId,from,to,event,compare,hours,scopeLoading]);
+  const ready = !scopeLoading && state?.key===key ? state : undefined;
+  const pattern = reportTemplates.find(t=>t.name===template)?.pattern ?? "";
+  const matches = (row:ReportOption) => (!event || row.value===event) && (!pattern || new RegExp(pattern,"i").test(row.value));
+  const rows = (ready?.current??[]).filter(matches).sort((a,b)=>b.count-a.count);
+  const total = rows.reduce((n,r)=>n+r.count,0);
+  const previous = (ready?.previous??[]).filter(matches).reduce((n,r)=>n+r.count,0);
+  const change = previous ? (total-previous)/previous*100 : null;
+  const available = ready && !ready.error;
+  function exportReport() {
+    const csv = ["Event,Count",...rows.map(r=>'"'+r.value.replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'",'+r.count)].join("\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    const a=document.createElement("a");a.href=url;a.download="analytics.csv";a.click();URL.revokeObjectURL(url);
+  }
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold text-fg">Analytics overview</h1><p className="text-sm text-fg-muted">Understand your activity without writing a query. · {formatTimeRange(hours)}</p></div><div className="flex gap-2"><button className="rounded border border-border px-3 py-2 text-sm" onClick={()=>setRevision(x=>x+1)}>Refresh</button><button disabled={!available} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50" onClick={exportReport}>Export CSV</button></div></div>
+    <Card><CardHeader title="Choose a report"/><div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">{reportTemplates.map(t=><button key={t.name} aria-pressed={template===t.name} onClick={()=>{setTemplate(t.name);setEvent("");}} className={"rounded-lg border p-3 text-left "+(template===t.name?"border-accent bg-accent/10":"border-border hover:border-accent")}><span className="block text-sm font-medium">{t.name}</span><span className="text-xs text-fg-muted">{t.description}</span></button>)}</div></Card>
+    <div className="flex flex-wrap items-center gap-3"><label className="text-sm">Event <select className="ml-2 rounded border border-border bg-surface-2 p-2" value={event} onChange={e=>setEvent(e.target.value)}><option value="">All matching events</option>{event && !ready?.current.some(r=>r.value===event) && <option value={event}>{event}</option>}{(ready?.current??[]).filter(r=>!pattern||new RegExp(pattern,"i").test(r.value)).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={compare} onChange={e=>setCompare(e.target.checked)}/> Compare previous period</label></div>
+    {!ready && <p role="status" className="text-sm text-fg-muted">Loading report…</p>}
+    {ready?.error && <p role="alert" className="text-sm text-danger">{ready.error}</p>}
+    <div className="grid gap-3 sm:grid-cols-3">{[{label:"Total events",value:total.toLocaleString(),help:"Recorded actions in this report"},{label:"Event types",value:String(rows.length),help:"Different tracked actions"},{label:"Change",value:compare&&change!==null?(change>=0?"+":"")+change.toFixed(1)+"%":"—",help:"Compared with the preceding equal period"}].map(m=><Card key={m.label}><div className="p-4"><p className="text-xs text-fg-muted">{m.label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{available?m.value:"—"}</p><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
+    {available && !rows.length && <p className="rounded border border-border p-4 text-sm text-fg-muted">No matching events. Try Overview or change the global time range. Templates match event names automatically.</p>}
+    {available && (!pattern||event) && <Card><CardHeader title="Activity over time"/><div className="p-4">{ready.points.length?<LineTrend data={ready.points}/>:<p className="text-sm text-fg-muted">No activity buckets available.</p>}</div></Card>}
+    <div className="grid gap-4 lg:grid-cols-2"><Card><CardHeader title="Top events"/><div className="space-y-3 p-4">{rows.slice(0,10).map(r=><button key={r.value} onClick={()=>setEvent(r.value)} className="block w-full text-left"><div className="flex justify-between gap-2 text-sm"><span className="truncate">{r.value}</span><span>{r.count.toLocaleString()}</span></div><div className="mt-1 h-2 rounded bg-surface-2"><div className="h-2 rounded bg-accent" style={{width:(total?r.count/total*100:0)+"%"}}/></div></button>)}</div></Card><Card><CardHeader title="Insights"/><div className="space-y-3 p-4 text-sm text-fg-muted">{available && rows.length>0?<><p>{rows[0].value} is the most frequent action in this report ({(rows[0].count/Math.max(total,1)*100).toFixed(1)}% of recorded actions).</p>{compare&&change!==null&&<p>Activity {change>=0?"increased":"decreased"} by {Math.abs(change).toFixed(1)}% compared with the previous period.</p>}<p>Click an event to focus the report on that action.</p></>:<p>Insights appear when matching data is available.</p>}</div></Card></div>
+    <Card><CardHeader title="Explore further"/><div className="grid gap-2 p-4 sm:grid-cols-3">{[{href:"/analytics/funnel",title:"Conversions & funnels",desc:"See where users drop off"},{href:"/analytics/retention",title:"Retention",desc:"See whether users return"},{href:"/dimensions",title:"Dimensions",desc:"Explore devices, geography and other properties"}].map(l=><Link key={l.href} href={l.href} className="rounded border border-border p-3 hover:border-accent"><span className="block text-sm font-medium text-accent">{l.title}</span><span className="text-xs text-fg-muted">{l.desc}</span></Link>)}</div></Card>
+  </div>;
+}
+export default function AnalyticsPage() {
+  const [advanced,setAdvanced]=useState(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("events"));
+  return <div><div className="mb-4 flex gap-2 border-b border-border pb-2">{["Reports","Advanced explorer"].map((label,i)=><button key={label} aria-pressed={advanced===Boolean(i)} onClick={()=>setAdvanced(Boolean(i))} className={"rounded px-3 py-2 text-sm "+(advanced===Boolean(i)?"bg-accent text-accent-fg":"text-fg-muted")}>{label}</button>)}</div>{advanced?<AdvancedAnalytics/>:<GuidedAnalytics/>}</div>;
 }
