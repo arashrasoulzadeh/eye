@@ -273,19 +273,19 @@ function GuidedAnalytics() {
     fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:start,to_ts:end,types:selectedTypes,operation:"count",summary:true,cache_summary:true,include_trend:showTrend,time_bucket:showTrend?(size===86400000?"day":"hour"):""})}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(r=>{if(controller.signal.aborted)return;const values=new Map<string,number>((r.rows??[]).map((x:{group:string;value:number})=>[x.group,x.value]));const points:{label:string;value:number}[]=[];for(let t=Math.floor(start/size)*size;showTrend&&!r.truncated&&t<=end&&points.length<5000;t+=size){const iso=new Date(t).toISOString(),label=size===86400000?iso.slice(0,10):iso.slice(0,13).replace("T"," ")+":00";points.push({label,value:values.get(label)??0});}setPriorTrend({key:priorKey,points:showTrend&&!r.truncated?points:[],matched:r.matched,users:r.users,sessions:r.sessions});}).catch(()=>{if(!controller.signal.aborted)setPriorTrend(undefined);});
     return()=>controller.abort();
   },[priorKey,compare,scopeLoading,tenantId,available,validScope,from,to,typesKey,hours,showTrend]);
-  const comparisonPoints=compare&&showTrend&&!currentTrend?.truncated&&!currentTrend?.error&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
+  const comparisonPoints=compare&&showTrend&&!!currentTrend&&(to-from+1)%bucketSize===0&&!currentTrend?.truncated&&!currentTrend?.error&&priorTrend?.key===priorKey&&priorTrend.points.length===chartPoints.length?priorTrend.points:undefined;
   const identity=summary?.key===summaryKey&&!summary.error?summary:undefined;
   const total=identity?.matched??catalogTotal;
   const priorIdentity=compare&&priorTrend?.key===priorKey?priorTrend:undefined;
   const exactComparison=identity!==undefined&&priorIdentity!==undefined;
   const baseline=exactComparison?priorIdentity.matched:previous;
-  const comparable=compare&&from>0&&(exactComparison||(!ready?.warning&&!!available));
+  const catalogIncomplete=identity!==undefined&&identity.matched!==catalogTotal;
+  const comparable=compare&&from>0&&(exactComparison||(!ready?.warning&&!!available&&!catalogIncomplete));
   const change=comparable&&baseline>0?((exactComparison?identity.matched:catalogTotal)-baseline)/baseline*100:null;
   const newActivity=comparable&&baseline===0&&(exactComparison?identity.matched:catalogTotal)>0;
-  const catalogIncomplete=identity!==undefined&&identity.matched!==catalogTotal;
   const [realtime,setRealtime]=useState<{tenant:string;users:number;sessions:number;matched:number;error?:string}>();
   const [showRealtime,setShowRealtime]=useState(false);
-  useEffect(()=>{if(!showRealtime||scopeLoading||!tenantId)return;let active=true;let busy=false;setRealtime(undefined);async function load(){if(busy||document.visibilityState!=="visible")return;busy=true;try{const now=Date.now();const response=await fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,from_ts:now-300000,to_ts:now,operation:"count",summary:true})});if(!response.ok)throw Error();const r=await response.json();if(active)setRealtime({tenant:tenantId,users:r.users,sessions:r.sessions,matched:r.matched});}catch{if(active)setRealtime({tenant:tenantId,users:0,sessions:0,matched:0,error:"Realtime report unavailable"});}finally{busy=false;}}void load();const timer=window.setInterval(load,15000);return()=>{active=false;window.clearInterval(timer)};},[showRealtime,scopeLoading,tenantId]);
+  useEffect(()=>{if(!showRealtime||scopeLoading||!tenantId)return;let active=true;let busy=false;const controller=new AbortController();setRealtime(undefined);async function load(){if(busy||document.visibilityState!=="visible")return;busy=true;try{const now=Date.now();const response=await fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:now-300000,to_ts:now,operation:"count",summary:true})});if(!response.ok)throw Error();const r=await response.json();if(active)setRealtime({tenant:tenantId,users:r.users,sessions:r.sessions,matched:r.matched});}catch{if(active)setRealtime({tenant:tenantId,users:0,sessions:0,matched:0,error:"Realtime report unavailable"});}finally{busy=false;}}void load();const timer=window.setInterval(load,15000);return()=>{active=false;controller.abort();window.clearInterval(timer)};},[showRealtime,scopeLoading,tenantId]);
 
 
 
