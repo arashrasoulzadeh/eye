@@ -159,3 +159,14 @@ func TestDimensionSummaryColdCacheConcurrency(t *testing.T) {
  close(start);wg.Wait()
  if got:=executions.Load();got!=1{t.Fatalf("expected one database aggregation, got %d",got)}
 }
+
+func TestDimensionSummaryNeverBypassesTenantContext(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ q:=&QueryService{DB:db}
+ in:=DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true,CacheSummary:true}
+ if _,err:=q.AnalyzeDimensions(context.Background(),in);err!=nil{t.Fatal(err)}
+ calls:=0
+ q.SetTenantContext=func(tx *gorm.DB,tenant string)error{calls++;if tenant!="t1"{t.Fatalf("unexpected tenant %s",tenant)};return fmt.Errorf("tenant denied")}
+ if _,err:=q.AnalyzeDimensions(context.Background(),in);err==nil{t.Fatal("cached result bypassed tenant authorization")}
+ if calls!=1{t.Fatalf("expected tenant callback once, got %d",calls)}
+}
