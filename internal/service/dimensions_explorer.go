@@ -8,6 +8,7 @@ import (
  "strings"
  "sort"
  "time"
+ "sync"
  "github.com/arashrasoulzadeh/eye/internal/model"
  "gorm.io/gorm"
 )
@@ -21,6 +22,7 @@ type DimensionInput struct {
  DrillSplit *string `json:"drill_split"`
  FullRange bool `json:"full_range"`
  Summary bool `json:"summary"`
+ CacheSummary bool `json:"cache_summary"`
  IncludeTrend bool `json:"include_trend"`
  Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
@@ -74,7 +76,31 @@ func dimensionValues(v any, explode bool) []string {
  if s,ok:=v.(string);ok{return []string{s}}
  b,_:=json.Marshal(v);return []string{string(b)}
 }
+type analyticsSummaryCacheKey struct { db *gorm.DB; scope string }
+type analyticsSummaryCacheEntry struct { at time.Time; result DimensionResult }
+var analyticsSummaryCache = struct{sync.Mutex; entries map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry}{entries:make(map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry)}
 func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
+ // Cache only explicitly requested, simple historical summary queries.
+ if !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.analyzeDimensions(ctx,in)}
+ if err:=ctx.Err();err!=nil{return DimensionResult{},err}
+ canonical:=in;canonical.Types=append([]string(nil),in.Types...);sort.Strings(canonical.Types)
+ encoded,err:=json.Marshal(canonical);if err!=nil{return q.analyzeDimensions(ctx,in)}
+ key:=analyticsSummaryCacheKey{db:q.DB,scope:string(encoded)}
+ analyticsSummaryCache.Lock()
+ cached,ok:=analyticsSummaryCache.entries[key]
+ analyticsSummaryCache.Unlock()
+ if ok&&time.Since(cached.at)<15*time.Second {result:=cached.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}
+ result,err:=q.analyzeDimensions(ctx,in)
+ if err==nil&&!result.Truncated {
+  copyResult:=result;copyResult.Rows=append([]DimensionRow{},result.Rows...)
+  analyticsSummaryCache.Lock()
+  if len(analyticsSummaryCache.entries)>=128 {for k,v:=range analyticsSummaryCache.entries{if time.Since(v.at)>=15*time.Second{delete(analyticsSummaryCache.entries,k)}};if len(analyticsSummaryCache.entries)>=128{for k:=range analyticsSummaryCache.entries{delete(analyticsSummaryCache.entries,k);break}}}
+  analyticsSummaryCache.entries[key]=analyticsSummaryCacheEntry{at:time.Now(),result:copyResult}
+  analyticsSummaryCache.Unlock()
+ }
+ return result,err
+}
+func (q *QueryService) analyzeDimensions(ctx context.Context,in DimensionInput)(DimensionResult,error){
  out:=DimensionResult{Execution:"bounded_scan",Types:[]string{},Keys:[]string{},Rows:[]DimensionRow{}}
  if in.Tenant==""||in.From<0||in.To<in.From||len(in.Types)>100||len(in.Filters)>20{return out,fmt.Errorf("invalid dimension scope")}
  switch in.Operation {case "count","sum","avg","min","max","distinct","missing","median","p90","p95","p99","stddev":default:return out,fmt.Errorf("invalid operation")}
@@ -93,7 +119,7 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  err:=q.DB.WithContext(ctx).Transaction(func(tx *gorm.DB)error{
  if q.SetTenantContext!=nil{if err:=q.SetTenantContext(tx,in.Tenant);err!=nil{return err}}
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
- if !in.Summary && in.TimeBucket=="" { if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err} }
+ if !in.Summary { if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err} }
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
  if in.Summary {
  var summary struct { Events int; Users int64; Sessions int64; IdentifiedEvents int64 }
