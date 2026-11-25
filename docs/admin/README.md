@@ -13,6 +13,10 @@ The admin panel is a tenant-scoped workspace for querying events, monitoring liv
 
 ## Analytics
 
+Start with a guided report template such as Overview, Website, Engagement, Acquisition, Commerce or Search. Templates help select relevant tracked events; they do not create missing events. Choose a tenant and global time range before interpreting results. Use advanced analytics when you need custom charts or event selections.
+
+## Advanced analytics
+
 Analytics accepts shareable URL parameters such as `tenant`, `events`, `time_hours`, `chart`, `aggregation`, and `group`.
 
 ```text
@@ -22,6 +26,10 @@ Analytics accepts shareable URL parameters such as `tenant`, `events`, `time_hou
 Supported event bucket resolutions are `minute`, `10minute`, and `hour`. Persistent bucket rows are generated during ingestion and existing events are backfilled during server startup.
 
 ![Populated analytics query](../assets/screenshots/analytics.svg)
+
+## Dimensions
+
+Use dimension exploration to compare event properties across the selected events and time range. Start with one event type and a dimension such as country or campaign, then broaden the selection. Missing properties should be interpreted separately from known values; check the original event payload when a result is unexpected.
 
 ## Users and user profiles
 

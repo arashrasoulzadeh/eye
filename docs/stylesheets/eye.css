@@ -1,0 +1,11 @@
+.eye-hero { padding: clamp(1.5rem,5vw,4rem) 0 2rem; text-align:center; }
+.eye-hero h1 { font-size:clamp(2.6rem,7vw,4.8rem); font-weight:800; letter-spacing:-.065em; line-height:1.05; color:var(--md-default-fg-color); margin:.6rem 0 1rem; }
+.eye-kicker { font-size:.62rem; font-weight:700; letter-spacing:.16em; color:var(--md-typeset-a-color); }
+.eye-hero > p { max-width:36rem; margin:1rem auto; font-size:1rem; }
+.eye-preview { margin:2rem auto 0; padding: .6rem; border:1px solid var(--md-default-fg-color--lightest); border-radius:1rem; background:var(--md-code-bg-color); box-shadow:0 20px 60px #0002; }
+.eye-preview img { display:block; width:100%; border-radius:.6rem; }
+.md-typeset .grid.cards > ul > li { border-radius:.75rem; padding:1.15rem; }
+.md-typeset .grid.cards > ul > li:hover { border-color:var(--md-accent-fg-color); }
+.md-typeset .md-button { border-radius:.5rem; }
+.md-typeset h2 { font-weight:650; letter-spacing:-.025em; }
+@media(max-width:480px){.eye-hero .md-button{display:block;margin:.5rem 0;}}

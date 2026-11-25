@@ -1,69 +1,78 @@
 ---
-layout: default
-title: Eye Analytics Platform
+title: Eye — Product analytics
+hide:
+  - navigation
+  - toc
 ---
 
-# Eye Analytics Platform
+<div class="eye-hero" markdown>
 
-A multi-tenant analytics ingestion and query system with real-time dashboards, session tracking, and SDKs for web and server.
+<span class="eye-kicker">EVENT ANALYTICS · BUILT FOR EXPLORATION</span>
 
-Documentation is deployed automatically through GitHub Pages.
+# See what matters.
 
-## Quick Links
+Turn events into answers with guided reports, dimensional exploration and live activity.
 
-- [Getting Started](getting-started/README.md)
-- [Admin Guide](admin/README.md)
-- [API Reference](api/README.md)
-- [Web SDK](sdk/web-sdk.md)
-- [Go SDK](sdk/go-sdk.md)
-- [Admin Components](components/README.md)
-- [Architecture](architecture/README.md)
-- [Testing & Benchmarks](testing/README.md)
+[Get started](getting-started/README.md){ .md-button .md-button--primary }
+[Explore analytics](admin/README.md){ .md-button }
 
-## Features
+<div class="eye-preview" markdown>
+![Illustrative analytics dashboard](assets/screenshots/analytics.svg)
+</div>
 
-- **Real-time Event Ingestion** - REST and gRPC endpoints with batching
-- **Session Management** - Automatic creation, tracking, live updates
-- **Live Dashboards** - SSE for real-time counters and events
-- **Multi-tenant** - Isolated tenants with API keys and rate tiers
-- **Admin Panel** - Next.js dashboard for management and analytics
-- **Web SDK** - TypeScript with auto-tracking, batching, CDN build
-- **Go SDK** - Server-side client with API parity
+</div>
 
-## Architecture
+## From signals to insights
 
-```
-Browser SDK ──▶ API Server (Go) ──▶ SQLite/TimescaleDB
-                     │
-                     ├─▶ gRPC QueryStream
-                     ├─▶ SSE Live Streams
-                     └─▶ Admin Panel (Next.js)
-```
+<div class="grid cards" markdown>
 
-## Quick Start
+- :material-chart-line: **Analytics**
 
-```bash
-# Start API server (port 8080 + gRPC 50052)
-make server
+    Guided reports and advanced exploration for your product events.
 
-# Start admin panel (port 3000)
-make admin
+    [Explore reports](admin/README.md#analytics)
 
-# Open http://localhost:3000, login with admin key
-```
+- :material-lightning-bolt: **Live activity**
 
-## Documentation
+    Follow sessions and incoming events.
 
-| Section | Description |
-|---------|-------------|
-| [Getting Started](getting-started/README.md) | Installation, running locally, environment setup |
-| [API Reference](api/README.md) | Complete REST/gRPC endpoint documentation |
-| [Web SDK](sdk/web-sdk.md) | TypeScript client, CDN build, auto-tracking |
-| [Go SDK](sdk/go-sdk.md) | Server-side Go client |
-| [Components](components/README.md) | Admin panel React component library |
-| [Architecture](architecture/README.md) | System design, services, data models |
-| [Testing](testing/README.md) | Test structure, coverage, benchmarks |
+    [Monitor activity](admin/README.md#live-stream)
 
-## License
+- :material-code-braces: **Developer friendly**
 
-MIT
+    Collect events with REST, gRPC, TypeScript or Go.
+
+    [API reference](api/README.md)
+
+- :material-shield-account: **Tenant-aware**
+
+    Manage tenant scopes, keys and administrative access.
+
+    [Admin guide](admin/README.md)
+
+</div>
+
+## Choose your path
+
+<div class="grid cards" markdown>
+
+- **Product teams**
+
+    Start with a tenant, time range and report template.
+
+    [Using Eye](admin/README.md)
+
+- **Developers**
+
+    Integrate your application and send your first events.
+
+    [Web SDK](sdk/web-sdk.md) · [Go SDK](sdk/go-sdk.md)
+
+- **Operators**
+
+    Understand the services, storage and testing strategy.
+
+    [Architecture](architecture/README.md) · [Testing](testing/README.md)
+
+</div>
+

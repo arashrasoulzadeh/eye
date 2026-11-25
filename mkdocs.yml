@@ -1,4 +1,5 @@
-site_name: Eye Analytics Platform
+site_name: Eye
+site_description: Event analytics, guided reports and developer documentation
 site_url: https://arashrasoulzadeh.github.io/eye/
 repo_url: https://github.com/arashrasoulzadeh/eye
 repo_name: arashrasoulzadeh/eye
@@ -8,12 +9,21 @@ theme:
   palette:
     - scheme: default
       primary: indigo
-      accent: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
     - scheme: slate
       primary: indigo
-      accent: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
     - navigation.tabs
+    - navigation.footer
+    - navigation.tracking
+    - search.suggest
     - navigation.sections
     - navigation.top
     - search.highlight
@@ -33,7 +43,13 @@ nav:
   - Testing & Benchmarks: testing/README.md
   - Changelog: changelog.md
 
+extra_css:
+  - stylesheets/eye.css
+
 markdown_extensions:
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -54,4 +70,4 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/arashrasoulzadeh/eye
 
-copyright: Copyright © 2024 Eye Analytics Platform
+copyright: Eye Analytics Platform
