@@ -1,4 +1,4 @@
-# Eye Analytics Platform
+# Getting started
 
 Eye is a multi-tenant analytics ingestion and query system designed for real-time event tracking, session management, and live dashboards.
 
@@ -16,11 +16,21 @@ Eye is a multi-tenant analytics ingestion and query system designed for real-tim
 
 ### Prerequisites
 
-- Go 1.21+
-- Node.js 18+
+- Go 1.26+
+- Node.js 20.9+ (check the admin dependency requirements)
 - SQLite (dev) or TimescaleDB (prod)
 
 ### Running Locally
+
+Clone the repository and install admin dependencies first:
+
+```bash
+git clone https://github.com/arashrasoulzadeh/eye.git
+cd eye
+cd admin && npm ci && cd ..
+```
+
+Run the server and admin commands in separate terminals.
 
 ```bash
 # Start API server (port 8080 + gRPC 50052)
@@ -144,7 +154,7 @@ npm run build:cdn  # outputs dist/eye.min.js
 ### Go SDK
 
 ```go
-import "github.com/eye/eye/sdk-go"
+import "github.com/arashrasoulzadeh/eye/sdk-go"
 
 client := eyesdk.NewClient(eyesdk.Options{
     Endpoint: "http://localhost:8080",
