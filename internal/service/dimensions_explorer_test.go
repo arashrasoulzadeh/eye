@@ -45,3 +45,21 @@ func TestDimensionSummaryScope(t *testing.T) {
  if err!=nil{t.Fatal(err)}
  if got.Matched!=3||got.Users!=1||got.Sessions!=2||got.IdentifiedEvents!=2{t.Fatalf("unexpected summary: %+v",got)}
 }
+
+func TestCombinedDimensionSummaryTrend(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ events:=[]model.Event{
+ {EventID:"a",TenantID:"t1",UserID:"u1",SessionID:"s1",EventName:"click",ClientTS:100},
+ {EventID:"b",TenantID:"t1",UserID:"u1",SessionID:"s2",EventName:"click",ClientTS:3600000},
+ {EventID:"c",TenantID:"t1",EventName:"click",ClientTS:3600001},
+ {EventID:"d",TenantID:"t2",EventName:"click",ClientTS:3600001},
+ {EventID:"e",TenantID:"t1",EventName:"view",ClientTS:3600001},
+ {EventID:"f",TenantID:"t1",EventName:"click",ClientTS:7200000},
+ }
+ if err:=db.Create(&events).Error;err!=nil{t.Fatal(err)}
+ q:=&QueryService{DB:db}
+ got,err:=q.AnalyzeDimensions(context.Background(),DimensionInput{Tenant:"t1",From:0,To:7199999,Types:[]string{"click"},Operation:"count",Summary:true,IncludeTrend:true,TimeBucket:"hour"})
+ if err!=nil{t.Fatal(err)}
+ if got.Matched!=3||got.Users!=1||got.Sessions!=2||got.IdentifiedEvents!=2||got.Execution!="database"{t.Fatalf("unexpected summary: %+v",got)}
+ if len(got.Rows)!=2||got.Rows[0].Group!="1970-01-01 00:00"||got.Rows[0].Count!=1||got.Rows[1].Group!="1970-01-01 01:00"||got.Rows[1].Count!=2{t.Fatalf("unexpected buckets: %+v",got.Rows)}
+}
