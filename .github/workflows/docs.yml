@@ -40,6 +40,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r docs/requirements.txt
       - run: python docs/check_coverage.py
+      - run: python docs/fetch_fonts.py
       - run: mkdocs build --strict
   deploy:
     if: github.event_name != 'pull_request'
@@ -68,6 +69,7 @@ jobs:
       - name: Build documentation
         run: |
           python docs/check_coverage.py
+          python docs/fetch_fonts.py
           mkdocs build --strict
 
       - name: Upload artifact
