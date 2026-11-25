@@ -1,5 +1,5 @@
 package service
-import ("testing";"reflect";"context";"sync";"fmt";"gorm.io/driver/sqlite";"gorm.io/gorm";"github.com/arashrasoulzadeh/eye/internal/model")
+import ("testing";"reflect";"context";"sync";"sync/atomic";"fmt";"gorm.io/driver/sqlite";"gorm.io/gorm";"github.com/arashrasoulzadeh/eye/internal/model")
 func TestDimensionValues(t *testing.T){
  if got:=dimensionValues([]any{"a","b","a"},true);!reflect.DeepEqual(got,[]string{"a","b"}){t.Fatal(got)}
  if got:=dimensionValues(nil,true);!reflect.DeepEqual(got,[]string{"(missing)"}){t.Fatal(got)}
@@ -149,9 +149,13 @@ func TestDimensionSummaryColdCacheConcurrency(t *testing.T) {
  db:=newTestDB_dashboard_cache_test(t)
  sqlDB,err:=db.DB();if err!=nil{t.Fatal(err)};sqlDB.SetMaxOpenConns(1)
  if err:=db.Create(&model.Event{EventID:"cold",TenantID:"t1",EventName:"click",ClientTS:100}).Error;err!=nil{t.Fatal(err)}
+ var executions atomic.Int64
+ if err:=db.Callback().Query().Before("gorm:query").Register("test:count_summary",func(tx *gorm.DB){executions.Add(1)});err!=nil{t.Fatal(err)}
+ if err:=db.Callback().Row().Before("gorm:row").Register("test:count_summary_row",func(tx *gorm.DB){executions.Add(1)});err!=nil{t.Fatal(err)}
  q:=&QueryService{DB:db}
  in:=DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true,CacheSummary:true}
  start:=make(chan struct{});var wg sync.WaitGroup
  for i:=0;i<32;i++{wg.Add(1);go func(){defer wg.Done();<-start;got,err:=q.AnalyzeDimensions(context.Background(),in);if err!=nil||got.Matched!=1{t.Errorf("cold concurrent summary: count=%d error=%v",got.Matched,err)}}()}
  close(start);wg.Wait()
+ if got:=executions.Load();got!=1{t.Fatalf("expected one database aggregation, got %d",got)}
 }
