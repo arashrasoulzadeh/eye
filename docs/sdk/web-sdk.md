@@ -22,7 +22,7 @@ const eye = new EyeClient({
 });
 
 // Create/reuse session
-await eye.ensureSession();
+await eye.ensureSession('https://api.example.com', 'tenant-api-key');
 
 // Track events
 eye.track('button_click', { button: 'signup' }, { plan: 'pro' });
@@ -59,29 +59,6 @@ npm run build:cdn
 </script>
 ```
 
-### Auto-Track Options
-
-The CDN build auto-tracks these events by default (toggleable in `init()`):
-
-```typescript
-Eye.init({
-  apiKey: '...',
-  tenant: '...',
-  endpoint: '...',
-  autoTrack: {
-    pageView: true,      // track page views
-    click: true,         // track clicks
-    formSubmit: true,    // track form submissions
-    scrollDepth: true,   // track scroll milestones (25%, 50%, 75%, 100%)
-    error: true,         // track JS errors
-    unhandledRejection: true,
-    performance: true,   // track navigation timing
-    visibilityChange: true,
-    beforeUnload: true
-  }
-});
-```
-
 ## EyeClient API
 
 ### Constructor
@@ -103,11 +80,11 @@ new EyeClient(options: EyeClientOptions)
 
 ### Methods
 
-#### `ensureSession(endpoint?, apiKey?, { forceNew }?)`
+#### `ensureSession(endpoint, apiKey, { forceNew }?)`
 Creates or reuses a session via `POST /sessions`. Persists session ID in localStorage.
 
 ```typescript
-await eye.ensureSession();  // uses constructor endpoint/apiKey
+await eye.ensureSession('https://api.example.com', 'tenant-api-key');  // uses constructor endpoint/apiKey
 await eye.ensureSession('https://api.example.com', 'key', { forceNew: true });
 ```
 
@@ -226,3 +203,35 @@ Full type definitions included. Import types:
 ```typescript
 import { EyeClient, EyeClientOptions, Event } from 'eye-sdk';
 ```
+
+## CDN automatic tracking
+
+All options below default to true. Set autoTrack to false to disable all tracking. Copied text and search queries can contain sensitive information; review privacy requirements before enabling them.
+
+| Option | Purpose |
+|---|---|
+| `pageView` | Page views |
+| `clicks` | Clicks |
+| `pageExit` | Page exit |
+| `formSubmit` | Form submission |
+| `scrollDepth` | Scroll milestones |
+| `rageClicks` | Repeated rapid clicks |
+| `outboundLinks` | External links |
+| `jsErrors` | JavaScript errors |
+| `copyText` | Copied text |
+| `video` | Video activity |
+| `fileDownloads` | File downloads |
+| `fieldChanges` | Field identifiers, not values |
+| `tabFocus` | Tab focus |
+| `print` | Print |
+| `deadClicks` | Non-interactive clicks |
+| `search` | Search query |
+| `elementVisibility` | Tagged element visibility |
+| `idle` | Inactivity |
+| `connectivity` | Network connectivity |
+
+```javascript
+Eye.init({ tenant: 'my-tenant', apiKey: 'tenant-key', endpoint: 'https://api.example.com', autoTrack: { copyText: false, search: false }, idleTimeoutMs: 30000, forceNewSession: false });
+```
+
+Global methods: `init`, `newSession`, `identify`, `track`, `flush`, `getSessionId`, `destroy`.

@@ -32,16 +32,73 @@ theme:
 
 nav:
   - Home: index.md
+  - Discover Eye: discovery.md
   - Getting Started: getting-started/README.md
-  - Admin Guide: admin/README.md
-  - API Reference: api/README.md
+  - Admin Guide:
+    - Admin overview: admin/README.md
+    - Application routes: admin/routes.md
+    - Analytics and SQL: admin/exploration.md
+    - SQL reference: admin/sql.md
+    - Management handbook: admin/management.md
+  - API Reference:
+    - API overview: api/README.md
+    - Endpoint inventory: api/routes.md
+    - Core contracts: api/core.md
+    - Intelligence API: api/intelligence.md
+    - Dimensions API: api/dimensions.md
+    - Analytics API: api/analytics.md
   - SDKs:
     - Web SDK: sdk/web-sdk.md
     - Go SDK: sdk/go-sdk.md
   - Components: components/README.md
   - Architecture: architecture/README.md
+  - Intelligence: intelligence/README.md
+  - Operations:
+    - Deployment: operations/deployment.md
+    - Configuration: operations/configuration.md
   - Testing & Benchmarks: testing/README.md
   - Changelog: changelog.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: fa
+          name: فارسی
+          build: true
+          nav_translations:
+            Home: خانه
+            Discover Eye: کشف امکانات
+            Getting Started: شروع کار
+            Admin Guide: راهنمای مدیریت
+            Admin overview: نمای کلی مدیریت
+            Application routes: مسیرهای برنامه
+            Analytics and SQL: تحلیل و SQL
+            API overview: نمای کلی API
+            Endpoint inventory: فهرست مسیرهای API
+            Core contracts: قراردادهای اصلی
+            Intelligence API: API هوشمندی
+            Dimensions API: API ابعاد
+            Analytics API: API تحلیل‌ها
+            API Reference: مرجع API
+            SDKs: ابزارهای توسعه
+            Web SDK: SDK وب
+            Go SDK: SDK گو
+            Components: اجزای پنل
+            Architecture: معماری
+            SQL reference: مرجع SQL
+            Management handbook: راهنمای مدیریت و عملیات
+            Intelligence: هوشمندی
+            Operations: عملیات
+            Deployment: استقرار
+            Configuration: پیکربندی
+            Testing & Benchmarks: آزمون و عملکرد
+            Changelog: تاریخچه تغییرات
 
 extra_css:
   - stylesheets/eye.css
