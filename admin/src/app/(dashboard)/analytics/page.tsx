@@ -140,15 +140,21 @@ function GuidedAnalytics() {
   const [trend,setTrend]=useState<{key:string;points:{label:string;value:number}[];truncated:boolean;error?:string}>();
   const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; error?:string}>();
   const key = JSON.stringify([tenantId,from,to,compare]);
+  const catalogCache=useRef(new Map<string,{at:number;current:ReportOption[];previous:ReportOption[]}>());
+  const lastRevision=useRef(revision);
+  useEffect(()=>{catalogCache.current.clear();},[tenantId]);
   useEffect(() => {
     if (scopeLoading || !to) return;
     let active = true;
+    const force=lastRevision.current!==revision;lastRevision.current=revision;
+    const cached=catalogCache.current.get(key);
+    if(!force&&cached&&Date.now()-cached.at<30000){setState({key,current:cached.current,previous:cached.previous});return;}
     const range = {from_ts:from,to_ts:to};
     Promise.all([
       api.eventOptions(tenantId,"",true,range),
       compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}) : Promise.resolve([]),
     ]).then(([current,previous]) => {
-      if(active) setState({key,current,previous});
+      if(active){catalogCache.current.delete(key);catalogCache.current.set(key,{at:Date.now(),current,previous});while(catalogCache.current.size>12){const oldest=catalogCache.current.keys().next().value;if(oldest===undefined)break;catalogCache.current.delete(oldest);}setState({key,current,previous});}
     }).catch(e=>{if(active)setState({key,current:[],previous:[],error:String(e.message??e)});});
     return ()=>{active=false;};
   },[key,tenantId,from,to,compare,revision,scopeLoading]);
