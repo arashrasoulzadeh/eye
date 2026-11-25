@@ -10,14 +10,14 @@
 
 ## توسعه و عملیات
 
-- [شروع کار](getting-started/README.fa.md)
-- [پنل مدیریت](admin/README.fa.md)
-- [API](api/README.fa.md)
-- [SDK وب](sdk/web-sdk.fa.md)
-- [SDK گو](sdk/go-sdk.fa.md)
-- [معماری](architecture/README.fa.md)
-- [اجزای رابط](components/README.fa.md)
-- [آزمون‌ها](testing/README.fa.md)
+- [شروع کار](getting-started/README.md)
+- [پنل مدیریت](admin/README.md)
+- [API](api/README.md)
+- [SDK وب](sdk/web-sdk.md)
+- [SDK گو](sdk/go-sdk.md)
+- [معماری](architecture/README.md)
+- [اجزای رابط](components/README.md)
+- [آزمون‌ها](testing/README.md)
 
 ## هوشمندی
 
