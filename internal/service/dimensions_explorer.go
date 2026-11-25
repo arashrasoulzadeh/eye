@@ -76,7 +76,7 @@ func dimensionValues(v any, explode bool) []string {
  if s,ok:=v.(string);ok{return []string{s}}
  b,_:=json.Marshal(v);return []string{string(b)}
 }
-type analyticsSummaryCacheKey struct { db *gorm.DB; scope string }
+type analyticsSummaryCacheKey struct { service *QueryService; scope string }
 type analyticsSummaryCacheEntry struct { at time.Time; result DimensionResult }
 type analyticsSummaryFlight struct { done chan struct{}; result DimensionResult; err error }
 var analyticsSummaryCache = struct{sync.Mutex; entries map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry; flights map[analyticsSummaryCacheKey]*analyticsSummaryFlight}{entries:make(map[analyticsSummaryCacheKey]analyticsSummaryCacheEntry),flights:make(map[analyticsSummaryCacheKey]*analyticsSummaryFlight)}
@@ -85,19 +85,20 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  if !in.CacheSummary || !in.Summary || in.Operation!="count" || in.Tenant=="" || in.From<0 || in.To<in.From || len(in.Types)>100 || len(in.Filters)!=0 || in.FilterKey!="" || in.Group!="" || in.Split!="" || in.DrillGroup!=nil || in.DrillSplit!=nil || in.Correlate!="" || in.DiscoverCorrelations || in.To>time.Now().Add(-time.Minute).UnixMilli() {return q.analyzeDimensions(ctx,in)}
  if err:=ctx.Err();err!=nil{return DimensionResult{},err}
  canonical:=in;canonical.Types=append([]string(nil),in.Types...);sort.Strings(canonical.Types)
+ if len(canonical.Types)>1 {unique:=canonical.Types[:1];for _,name:=range canonical.Types[1:]{if name!=unique[len(unique)-1]{unique=append(unique,name)}};canonical.Types=unique}
  encoded,err:=json.Marshal(canonical);if err!=nil{return q.analyzeDimensions(ctx,in)}
- key:=analyticsSummaryCacheKey{db:q.DB,scope:string(encoded)}
+ key:=analyticsSummaryCacheKey{service:q,scope:string(encoded)}
  analyticsSummaryCache.Lock()
  cached,ok:=analyticsSummaryCache.entries[key]
  if ok&&time.Since(cached.at)<15*time.Second {analyticsSummaryCache.Unlock();result:=cached.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}
- if flight:=analyticsSummaryCache.flights[key];flight!=nil {analyticsSummaryCache.Unlock();select{case <-ctx.Done():return DimensionResult{},ctx.Err();case <-flight.done:if flight.err!=nil{return q.analyzeDimensions(ctx,in)};result:=flight.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}}
+ if flight:=analyticsSummaryCache.flights[key];flight!=nil {analyticsSummaryCache.Unlock();select{case <-ctx.Done():return DimensionResult{},ctx.Err();case <-flight.done:if err:=ctx.Err();err!=nil{return DimensionResult{},err};if flight.err!=nil{return q.analyzeDimensions(ctx,in)};result:=flight.result;result.Rows=append([]DimensionRow{},result.Rows...);return result,nil}}
  flight:=&analyticsSummaryFlight{done:make(chan struct{})};analyticsSummaryCache.flights[key]=flight;analyticsSummaryCache.Unlock()
  result,err:=q.analyzeDimensions(ctx,in)
  defer func(){analyticsSummaryCache.Lock();flight.result=result;flight.result.Rows=append([]DimensionRow{},result.Rows...);flight.err=err;delete(analyticsSummaryCache.flights,key);close(flight.done);analyticsSummaryCache.Unlock()}()
  if err==nil&&!result.Truncated {
   copyResult:=result;copyResult.Rows=append([]DimensionRow{},result.Rows...)
   analyticsSummaryCache.Lock()
-  if len(analyticsSummaryCache.entries)>=128 {for k,v:=range analyticsSummaryCache.entries{if time.Since(v.at)>=15*time.Second{delete(analyticsSummaryCache.entries,k)}};if len(analyticsSummaryCache.entries)>=128{for k:=range analyticsSummaryCache.entries{delete(analyticsSummaryCache.entries,k);break}}}
+  if len(analyticsSummaryCache.entries)>=128 {for k,v:=range analyticsSummaryCache.entries{if time.Since(v.at)>=15*time.Second{delete(analyticsSummaryCache.entries,k)}};if len(analyticsSummaryCache.entries)>=128{var oldest analyticsSummaryCacheKey;var oldestAt time.Time;for k,v:=range analyticsSummaryCache.entries{if oldestAt.IsZero()||v.at.Before(oldestAt){oldest=k;oldestAt=v.at}};delete(analyticsSummaryCache.entries,oldest)}}
   analyticsSummaryCache.entries[key]=analyticsSummaryCacheEntry{at:time.Now(),result:copyResult}
   analyticsSummaryCache.Unlock()
  }
