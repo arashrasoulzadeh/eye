@@ -126,7 +126,7 @@ func (q *QueryService) analyzeDimensions(ctx context.Context,in DimensionInput)(
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
  if in.Summary {
  var summary struct { Events int; Users int64; Sessions int64; IdentifiedEvents int64 }
- if err:=base.Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
+ if err:=base.Session(&gorm.Session{}).Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
  out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";if !in.IncludeTrend{return nil}
  }
  if (in.FullRange || in.IncludeTrend) && in.TimeBucket!="" && in.Group=="" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && !in.DiscoverCorrelations && in.Correlate=="" && in.DrillGroup==nil {
