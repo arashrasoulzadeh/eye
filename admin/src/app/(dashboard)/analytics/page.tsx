@@ -16,7 +16,7 @@ type Panel = { id: string; title: string; eventNames: string[]; chart: "line" | 
 const groupingOptions = [{ value: "auto", label: "Auto time buckets" }, { value: "minute", label: "By minute" }, { value: "hour", label: "By hour" }, { value: "day", label: "By day" }, { value: "dim:country", label: "Event dimension: country" }, { value: "dim:region", label: "Event dimension: region" }, { value: "dim:city", label: "Event dimension: city" }, { value: "dim:device", label: "Event dimension: device" }, { value: "dim:campaign", label: "Event dimension: campaign" }];
 function autoGrouping(hours: string): "minute" | "hour" | "day" { const value = Number(hours); return value <= 6 ? "minute" : value <= 168 ? "hour" : "day"; }
 function dimensionValue(raw: string, key: string): string { try { const value = JSON.parse(raw || "{}")[key]; return value === undefined || value === null || value === "" ? "(unknown)" : String(value); } catch { return "(unknown)"; } }
-export default function AnalyticsPage() {
+function AdvancedAnalytics() {
   const router = useRouter();
   const { tenantId: globalTenant, setTenantId: setGlobalTenant, loading: scopeLoading } = useTenant();
   const { hours, from: globalFrom, to: globalTo } = useTimeRange();
@@ -91,4 +91,145 @@ export default function AnalyticsPage() {
     <Card className="mt-6"><CardHeader title="Conversion breakdown" action={<span className="text-xs text-fg-muted">Session based</span>}/><div className="grid gap-4 p-5 sm:grid-cols-3"><div><p className="text-xs text-fg-muted">Sessions in range</p><p className="mt-1 text-2xl font-semibold text-fg">{sessions.size.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Completed sequence</p><p className="mt-1 text-2xl font-semibold text-fg">{convertedSessions.toLocaleString()}</p></div><div><p className="text-xs text-fg-muted">Conversion rate</p><p className="mt-1 text-2xl font-semibold text-accent">{conversionRate}%</p></div></div><div className="flex flex-wrap gap-2 px-5 pb-5">{selected.map((eventName, index) => <Link key={eventName} href={`/events?tenant_id=${encodeURIComponent(tenant)}&event_name=${encodeURIComponent(eventName)}`} className="rounded-full border border-border px-3 py-1 text-xs text-fg-muted hover:border-accent hover:text-accent">{index + 1}. {eventName}</Link>)}</div></Card>
     <Card className="mt-6"><CardHeader title="Recent matching events"/><div className="divide-y divide-border">{panels.flatMap(p => p.events || []).slice(0, 12).map((e, index) => <div key={e.EventID || `${e.EventName}-${e.ClientTS}-${index}`} className="flex items-center justify-between px-5 py-3 text-sm"><span className="font-medium text-fg">{e.EventID ? <a href={`/events/${encodeURIComponent(e.EventID)}`} className="text-accent hover:underline">{e.EventName}</a> : <Link href={`/events?tenant_id=${encodeURIComponent(e.TenantID)}&event_name=${encodeURIComponent(e.EventName)}`} className="text-accent hover:underline">{e.EventName}</Link>}<IntelligenceTags tags={e.intelligence_tags} compact /></span><span className="text-fg-muted">{new Date(e.ClientTS).toLocaleString()}</span><JsonView value={e.Payload}/></div>)}{!panels.some(p => p.events?.length) && <p className="p-5 text-sm text-fg-muted">No matching events loaded.</p>}</div></Card>
   </div>;
+}
+
+const reportTemplates = [
+  { name: "Overview", description: "Understand overall activity", pattern: "" },
+  { name: "Website", description: "Page views and clicks", pattern: "page|view|click" },
+  { name: "Engagement", description: "Interactions and feature usage", pattern: "click|search|view|open|engage" },
+  { name: "Acquisition", description: "Signups and referrals", pattern: "signup|register|referr|campaign|install" },
+  { name: "Commerce", description: "Shopping and purchases", pattern: "cart|checkout|purchase|order|payment" },
+  { name: "Search", description: "Search activity", pattern: "search" },
+  { name: "Mobile app", description: "App and screen activity", pattern: "app|screen|install" },
+  { name: "Audience", description: "Discover audience properties", pattern: "" },
+  { name: "Technology", description: "Devices, browsers and platforms", pattern: "" },
+  { name: "Geography", description: "Countries, regions and cities", pattern: "" },
+  { name: "Custom", description: "Choose any tracked event", pattern: "" },
+];
+type ReportOption = { value: string; count: number; last_ts: number };
+function GuidedAnalytics() {
+  const { tenantId, loading: scopeLoading } = useTenant();
+  const { hours, from, to } = useTimeRange();
+  const [template, setTemplate] = useState("Overview");
+  const [event, setEvent] = useState("");
+  const [revision, setRevision] = useState(0);
+  const [live,setLive]=useState(false);
+  useEffect(()=>{if(!live)return;const timer=window.setInterval(()=>{if(document.visibilityState==="visible")setRevision(x=>x+1);},30000);return ()=>window.clearInterval(timer);},[live]);
+  const [compare, setCompare] = useState(true);
+  const [dimension,setDimension]=useState("");
+  useEffect(()=>{setDimension("");setEvent("");},[tenantId]);
+  const [details,setDetails]=useState<{key:string;keys:string[];rows:{group:string;value:number}[];truncated:boolean;error?:string}>();
+  const [trend,setTrend]=useState<{key:string;points:{label:string;value:number}[];truncated:boolean;error?:string}>();
+  const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; error?:string}>();
+  const key = JSON.stringify([tenantId,from,to,event,compare,revision]);
+  useEffect(() => {
+    if (scopeLoading || !to) return;
+    let active = true;
+    const range = {from_ts:from,to_ts:to};
+    Promise.all([
+      api.eventOptions(tenantId,"",true,range),
+      compare && from>0 ? api.eventOptions(tenantId,"",true,{from_ts:Math.max(0,from-(to-from)-1),to_ts:from-1}) : Promise.resolve([]),
+    ]).then(([current,previous]) => {
+      if(active) setState({key,current,previous});
+    }).catch(e=>{if(active)setState({key,current:[],previous:[],error:String(e.message??e)});});
+    return ()=>{active=false;};
+  },[key,tenantId,from,to,event,compare,hours,scopeLoading]);
+  const ready = !scopeLoading && state?.key===key ? state : undefined;
+  const pattern = reportTemplates.find(t=>t.name===template)?.pattern ?? "";
+  const matches = (row:ReportOption) => (!event || row.value===event) && (!pattern || new RegExp(pattern,"i").test(row.value));
+  const rows = (ready?.current??[]).filter(matches).sort((a,b)=>b.count-a.count);
+  const total = rows.reduce((n,r)=>n+r.count,0);
+  const previous = (ready?.previous??[]).filter(matches).reduce((n,r)=>n+r.count,0);
+  const change = previous ? (total-previous)/previous*100 : null;
+  const available = ready && !ready.error;
+  const types = event ? [event] : pattern ? rows.map(r=>r.value) : [];
+  const typesKey=JSON.stringify(types);
+  const detailKey=JSON.stringify([tenantId,from,to,typesKey,dimension,revision]);
+  const trendKey=JSON.stringify([tenantId,from,to,typesKey,revision,hours]);
+  useEffect(()=>{
+    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
+    const controller=new AbortController();
+    const selectedTypes=JSON.parse(typesKey) as string[];
+    if(selectedTypes.length>100){setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:"Select one event to analyze this report."});return;}
+    const body={tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",group:dimension,full_range:Boolean(dimension)};
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify(body)}).then(async r=>{if(!r.ok)throw Error("Dimension report unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:r.keys??[],rows:r.rows??[],truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:String(e.message)});});
+    return ()=>controller.abort();
+  },[detailKey,tenantId,from,to,typesKey,dimension,scopeLoading,available,rows.length]);
+  useEffect(()=>{
+    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
+    const controller=new AbortController();
+    const selectedTypes=JSON.parse(typesKey) as string[];
+    if(selectedTypes.length>100){setTrend({key:trendKey,points:[],truncated:false,error:"Select one event to view the trend."});return;}
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",time_bucket:Number(hours)>168?"day":"hour",full_range:true})}).then(async r=>{if(!r.ok)throw Error("Activity trend unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})).sort((a:{label:string},b:{label:string})=>a.label.localeCompare(b.label)),truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});});
+    return ()=>controller.abort();
+  },[trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length]);
+  const currentDetails=details?.key===detailKey?details:undefined;
+  const currentTrend=trend?.key===trendKey?trend:undefined;
+  const [knownKeys,setKnownKeys]=useState<{scope:string;keys:string[]}>({scope:"",keys:[]});
+  const schemaScope=JSON.stringify([tenantId,from,to,typesKey]);
+  useEffect(()=>{if(currentDetails&&!dimension&&!currentDetails.error)setKnownKeys({scope:schemaScope,keys:currentDetails.keys});},[currentDetails,dimension,schemaScope]);
+  const keys=knownKeys.scope===schemaScope?knownKeys.keys:[];
+  const preferred=template==="Technology"?/device|browser|platform|os/i:template==="Geography"?/country|region|city/i:template==="Audience"?/user|language|segment/i:null;
+  const orderedKeys=[...keys].sort((a,b)=>Number(Boolean(preferred?.test(b)))-Number(Boolean(preferred?.test(a))));
+  const [widgets,setWidgets]=useState(["trend","dimensions","events","insights","journey"]);
+  function moveWidget(w:string,delta:number){setWidgets(old=>{const i=old.indexOf(w),j=i+delta;if(i<0||j<0||j>=old.length)return old;const next=[...old];[next[i],next[j]]=[next[j],next[i]];return next;});}
+  const [reportName,setReportName]=useState("");
+  const [businessEvent,setBusinessEvent]=useState("");
+  const [businessLabel,setBusinessLabel]=useState("Conversions");
+  useEffect(()=>{setBusinessEvent("");setBusinessLabel("Conversions");},[tenantId]);
+  const [saved,setSaved]=useState<{id:string;name:string;query:string}[]>([]);
+  const [saveError,setSaveError]=useState("");
+  const [saving,setSaving]=useState(false);
+  const [savedRevision,setSavedRevision]=useState(0);
+  useEffect(()=>{let active=true;setSaved([]);setSaveError("");if(tenantId)api.analytics.views(tenantId).then(v=>{if(active)setSaved(v.filter(x=>{try{return JSON.parse(x.query).kind==="guided-report-v1"}catch{return false}}))}).catch(()=>{if(active)setSaveError("Saved reports unavailable.")});return()=>{active=false};},[tenantId,savedRevision]);
+  async function saveReport(){if(!tenantId||!reportName.trim()||saving)return;setSaving(true);setSaveError("");try{await api.analytics.saveView(tenantId,reportName.trim(),JSON.stringify({kind:"guided-report-v1",template,event,dimension,compare,widgets,businessEvent,businessLabel}));setReportName("");setSavedRevision(x=>x+1);}catch{setSaveError("Could not save report.");}finally{setSaving(false);}}
+  function openReport(query:string){try{const v=JSON.parse(query);if(v.kind!=="guided-report-v1"||!reportTemplates.some(t=>t.name===v.template))throw Error();setTemplate(v.template);setEvent(typeof v.event==="string"?v.event:"");setDimension(typeof v.dimension==="string"?v.dimension:"");setCompare(v.compare!==false);setBusinessEvent(typeof v.businessEvent==="string"?v.businessEvent:"");setBusinessLabel(typeof v.businessLabel==="string"?v.businessLabel:"Conversions");setWidgets(Array.isArray(v.widgets)?v.widgets.filter((w:unknown)=>typeof w==="string"&&["trend","dimensions","events","insights","journey"].includes(w)):["trend","dimensions","events","insights","journey"]);}catch{setSaveError("Invalid saved report.");}}
+  async function deleteReport(id:string){if(!tenantId||saving)return;setSaving(true);try{await api.analytics.deleteView(tenantId,id);setSavedRevision(x=>x+1);}catch{setSaveError("Could not delete report.");}finally{setSaving(false);}}
+  const [journey,setJourney]=useState<{key:string;funnel:{event_name:string;sessions:number;conversion_rate:number}[];retention:{cohort_period:string;cohort_size:number;retained_pct:number[]}[];errors:string[]}>();
+  const journeyKey=JSON.stringify([tenantId,from,to,revision]);
+  useEffect(()=>{if(scopeLoading||!tenantId||!to||!widgets.includes("journey"))return;let active=true;const range={from_ts:from,to_ts:to};Promise.allSettled([api.analytics.suggestedFunnel(tenantId,from,to).then(steps=>steps.length>1?api.analytics.funnel(tenantId,steps.slice(0,5).map(x=>x.event_name),from,to):[]),api.analytics.retention(tenantId,"daily",range)]).then(([f,r])=>{if(active)setJourney({key:journeyKey,funnel:f.status==="fulfilled"?f.value:[],retention:r.status==="fulfilled"?r.value:[],errors:[...(f.status==="rejected"?["Funnel unavailable"]:[]),...(r.status==="rejected"?["Retention unavailable"]:[])]});});return()=>{active=false};},[journeyKey,tenantId,from,to,scopeLoading,widgets]);
+  const currentJourney=journey?.key===journeyKey?journey:undefined;
+  const [summary,setSummary]=useState<{key:string;users:number;sessions:number;matched:number;identified_events:number;error?:string}>();
+  const summaryKey=JSON.stringify([tenantId,from,to,typesKey,revision]);
+  useEffect(()=>{
+    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
+    const controller=new AbortController();
+    const selectedTypes=JSON.parse(typesKey) as string[];
+    if(selectedTypes.length>100){setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:"Select one event for identity metrics."});return;}
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",summary:true})}).then(async r=>{if(!r.ok)throw Error("Identity metrics unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setSummary({key:summaryKey,users:r.users,sessions:r.sessions,matched:r.matched,identified_events:r.identified_events});}).catch(e=>{if(!controller.signal.aborted)setSummary({key:summaryKey,users:0,sessions:0,matched:0,identified_events:0,error:String(e.message)});});
+    return ()=>controller.abort();
+  },[summaryKey,tenantId,from,to,typesKey,scopeLoading,available,rows.length]);
+  const identity=summary?.key===summaryKey&&!summary.error?summary:undefined;
+  const [realtime,setRealtime]=useState<{tenant:string;users:number;sessions:number;matched:number;error?:string}>();
+  const [showRealtime,setShowRealtime]=useState(false);
+  useEffect(()=>{if(!showRealtime||scopeLoading||!tenantId)return;let active=true;let busy=false;setRealtime(undefined);async function load(){if(busy||document.visibilityState!=="visible")return;busy=true;try{const now=Date.now();const response=await fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:tenantId,from_ts:now-300000,to_ts:now,operation:"count",summary:true})});if(!response.ok)throw Error();const r=await response.json();if(active)setRealtime({tenant:tenantId,users:r.users,sessions:r.sessions,matched:r.matched});}catch{if(active)setRealtime({tenant:tenantId,users:0,sessions:0,matched:0,error:"Realtime report unavailable"});}finally{busy=false;}}void load();const timer=window.setInterval(load,15000);return()=>{active=false;window.clearInterval(timer)};},[showRealtime,scopeLoading,tenantId]);
+
+
+
+  const businessCount=ready?.current.find(r=>r.value===businessEvent)?.count??0;
+  function exportReport() {
+    const csv = ["Event,Count",...rows.map(r=>'"'+r.value.replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'",'+r.count)].join("\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    const a=document.createElement("a");a.href=url;a.download="analytics.csv";a.click();URL.revokeObjectURL(url);
+  }
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold text-fg">Analytics overview</h1><p className="text-sm text-fg-muted">Understand your activity without writing a query. · {formatTimeRange(hours)}</p></div><div className="flex gap-2"><button className="rounded border border-border px-3 py-2 text-sm" onClick={()=>setRevision(x=>x+1)}>Refresh</button><button disabled={!available} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50" onClick={exportReport}>Export CSV</button><button onClick={()=>window.print()} className="rounded border border-border px-3 py-2 text-sm print:hidden">Print / PDF</button></div></div>
+    <details className="rounded border border-border p-3"><summary className="cursor-pointer text-sm font-medium">Saved reports & dashboard settings</summary><div className="mt-3 flex flex-wrap gap-3">{["trend","dimensions","events","insights","journey"].map(w=><label key={w} className="flex items-center gap-1 text-sm capitalize"><input type="checkbox" checked={widgets.includes(w)} onChange={e=>setWidgets(old=>e.target.checked?[...old,w]:old.filter(x=>x!==w))}/>{w}</label>)}<label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={live} onChange={e=>setLive(e.target.checked)}/> Refresh every 30 seconds</label></div><div className="mt-3 flex flex-wrap gap-2">{widgets.map((w,i)=><div key={w} className="flex items-center gap-2 rounded border border-border px-2 py-1 text-xs capitalize">{w}<button aria-label={"Move "+w+" earlier"} disabled={i===0} onClick={()=>moveWidget(w,-1)} className="disabled:opacity-30">↑</button><button aria-label={"Move "+w+" later"} disabled={i===widgets.length-1} onClick={()=>moveWidget(w,1)} className="disabled:opacity-30">↓</button></div>)}</div><div className="mt-3 flex flex-wrap gap-2"><input aria-label="Report name" placeholder="Name this report" value={reportName} maxLength={100} onChange={e=>setReportName(e.target.value)} className="rounded border border-border bg-surface-2 px-3 py-2 text-sm"/><button disabled={!tenantId||!reportName.trim()||saving} onClick={()=>void saveReport()} className="rounded bg-accent px-3 py-2 text-sm text-accent-fg disabled:opacity-50">Save report</button></div>{saveError&&<p role="alert" className="mt-2 text-sm text-danger">{saveError}</p>}<div className="mt-2 space-y-2">{saved.map(v=><div key={v.id} className="flex justify-between gap-2 text-sm"><button onClick={()=>openReport(v.query)} className="text-accent">{v.name}</button><button disabled={saving} onClick={()=>{if(window.confirm("Delete this saved report?"))void deleteReport(v.id)}} className="text-danger">Delete</button></div>)}</div></details>
+    <Card><CardHeader title="Business metric"/><div className="flex flex-wrap items-end gap-3 p-4"><label className="text-xs text-fg-muted">Metric name<input maxLength={80} value={businessLabel} onChange={e=>setBusinessLabel(e.target.value)} className="mt-1 block rounded border border-border bg-surface-2 p-2 text-sm"/></label><label className="text-xs text-fg-muted">Count this event<select value={businessEvent} onChange={e=>setBusinessEvent(e.target.value)} className="mt-1 block rounded border border-border bg-surface-2 p-2 text-sm"><option value="">Choose an event</option>{businessEvent&&!ready?.current.some(r=>r.value===businessEvent)&&<option value={businessEvent}>{businessEvent}</option>}{(ready?.current??[]).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label>{businessEvent&&<div><p className="text-xs text-fg-muted">{businessLabel||"Business metric"}</p><p className="text-2xl font-semibold">{available?businessCount.toLocaleString():"—"}</p></div>}<p className="basis-full text-xs text-fg-muted">Counts occurrences of your chosen business event across the tenant and global time range; not revenue or a unique-user conversion rate.</p></div></Card>
+    <Card><CardHeader title="Choose a report"/><div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">{reportTemplates.map(t=><button key={t.name} aria-pressed={template===t.name} onClick={()=>{setTemplate(t.name);setEvent("");setDimension("");}} className={"rounded-lg border p-3 text-left "+(template===t.name?"border-accent bg-accent/10":"border-border hover:border-accent")}><span className="block text-sm font-medium">{t.name}</span><span className="text-xs text-fg-muted">{t.description}</span></button>)}</div></Card>
+    <div className="flex flex-wrap items-center gap-3"><label className="text-sm">Event <select className="ml-2 rounded border border-border bg-surface-2 p-2" value={event} onChange={e=>{setEvent(e.target.value);setDimension("");}}><option value="">All matching events</option>{event && !ready?.current.some(r=>r.value===event) && <option value={event}>{event}</option>}{(ready?.current??[]).filter(r=>!pattern||new RegExp(pattern,"i").test(r.value)).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={compare} onChange={e=>setCompare(e.target.checked)}/> Compare previous period</label></div>
+    {!ready && <p role="status" className="text-sm text-fg-muted">Loading report…</p>}
+    {ready?.error && <p role="alert" className="text-sm text-danger">{ready.error}</p>}
+    <div className="grid gap-3 sm:grid-cols-3">{[{label:"Total events",value:total.toLocaleString(),help:"Recorded actions in this report"},{label:"Event types",value:String(rows.length),help:"Different tracked actions"},{label:"Change",value:compare&&change!==null?(change>=0?"+":"")+change.toFixed(1)+"%":"—",help:"Compared with the preceding equal period"}].map(m=><Card key={m.label}><div className="p-4"><p className="text-xs text-fg-muted">{m.label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{available?m.value:"—"}</p><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
+    <div className="grid gap-3 sm:grid-cols-3">{[{label:"Identified active users",value:identity?.users,help:"Distinct non-empty user IDs"},{label:"Active sessions",value:identity?.sessions,help:"Distinct non-empty session IDs"},{label:"Identity coverage",value:identity&&identity.matched?Math.round(identity.identified_events/identity.matched*100)+"%":undefined,help:"Events with a recorded user ID"}].map(m=><Card key={m.label}><div className="p-4"><p className="text-xs text-fg-muted">{m.label}</p><p className="mt-1 text-2xl font-semibold">{m.value?.toLocaleString()??"—"}</p><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
+    {summary?.key===summaryKey&&summary.error&&<p className="text-xs text-danger">{summary.error}</p>}
+    <Card><CardHeader title="Realtime · last 5 minutes" action={<button className="text-sm text-accent" onClick={()=>setShowRealtime(x=>!x)}>{showRealtime?"Stop":"Start live report"}</button>}/>{showRealtime&&<div className="grid gap-3 p-4 sm:grid-cols-3">{realtime?.tenant===tenantId&&realtime.error?<p role="alert" className="text-sm text-danger">{realtime.error}</p>:[{label:"Identified users",value:realtime?.users},{label:"Sessions",value:realtime?.sessions},{label:"Events",value:realtime?.matched}].map(m=><div key={m.label}><p className="text-xs text-fg-muted">{m.label}</p><p className="text-xl font-semibold">{realtime?.tenant===tenantId?m.value?.toLocaleString()??"—":"—"}</p></div>)}<p className="text-xs text-fg-muted sm:col-span-3">Entire selected tenant, independent of global time and event filters. Refreshes every 15 seconds.</p></div>}</Card>
+    {available && !rows.length && <p className="rounded border border-border p-4 text-sm text-fg-muted">No matching events. Try Overview or change the global time range. Templates match event names automatically.</p>}
+    <div className="grid gap-4">{widgets.map(w=><section key={w} className="min-w-0">{w==="trend"&&(available && rows.length>0 && widgets.includes("trend") && <Card><CardHeader title="Activity over time"/><div className="p-4">{currentTrend?.error?<p className="text-sm text-danger">{currentTrend.error}</p>:currentTrend?.points.length?<LineTrend data={currentTrend.points}/>:<p className="text-sm text-fg-muted">{currentTrend?"No activity available.":"Loading activity…"}</p>}{currentTrend?.truncated&&<p className="text-xs text-fg-muted">Partial results — analysis limits reached.</p>}</div></Card>)}{w==="dimensions"&&(available && rows.length>0 && widgets.includes("dimensions") && <Card><CardHeader title="Break down activity"/><div className="space-y-3 p-4"><label className="text-sm">Group by <select value={dimension} onChange={e=>setDimension(e.target.value)} className="ml-2 rounded border border-border bg-surface-2 p-2"><option value="">Choose a property</option>{dimension&&!orderedKeys.includes(dimension)&&<option value={dimension}>{dimension}</option>}{orderedKeys.map(k=><option key={k} value={k}>{k}</option>)}</select></label>{currentDetails?.error?<p className="text-sm text-danger">{currentDetails.error}</p>:dimension&&currentDetails?<><BarBreakdown data={[...currentDetails.rows].sort((a,b)=>b.value-a.value).slice(0,15).map(r=>({label:r.group,value:r.value}))}/>{currentDetails.truncated&&<p className="text-xs text-fg-muted">Partial results — analysis limits reached.</p>}</>:<p className="text-sm text-fg-muted">{dimension?"Loading breakdown…":keys.length?"Choose an automatically discovered event property.":currentDetails?"No properties discovered.":"Discovering properties…"}</p>}</div></Card>)}{w==="events"&&(widgets.includes("events")&&<Card><CardHeader title="Top events"/><div className="space-y-3 p-4">{rows.slice(0,10).map(r=><button key={r.value} onClick={()=>{setEvent(r.value);setDimension("");}} className="block w-full text-left"><div className="flex justify-between gap-2 text-sm"><span className="truncate">{r.value}</span><span>{r.count.toLocaleString()}</span></div><div className="mt-1 h-2 rounded bg-surface-2"><div className="h-2 rounded bg-accent" style={{width:(total?r.count/total*100:0)+"%"}}/></div></button>)}</div></Card>)}{w==="insights"&&(widgets.includes("insights")&&<Card><CardHeader title="Insights"/><div className="space-y-3 p-4 text-sm text-fg-muted">{available && rows.length>0?<><p>{rows[0].value} is the most frequent action in this report ({(rows[0].count/Math.max(total,1)*100).toFixed(1)}% of recorded actions).</p>{compare&&change!==null&&<p>Activity {change>=0?"increased":"decreased"} by {Math.abs(change).toFixed(1)}% compared with the previous period.</p>}<p>Click an event to focus the report on that action.</p></>:<p>Insights appear when matching data is available.</p>}</div></Card>)}{w==="journey"&&(widgets.includes("journey")&&<div className="grid gap-4 lg:grid-cols-2"><Card><CardHeader title="Suggested conversion funnel"/><div className="space-y-2 p-4">{currentJourney?.funnel.map((step,i)=><div key={i} className="text-sm"><div className="flex justify-between gap-2"><span>{i+1}. {step.event_name}</span><span>{step.sessions.toLocaleString()} sessions</span></div><div className="mt-1 h-2 rounded bg-surface-2"><div className="h-2 rounded bg-accent" style={{width:Math.min(100,step.sessions/Math.max(1,currentJourney.funnel[0].sessions)*100)+"%"}}/></div></div>)}{!currentJourney?.funnel.length&&<p className="text-sm text-fg-muted">{currentJourney?currentJourney.errors.includes("Funnel unavailable")?"Funnel unavailable.":"Not enough events for a suggested funnel.":"Loading funnel…"}</p>}<p className="text-xs text-fg-muted">Suggested steps, not a configured business conversion. Uses the entire tenant and global time range.</p><Link href="/analytics/funnel" className="text-sm text-accent">Configure funnel</Link></div></Card><Card><CardHeader title="Returning sessions"/><div className="overflow-x-auto p-4">{currentJourney?.retention.length?<table className="w-full text-left text-xs"><thead><tr><th className="p-2">Cohort</th><th>Size</th><th>Day 1</th><th>Day 7</th></tr></thead><tbody>{currentJourney.retention.slice(-10).map(r=><tr key={r.cohort_period} className="border-t border-border"><td className="p-2">{r.cohort_period}</td><td>{r.cohort_size}</td><td>{r.retained_pct[1]==null?"—":r.retained_pct[1].toFixed(1)+"%"}</td><td>{r.retained_pct[7]==null?"—":r.retained_pct[7].toFixed(1)+"%"}</td></tr>)}</tbody></table>:<p className="text-sm text-fg-muted">{currentJourney?currentJourney.errors.includes("Retention unavailable")?"Retention unavailable.":"No cohorts available.":"Loading retention…"}</p>}<p className="mt-2 text-xs text-fg-muted">Entire tenant and global time range.</p><Link href="/analytics/retention" className="text-sm text-accent">Full retention report</Link></div></Card></div>)}</section>)}</div>
+    <Card><CardHeader title="Explore further"/><div className="grid gap-2 p-4 sm:grid-cols-3">{[{href:"/analytics/funnel",title:"Conversions & funnels",desc:"See where users drop off"},{href:"/analytics/retention",title:"Retention",desc:"See whether users return"},{href:"/dimensions",title:"Dimensions",desc:"Explore devices, geography and other properties"}].map(l=><Link key={l.href} href={l.href} className="rounded border border-border p-3 hover:border-accent"><span className="block text-sm font-medium text-accent">{l.title}</span><span className="text-xs text-fg-muted">{l.desc}</span></Link>)}</div></Card>
+  </div>;
+}
+export default function AnalyticsPage() {
+  const [advanced,setAdvanced]=useState(()=>typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("events"));
+  return <div><div className="mb-4 flex gap-2 border-b border-border pb-2">{["Reports","Advanced explorer"].map((label,i)=><button key={label} aria-pressed={advanced===Boolean(i)} onClick={()=>setAdvanced(Boolean(i))} className={"rounded px-3 py-2 text-sm "+(advanced===Boolean(i)?"bg-accent text-accent-fg":"text-fg-muted")}>{label}</button>)}</div>{advanced?<AdvancedAnalytics/>:<GuidedAnalytics/>}</div>;
 }

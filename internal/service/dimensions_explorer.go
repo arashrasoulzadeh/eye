@@ -20,6 +20,7 @@ type DimensionInput struct {
  DrillGroup *string `json:"drill_group"`
  DrillSplit *string `json:"drill_split"`
  FullRange bool `json:"full_range"`
+ Summary bool `json:"summary"`
  Correlate string `json:"correlate"`
  Tenant string `json:"tenant_id"`
  From int64 `json:"from_ts"`
@@ -56,6 +57,9 @@ type DimensionResult struct {
  Correlation *float64 `json:"correlation,omitempty"`
  CorrelationN int `json:"correlation_n"`
  Matched int `json:"matched"`
+ Users int64 `json:"users"`
+ Sessions int64 `json:"sessions"`
+ IdentifiedEvents int64 `json:"identified_events"`
  Types []string `json:"types"`
  Keys []string `json:"keys"`
  Rows []DimensionRow `json:"rows"`
@@ -90,6 +94,11 @@ func (q *QueryService) AnalyzeDimensions(ctx context.Context,in DimensionInput)(
  base:=tx.Model(&model.Event{}).Where("tenant_id = ? AND client_ts >= ? AND client_ts <= ?",in.Tenant,in.From,in.To)
  if err:=base.Session(&gorm.Session{}).Distinct("event_name").Limit(1000).Pluck("event_name",&out.Types).Error;err!=nil{return err}
  if len(in.Types)>0{base=base.Where("event_name IN ?",in.Types)}
+ if in.Summary {
+ var summary struct { Events int; Users int64; Sessions int64; IdentifiedEvents int64 }
+ if err:=base.Select("COUNT(*) AS events, COUNT(DISTINCT NULLIF(user_id, '')) AS users, COUNT(DISTINCT NULLIF(session_id, '')) AS sessions, COUNT(NULLIF(user_id, '')) AS identified_events").Scan(&summary).Error;err!=nil{return err}
+ out.Matched=summary.Events;out.Scanned=summary.Events;out.Users=summary.Users;out.Sessions=summary.Sessions;out.IdentifiedEvents=summary.IdentifiedEvents;out.Execution="database";return nil
+ }
  if in.FullRange && !in.DiscoverCorrelations && in.Group=="@event" && in.Split=="" && in.Operation=="count" && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil {var grouped []struct{EventName string; Count int};if err:=base.Select("event_name, count(*) AS count").Group("event_name").Order("count DESC").Limit(1001).Scan(&grouped).Error;err!=nil{return err};for i,g:=range grouped{if i==1000{out.Truncated=true;break};out.Rows=append(out.Rows,DimensionRow{Group:g.EventName,Value:float64(g.Count),Count:g.Count});out.Matched+=g.Count};out.Scanned=out.Matched;out.Execution="database";return nil}
  if in.FullRange && !in.DiscoverCorrelations && in.Group!="" && in.Group!="@event" && in.Split=="" && !in.Explode && len(in.Filters)==0 && in.FilterKey=="" && in.TimeBucket=="" && in.Correlate=="" && in.DrillGroup==nil && in.Operation=="count" && explorerIdentifier.MatchString(in.Group) {
   var expr string
