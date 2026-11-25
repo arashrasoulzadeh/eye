@@ -170,3 +170,13 @@ func TestDimensionSummaryNeverBypassesTenantContext(t *testing.T) {
  if _,err:=q.AnalyzeDimensions(context.Background(),in);err==nil{t.Fatal("cached result bypassed tenant authorization")}
  if calls!=1{t.Fatalf("expected tenant callback once, got %d",calls)}
 }
+
+func TestDimensionSummaryBackpressureCancellation(t *testing.T) {
+ db:=newTestDB_dashboard_cache_test(t)
+ q:=&QueryService{DB:db}
+ for i:=0;i<cap(analyticsSummarySlots);i++{analyticsSummarySlots<-struct{}{}}
+ defer func(){for i:=0;i<cap(analyticsSummarySlots);i++{<-analyticsSummarySlots}}()
+ ctx,cancel:=context.WithCancel(context.Background());cancel()
+ _,err:=q.AnalyzeDimensions(ctx,DimensionInput{Tenant:"t1",From:0,To:200,Operation:"count",Summary:true})
+ if err!=context.Canceled{t.Fatalf("expected cancellation under backpressure, got %v",err)}
+}
