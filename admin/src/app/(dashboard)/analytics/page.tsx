@@ -101,6 +101,9 @@ const reportTemplates = [
   { name: "Commerce", description: "Shopping and purchases", pattern: "cart|checkout|purchase|order|payment" },
   { name: "Search", description: "Search activity", pattern: "search" },
   { name: "Mobile app", description: "App and screen activity", pattern: "app|screen|install" },
+  { name: "Audience", description: "Discover audience properties", pattern: "" },
+  { name: "Technology", description: "Devices, browsers and platforms", pattern: "" },
+  { name: "Geography", description: "Countries, regions and cities", pattern: "" },
   { name: "Custom", description: "Choose any tracked event", pattern: "" },
 ];
 type ReportOption = { value: string; count: number; last_ts: number };
@@ -111,6 +114,9 @@ function GuidedAnalytics() {
   const [event, setEvent] = useState("");
   const [revision, setRevision] = useState(0);
   const [compare, setCompare] = useState(true);
+  const [dimension,setDimension]=useState("");
+  const [details,setDetails]=useState<{key:string;keys:string[];rows:{group:string;value:number}[];truncated:boolean;error?:string}>();
+  const [trend,setTrend]=useState<{key:string;points:{label:string;value:number}[];truncated:boolean;error?:string}>();
   const [state, setState] = useState<{key:string; current:ReportOption[]; previous:ReportOption[]; points:{label:string;value:number}[]; error?:string}>();
   const key = JSON.stringify([tenantId,from,to,event,compare,revision]);
   useEffect(() => {
@@ -142,6 +148,36 @@ function GuidedAnalytics() {
   const previous = (ready?.previous??[]).filter(matches).reduce((n,r)=>n+r.count,0);
   const change = previous ? (total-previous)/previous*100 : null;
   const available = ready && !ready.error;
+  const types = event ? [event] : pattern ? rows.map(r=>r.value) : [];
+  const typesKey=JSON.stringify(types);
+  const detailKey=JSON.stringify([tenantId,from,to,typesKey,dimension,revision]);
+  const trendKey=JSON.stringify([tenantId,from,to,typesKey,revision,hours]);
+  useEffect(()=>{
+    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
+    const controller=new AbortController();
+    const selectedTypes=JSON.parse(typesKey) as string[];
+    if(selectedTypes.length>100){setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:"Select one event to analyze this report."});return;}
+    const body={tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",group:dimension,full_range:Boolean(dimension)};
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify(body)}).then(async r=>{if(!r.ok)throw Error("Dimension report unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:r.keys??[],rows:r.rows??[],truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setDetails({key:detailKey,keys:[],rows:[],truncated:false,error:String(e.message)});});
+    return ()=>controller.abort();
+  },[detailKey,tenantId,from,to,typesKey,dimension,scopeLoading,available,rows.length]);
+  useEffect(()=>{
+    if(scopeLoading||!tenantId||!to||!available||!rows.length)return;
+    const controller=new AbortController();
+    const selectedTypes=JSON.parse(typesKey) as string[];
+    if(selectedTypes.length>100){setTrend({key:trendKey,points:[],truncated:false,error:"Select one event to view the trend."});return;}
+    fetch("/api/proxy/query-explorer?mode=dimensions",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({tenant_id:tenantId,from_ts:from,to_ts:to,types:selectedTypes,operation:"count",time_bucket:Number(hours)>168?"day":"hour",full_range:true})}).then(async r=>{if(!r.ok)throw Error("Activity trend unavailable");return r.json();}).then(r=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:(r.rows??[]).map((x:{group:string;value:number})=>({label:x.group,value:x.value})).sort((a:{label:string},b:{label:string})=>a.label.localeCompare(b.label)),truncated:r.truncated});}).catch(e=>{if(!controller.signal.aborted)setTrend({key:trendKey,points:[],truncated:false,error:String(e.message)});});
+    return ()=>controller.abort();
+  },[trendKey,tenantId,from,to,typesKey,hours,scopeLoading,available,rows.length]);
+  const currentDetails=details?.key===detailKey?details:undefined;
+  const currentTrend=trend?.key===trendKey?trend:undefined;
+  const [knownKeys,setKnownKeys]=useState<{scope:string;keys:string[]}>({scope:"",keys:[]});
+  const schemaScope=JSON.stringify([tenantId,from,to,typesKey]);
+  useEffect(()=>{if(currentDetails&&!dimension&&!currentDetails.error)setKnownKeys({scope:schemaScope,keys:currentDetails.keys});},[currentDetails,dimension,schemaScope]);
+  const keys=knownKeys.scope===schemaScope?knownKeys.keys:[];
+  const preferred=template==="Technology"?/device|browser|platform|os/i:template==="Geography"?/country|region|city/i:template==="Audience"?/user|language|segment/i:null;
+  const orderedKeys=[...keys].sort((a,b)=>Number(Boolean(preferred?.test(b)))-Number(Boolean(preferred?.test(a))));
+
   function exportReport() {
     const csv = ["Event,Count",...rows.map(r=>'"'+r.value.replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'",'+r.count)].join("\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
@@ -149,14 +185,16 @@ function GuidedAnalytics() {
   }
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-semibold text-fg">Analytics overview</h1><p className="text-sm text-fg-muted">Understand your activity without writing a query. · {formatTimeRange(hours)}</p></div><div className="flex gap-2"><button className="rounded border border-border px-3 py-2 text-sm" onClick={()=>setRevision(x=>x+1)}>Refresh</button><button disabled={!available} className="rounded border border-border px-3 py-2 text-sm disabled:opacity-50" onClick={exportReport}>Export CSV</button></div></div>
-    <Card><CardHeader title="Choose a report"/><div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">{reportTemplates.map(t=><button key={t.name} aria-pressed={template===t.name} onClick={()=>{setTemplate(t.name);setEvent("");}} className={"rounded-lg border p-3 text-left "+(template===t.name?"border-accent bg-accent/10":"border-border hover:border-accent")}><span className="block text-sm font-medium">{t.name}</span><span className="text-xs text-fg-muted">{t.description}</span></button>)}</div></Card>
-    <div className="flex flex-wrap items-center gap-3"><label className="text-sm">Event <select className="ml-2 rounded border border-border bg-surface-2 p-2" value={event} onChange={e=>setEvent(e.target.value)}><option value="">All matching events</option>{event && !ready?.current.some(r=>r.value===event) && <option value={event}>{event}</option>}{(ready?.current??[]).filter(r=>!pattern||new RegExp(pattern,"i").test(r.value)).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={compare} onChange={e=>setCompare(e.target.checked)}/> Compare previous period</label></div>
+    <Card><CardHeader title="Choose a report"/><div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">{reportTemplates.map(t=><button key={t.name} aria-pressed={template===t.name} onClick={()=>{setTemplate(t.name);setEvent("");setDimension("");}} className={"rounded-lg border p-3 text-left "+(template===t.name?"border-accent bg-accent/10":"border-border hover:border-accent")}><span className="block text-sm font-medium">{t.name}</span><span className="text-xs text-fg-muted">{t.description}</span></button>)}</div></Card>
+    <div className="flex flex-wrap items-center gap-3"><label className="text-sm">Event <select className="ml-2 rounded border border-border bg-surface-2 p-2" value={event} onChange={e=>{setEvent(e.target.value);setDimension("");}}><option value="">All matching events</option>{event && !ready?.current.some(r=>r.value===event) && <option value={event}>{event}</option>}{(ready?.current??[]).filter(r=>!pattern||new RegExp(pattern,"i").test(r.value)).map(r=><option key={r.value} value={r.value}>{r.value}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={compare} onChange={e=>setCompare(e.target.checked)}/> Compare previous period</label></div>
     {!ready && <p role="status" className="text-sm text-fg-muted">Loading report…</p>}
     {ready?.error && <p role="alert" className="text-sm text-danger">{ready.error}</p>}
     <div className="grid gap-3 sm:grid-cols-3">{[{label:"Total events",value:total.toLocaleString(),help:"Recorded actions in this report"},{label:"Event types",value:String(rows.length),help:"Different tracked actions"},{label:"Change",value:compare&&change!==null?(change>=0?"+":"")+change.toFixed(1)+"%":"—",help:"Compared with the preceding equal period"}].map(m=><Card key={m.label}><div className="p-4"><p className="text-xs text-fg-muted">{m.label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{available?m.value:"—"}</p><p className="text-xs text-fg-muted">{m.help}</p></div></Card>)}</div>
     {available && !rows.length && <p className="rounded border border-border p-4 text-sm text-fg-muted">No matching events. Try Overview or change the global time range. Templates match event names automatically.</p>}
-    {available && (!pattern||event) && <Card><CardHeader title="Activity over time"/><div className="p-4">{ready.points.length?<LineTrend data={ready.points}/>:<p className="text-sm text-fg-muted">No activity buckets available.</p>}</div></Card>}
-    <div className="grid gap-4 lg:grid-cols-2"><Card><CardHeader title="Top events"/><div className="space-y-3 p-4">{rows.slice(0,10).map(r=><button key={r.value} onClick={()=>setEvent(r.value)} className="block w-full text-left"><div className="flex justify-between gap-2 text-sm"><span className="truncate">{r.value}</span><span>{r.count.toLocaleString()}</span></div><div className="mt-1 h-2 rounded bg-surface-2"><div className="h-2 rounded bg-accent" style={{width:(total?r.count/total*100:0)+"%"}}/></div></button>)}</div></Card><Card><CardHeader title="Insights"/><div className="space-y-3 p-4 text-sm text-fg-muted">{available && rows.length>0?<><p>{rows[0].value} is the most frequent action in this report ({(rows[0].count/Math.max(total,1)*100).toFixed(1)}% of recorded actions).</p>{compare&&change!==null&&<p>Activity {change>=0?"increased":"decreased"} by {Math.abs(change).toFixed(1)}% compared with the previous period.</p>}<p>Click an event to focus the report on that action.</p></>:<p>Insights appear when matching data is available.</p>}</div></Card></div>
+    {available && rows.length>0 && <Card><CardHeader title="Activity over time"/><div className="p-4">{currentTrend?.error?<p className="text-sm text-danger">{currentTrend.error}</p>:currentTrend?.points.length?<LineTrend data={currentTrend.points}/>:<p className="text-sm text-fg-muted">{currentTrend?"No activity available.":"Loading activity…"}</p>}{currentTrend?.truncated&&<p className="text-xs text-fg-muted">Partial results — analysis limits reached.</p>}</div></Card>}
+    {available && rows.length>0 && <Card><CardHeader title="Break down activity"/><div className="space-y-3 p-4"><label className="text-sm">Group by <select value={dimension} onChange={e=>setDimension(e.target.value)} className="ml-2 rounded border border-border bg-surface-2 p-2"><option value="">Choose a property</option>{orderedKeys.map(k=><option key={k} value={k}>{k}</option>)}</select></label>{currentDetails?.error?<p className="text-sm text-danger">{currentDetails.error}</p>:dimension&&currentDetails?<><BarBreakdown data={[...currentDetails.rows].sort((a,b)=>b.value-a.value).slice(0,15).map(r=>({label:r.group,value:r.value}))}/>{currentDetails.truncated&&<p className="text-xs text-fg-muted">Partial results — analysis limits reached.</p>}</>:<p className="text-sm text-fg-muted">{dimension?"Loading breakdown…":keys.length?"Choose an automatically discovered event property.":currentDetails?"No properties discovered.":"Discovering properties…"}</p>}</div></Card>}
+
+    <div className="grid gap-4 lg:grid-cols-2"><Card><CardHeader title="Top events"/><div className="space-y-3 p-4">{rows.slice(0,10).map(r=><button key={r.value} onClick={()=>{setEvent(r.value);setDimension("");}} className="block w-full text-left"><div className="flex justify-between gap-2 text-sm"><span className="truncate">{r.value}</span><span>{r.count.toLocaleString()}</span></div><div className="mt-1 h-2 rounded bg-surface-2"><div className="h-2 rounded bg-accent" style={{width:(total?r.count/total*100:0)+"%"}}/></div></button>)}</div></Card><Card><CardHeader title="Insights"/><div className="space-y-3 p-4 text-sm text-fg-muted">{available && rows.length>0?<><p>{rows[0].value} is the most frequent action in this report ({(rows[0].count/Math.max(total,1)*100).toFixed(1)}% of recorded actions).</p>{compare&&change!==null&&<p>Activity {change>=0?"increased":"decreased"} by {Math.abs(change).toFixed(1)}% compared with the previous period.</p>}<p>Click an event to focus the report on that action.</p></>:<p>Insights appear when matching data is available.</p>}</div></Card></div>
     <Card><CardHeader title="Explore further"/><div className="grid gap-2 p-4 sm:grid-cols-3">{[{href:"/analytics/funnel",title:"Conversions & funnels",desc:"See where users drop off"},{href:"/analytics/retention",title:"Retention",desc:"See whether users return"},{href:"/dimensions",title:"Dimensions",desc:"Explore devices, geography and other properties"}].map(l=><Link key={l.href} href={l.href} className="rounded border border-border p-3 hover:border-accent"><span className="block text-sm font-medium text-accent">{l.title}</span><span className="text-xs text-fg-muted">{l.desc}</span></Link>)}</div></Card>
   </div>;
 }
